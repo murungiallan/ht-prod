@@ -144,9 +144,9 @@ const MainLayout = ({ children }) => {
 
       {/* Main Content */}
       <main
-        className={`flex-1 transition-all duration-300 pt-16 lg:pt-0 px-4 sm:px-6 lg:px-8 py-6`}
+        className={`flex-1 transition-all duration-300 pt-16 lg:pt-0 px-1 sm:px-6 lg:px-8 py-6`}
       >
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-2">
           {children}
         </div>
       </main>
