@@ -1,16 +1,37 @@
-import admin from "../config/firebase.js";
+import { getAuth } from 'firebase-admin/auth';
 
-const authenticate = async (req, res, next) => {
-  const token = req.headers.authorization?.split("Bearer ")[1];
-  if (!token) return res.status(401).json({ error: "No token provided" });
-
+// Middleware to verify Firebase Auth token
+const authMiddleware = async (req, res, next) => {
   try {
-    const decodedToken = await admin.auth().verifyIdToken(token);
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized - No token provided' });
+    }
+    
+    const token = authHeader.split('Bearer ')[1];
+    
+    // Verify the token with Firebase Admin
+    const decodedToken = await getAuth().verifyIdToken(token);
+    
+    if (!decodedToken) {
+      return res.status(401).json({ error: 'Unauthorized - Invalid token' });
+    }
+    
+    // Attach the user info to the request
     req.user = decodedToken;
+    
+    // Continue to the next middleware or route handler
     next();
   } catch (error) {
-    res.status(401).json({ error: "Invalid token" });
+    console.error('Error verifying token:', error);
+    
+    if (error.code === 'auth/id-token-expired') {
+      return res.status(401).json({ error: 'Unauthorized - Token expired' });
+    }
+    
+    return res.status(401).json({ error: 'Unauthorized - Invalid token' });
   }
 };
 
-export default authenticate;
+export default authMiddleware;

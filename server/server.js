@@ -22,15 +22,18 @@ app.use((req, res, next) => {
     next();
 });
 
-// Serve static files from the public directory
-app.use(express.static(path.join(__dirname, 'public')));
-
 // API routes
 app.use("/api", routes);
 
+// Determine the client path
+const clientPath = path.join(__dirname, '..', 'client', 'build');
+
+// Serve static files from the client build directory
+app.use(express.static(clientPath));
+
 // Handle any requests that don't match the above
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname.parent(), 'client', 'public', 'index.html'));
+  res.sendFile(path.join(clientPath, 'index.html'));
 });
 
 const PORT = process.env.PORT || 5000;

@@ -1,6 +1,7 @@
 import { useState, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../contexts/AuthContext";
+import EmailVerification from "../components/common/EmailVerification";
 import { FaBars, FaTimes, FaCompress, FaExpand, FaHome, FaFlask, FaBook, FaBolt, FaSignOutAlt } from "react-icons/fa";
 import logo from "../assets/logo.png";
 import favicon from "../assets/favicon.png";
@@ -144,10 +145,11 @@ const MainLayout = ({ children }) => {
 
       {/* Main Content */}
       <main
-        className={`flex-1 transition-all duration-300 pt-16 lg:pt-0 px-4 sm:px-6 lg:px-8 py-6`}
+        className={`flex-1 transition-all duration-300 pt-16 lg:pt-0 px-1 sm:px-6 lg:px-8 py-6`}
       >
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-2">
           {children}
+          <EmailVerification/>
         </div>
       </main>
     </div>
