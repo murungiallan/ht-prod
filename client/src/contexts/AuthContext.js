@@ -82,6 +82,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await signOut(auth);
       setUser(null);
+      window.location.href = '/';
     } catch (error) {
       throw error;
     }

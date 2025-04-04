@@ -29,7 +29,7 @@ const MainLayout = ({ children }) => {
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-gray-50">
       {/* Mobile Header */}
-      <div className="lg:hidden flex items-center justify-between p-4 bg-white shadow-md w-full fixed top-0 left-0 z-50">
+      <div className="lg:hidden flex items-center justify-between p-4 bg-white w-full fixed top-0 left-0 z-50">
         <div className="flex items-center">
           <button onClick={toggleMobileMenu} className="text-gray-700 focus:outline-none">
             {isMobileMenuOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
@@ -42,7 +42,7 @@ const MainLayout = ({ children }) => {
       <aside
         className={`${
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0 fixed lg:sticky top-0 left-0 h-full lg:h-screen bg-white shadow-lg text-gray-700 flex flex-col transition-all duration-300 z-40 ${
+        } lg:translate-x-0 fixed lg:sticky top-0 left-0 h-full lg:h-screen bg-white text-gray-700 flex flex-col transition-all duration-300 z-40 ${
           isSidebarShrunk ? "lg:w-20" : "w-64"
         } overflow-y-auto`}
       >
@@ -76,7 +76,7 @@ const MainLayout = ({ children }) => {
         <nav className="flex-grow py-6">
           <div className="space-y-1">
             <Link
-              to="/"
+              to="/dashboard"
               onClick={() => setIsMobileMenuOpen(false)}
               className="flex items-center px-6 py-3 text-black hover:bg-blue-50 hover:text-blue-600 transition-all duration-200"
             >
