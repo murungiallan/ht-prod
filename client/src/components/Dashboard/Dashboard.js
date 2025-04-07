@@ -3,8 +3,15 @@ import { AuthContext } from "../../contexts/AuthContext";
 import { FaPills, FaUtensils, FaRunning, FaLightbulb, FaTrophy, FaCog } from "react-icons/fa";
 
 const Dashboard = () => {
-  const { user } = useContext(AuthContext);
-  const userName = user?.displayName || "User";
+  const { user, loading } = useContext(AuthContext);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!user) {
+    return <div>Please log in to view this page.</div>;
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 min-h-screen">
@@ -12,7 +19,7 @@ const Dashboard = () => {
       <header className="mb-6 flex justify-between items-center">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
-            Hello, {userName}
+            Hello, {user.displayName || "User"}
           </h1>
           <p className="text-gray-500 mt-1">Your health overview</p>
         </div>

@@ -1,12 +1,15 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useContext } from "react";
 import { AuthContext } from "../contexts/AuthContext";
-import Navbar from "../components/common/Navbar";
+import Navbar from "../layouts/Nav";
 import Home from "../pages/Home";
 import About from "../components/About";
 import Contact from "../components/Contact";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
+import Settings from "../pages/Settings";
+import Profile from "../pages/Profile";
+import UserInfo from "../pages/UserInfo";
 import Dashboard from "../components/Dashboard/Dashboard";
 import MedicationTracker from "../components/MedicationTracker/MedicationTracker";
 import FoodDiary from "../components/FoodDiary/FoodDiary";
@@ -83,6 +86,36 @@ const AppRoutes = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <ExerciseTracker />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <Profile />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <Settings />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/user-info"
+            element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <UserInfo />
                 </MainLayout>
               </ProtectedRoute>
             }

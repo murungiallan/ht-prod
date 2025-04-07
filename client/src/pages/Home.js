@@ -2,31 +2,49 @@ import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, useAnimation } from "framer-motion";
 import { useInView } from "framer-motion";
-import { FaRunning, FaPills, FaChartLine } from "react-icons/fa";
-import breakfast from "../assets/home-unsplash.jpg";
+import { FaRunning, FaPills, FaChartLine, FaUserPlus, FaClipboardList, FaChartBar } from "react-icons/fa";
+import heroImage from "../assets/home-unsplash.jpg";;
 
 const Home = () => {
+  // Animation controls for each section
   const heroControls = useAnimation();
-  const featuresControls = useAnimation();
+  const valuePropControls = useAnimation();
+  const howItWorksControls = useAnimation();
   const ctaControls = useAnimation();
 
+  // Refs for each section to detect when they come into view
   const heroRef = useRef(null);
-  const featuresRef = useRef(null);
+  const valuePropRef = useRef(null);
+  const howItWorksRef = useRef(null);
   const ctaRef = useRef(null);
 
+  // Detect when sections are in view
   const heroInView = useInView(heroRef, { threshold: 0.3, once: true });
-  const featuresInView = useInView(featuresRef, { threshold: 0.3, once: true });
+  const valuePropInView = useInView(valuePropRef, { threshold: 0.3, once: true });
+  const howItWorksInView = useInView(howItWorksRef, { threshold: 0.3, once: true });
   const ctaInView = useInView(ctaRef, { threshold: 0.3, once: true });
 
+  // Trigger animations when sections come into view
   useEffect(() => {
     if (heroInView) heroControls.start("visible");
-    if (featuresInView) featuresControls.start("visible");
+    if (valuePropInView) valuePropControls.start("visible");
+    if (howItWorksInView) howItWorksControls.start("visible");
     if (ctaInView) ctaControls.start("visible");
-  }, [heroControls, featuresControls, ctaControls, heroInView, featuresInView, ctaInView]);
+  }, [
+    heroControls,
+    valuePropControls,
+    howItWorksControls,
+    ctaControls,
+    heroInView,
+    valuePropInView,
+    howItWorksInView,
+    ctaInView,
+  ]);
 
+  // Animation variants
   const fadeInUp = {
     hidden: { opacity: 0, y: 50 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
   };
 
   const staggerChildren = {
@@ -34,111 +52,170 @@ const Home = () => {
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.6,
+        staggerChildren: 0.2,
       },
     },
   };
 
   return (
-    <div className="bg-gray-100">
+    <div className="bg-transparent pt-16 min-h-screen">
       {/* Hero Section */}
       <motion.section
         ref={heroRef}
         initial="hidden"
         animate={heroControls}
         variants={fadeInUp}
-        className="relative h-screen flex items-center justify-center bg-cover bg-center"
-        style={{ backgroundImage: `url(${breakfast})` }}
+        className="relative h-[75vh] flex items-center justify-center bg-cover bg-center py-24"
+        style={{ backgroundImage: `url(${heroImage})` }}
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-gray-800 to-gray-900 opacity-60 z-0"></div>
-        <div className="relative z-10 text-center px-4">
+        <div className="absolute inset-0 bg-gradient-to-r from-gray-800 to-gray-900 opacity-30 z-0"></div>
+        <div className="relative z-10 text-center px-4 sm:px-6 lg:px-8">
           <motion.h1
             variants={fadeInUp}
-            className="text-4xl sm:text-5xl md:text-6xl font-bold mb-4 text-white"
+            className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6"
           >
-            Welcome to HealthTrack
+            Take Charge of Your Health with HealthTrack
           </motion.h1>
           <motion.p
             variants={fadeInUp}
-            className="text-lg sm:text-xl md:text-2xl mb-8 text-gray-200"
+            className="text-lg sm:text-xl lg:text-2xl text-gray-200 mb-8 max-w-2xl mx-auto"
           >
-            Track your exercises, medications, and wellness goals with ease.
+            Effortlessly track your exercises, manage medications, and gain insights to achieve your wellness goals.
           </motion.p>
-          <motion.div variants={fadeInUp}>
+          <motion.div
+            variants={fadeInUp}
+            className="flex flex-col sm:flex-row gap-4 justify-center"
+          >
             <Link
-              to="/register"
-              className="inline-block bg-white text-black font-semibold py-3 px-6 rounded-full hover:bg-gray-200 transition duration-300 shadow-lg"
+              to="/signup"
+              className="inline-block px-6 py-3 text-white bg-black rounded-md font-medium hover:bg-gray-950 focus:outline-none focus:ring-2 focus:ring-gray-800 focus:ring-offset-2 transition-all duration-200"
             >
-              Get Started
+              Start Your Journey
+            </Link>
+            <Link
+              to="/about"
+              className="inline-block px-6 py-3 text-white border border-white rounded-md font-medium hover:bg-white hover:text-gray-800 transition-all duration-200"
+            >
+              Learn More
             </Link>
           </motion.div>
         </div>
-        <div className="absolute bottom-4 right-4 text-white text-sm z-10">
-          Photo by{" "}
-          <a
-            href="https://unsplash.com/@element5digital?utm_content=creditCopyText&utm_medium=referral&utm_source=unsplash"
-            className="underline hover:text-gray-300 transition duration-300"
-          >
-            Element5 Digital
-          </a>{" "}
-          on{" "}
-          <a
-            href="https://unsplash.com/photos/photo-of-three-orange-fruits-acrBf9BlfvE?utm_content=creditCopyText&utm_medium=referral&utm_source=unsplash"
-            className="underline hover:text-gray-300 transition duration-300"
-          >
-            Unsplash
-          </a>
+      </motion.section>
+
+      {/* Value Proposition Section */}
+      <motion.section
+        ref={valuePropRef}
+        initial="hidden"
+        animate={valuePropControls}
+        variants={staggerChildren}
+        className="py-24 px-4 sm:px-6 lg:px-8 bg-white"
+      >
+        <div className="max-w-7xl mx-auto text-center">
+          <h2 className="text-3xl sm:text-4xl font-bold text-gray-800 mb-6">
+            Empower Your Wellness Journey
+          </h2>
+          <p className="text-lg text-gray-600 mb-12 max-w-3xl mx-auto">
+            HealthTrack provides the tools you need to stay on top of your health goals with ease and confidence.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-12">
+            <motion.div
+              variants={fadeInUp}
+              className="bg-gray-50 p-8 rounded-lg shadow-md hover:shadow-lg transition-all duration-300"
+            >
+              <FaRunning className="text-black text-4xl mb-4 mx-auto" />
+              <h3 className="text-xl font-semibold text-gray-800 mb-3">
+                Track Your Workouts
+              </h3>
+              <p className="text-gray-600">
+                Log your exercises, monitor calories burned, and see your progress over time.
+              </p>
+            </motion.div>
+            <motion.div
+              variants={fadeInUp}
+              className="bg-gray-50 p-8 rounded-lg shadow-md hover:shadow-lg transition-all duration-300"
+            >
+              <FaPills className="text-black text-4xl mb-4 mx-auto" />
+              <h3 className="text-xl font-semibold text-gray-800 mb-3">
+                Manage Medications
+              </h3>
+              <p className="text-gray-600">
+                Set reminders and track your medication schedule to never miss a dose.
+              </p>
+            </motion.div>
+            <motion.div
+              variants={fadeInUp}
+              className="bg-gray-50 p-8 rounded-lg shadow-md hover:shadow-lg transition-all duration-300"
+            >
+              <FaChartLine className="text-black text-4xl mb-4 mx-auto" />
+              <h3 className="text-xl font-semibold text-gray-800 mb-3">
+                Gain Health Insights
+              </h3>
+              <p className="text-gray-600">
+                Receive personalized analytics to optimize your health and wellness.
+              </p>
+            </motion.div>
+          </div>
         </div>
       </motion.section>
 
-      {/* Features Section */}
+      {/* How It Works Section */}
       <motion.section
-        ref={featuresRef}
+        ref={howItWorksRef}
         initial="hidden"
-        animate={featuresControls}
+        animate={howItWorksControls}
         variants={staggerChildren}
-        className="py-16 px-4 sm:px-6 lg:px-8 bg-gray-50"
+        className="py-24 px-4 sm:px-6 lg:px-8 bg-gray-100"
       >
-        <div className="max-w-7xl min-h-70 mx-auto text-center flex flex-col items-center">
-          <h2
-            className="text-3xl sm:text-4xl font-bold text-gray-900 mb-12"
-          >
-            Why Choose HealthTrack?
+        <div className="max-w-7xl mx-auto text-center">
+          <h2 className="text-3xl sm:text-4xl font-bold text-gray-800 mb-6">
+            How HealthTrack Works
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div
-              className="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition duration-300"
+          <p className="text-lg text-gray-600 mb-12 max-w-3xl mx-auto">
+            Get started in just a few simple steps and take control of your health today.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-12">
+            <motion.div
+              variants={fadeInUp}
+              className="flex flex-col items-center"
             >
-              <FaRunning className="text-gray-800 text-4xl mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Exercise Tracking
+              <div className="bg-black text-white rounded-full w-16 h-16 flex items-center justify-center mb-4">
+                <FaUserPlus className="text-2xl" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-3">
+                Sign Up
               </h3>
-              <p className="text-gray-600">
-                Log your workouts, track calories burned, and monitor your progress over time.
+              <p className="text-gray-600 max-w-xs">
+                Create your free account in seconds and start your wellness journey.
               </p>
-            </div>
-            <div
-              className="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition duration-300"
+            </motion.div>
+            <motion.div
+              variants={fadeInUp}
+              className="flex flex-col items-center"
             >
-              <FaPills className="text-gray-800 text-4xl mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Medication Reminders
+              <div className="bg-black text-white rounded-full w-16 h-16 flex items-center justify-center mb-4">
+                <FaClipboardList className="text-2xl" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-3">
+                Track Your Health
               </h3>
-              <p className="text-gray-600">
-                Never miss a dose with our smart reminders and medication tracking.
+              <p className="text-gray-600 max-w-xs">
+                Log your exercises, medications, and wellness goals with ease.
               </p>
-            </div>
-            <div
-              className="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition duration-300"
+            </motion.div>
+            <motion.div
+              variants={fadeInUp}
+              className="flex flex-col items-center"
             >
-              <FaChartLine className="text-gray-800 text-4xl mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Health Insights
+              <div className="bg-black text-white rounded-full w-16 h-16 flex items-center justify-center mb-4">
+                <FaChartBar className="text-2xl" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-3">
+                See Results
               </h3>
-              <p className="text-gray-600">
-                Get personalized insights and analytics to improve your wellness journey.
+              <p className="text-gray-600 max-w-xs">
+                Monitor your progress with detailed insights and analytics.
               </p>
-            </div>
+            </motion.div>
           </div>
         </div>
       </motion.section>
@@ -149,24 +226,20 @@ const Home = () => {
         initial="hidden"
         animate={ctaControls}
         variants={fadeInUp}
-        className="py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-gray-100 to-gray-200 text-black text-center"
+        className="py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-gray-200 to-gray-400 text-white text-center"
       >
-        <h2
-          className="text-3xl sm:text-4xl font-bold mb-4"
-        >
-          Ready to Take Control of Your Health?
+        <h2 className="text-3xl sm:text-4xl font-bold mb-6">
+          Ready to Transform Your Health?
         </h2>
-        <p
-          className="text-lg sm:text-xl mb-8 text-black"
-        >
-          Join users who are achieving their wellness goals with HealthTrack.
+        <p className="text-lg sm:text-xl mb-8 max-w-2xl mx-auto">
+          Sign up today and start tracking your wellness journey with HealthTrack.
         </p>
         <motion.div variants={fadeInUp}>
           <Link
-            to="/register"
-            className="inline-block bg-white text-black font-semibold py-3 px-6 rounded-full hover:bg-gray-200 transition duration-300 shadow-lg"
+            to="/signup"
+            className="inline-block px-8 py-4 text-white bg-gray-800 font-medium hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-950 focus:ring-offset-2 focus:ring-offset-gray-800 transition-all duration-200 rounded-full"
           >
-            Sign Up Now
+            Get Started Now
           </Link>
         </motion.div>
       </motion.section>
