@@ -63,9 +63,11 @@ CREATE TABLE exercise (
 
 `;
 
-db.query(createTables, (err) => {
-    if (err) console.error('Error creating tables', err);
-    else console.log('Tables created successfully');
+db.query(createTables, (err, results) => {
+    if (err) {
+      console.error(' Error running migration:', err.message);
+    } else {
+      console.log(' Tables created successfully!');
+    }
     db.end();
-}
-);
+  });
