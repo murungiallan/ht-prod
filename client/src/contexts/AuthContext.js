@@ -49,6 +49,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      window.location.href = '/dashboard';
     } catch (error) {
       throw error;
     }
@@ -82,6 +83,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await signOut(auth);
       setUser(null);
+      window.location.href = '/';
     } catch (error) {
       throw error;
     }

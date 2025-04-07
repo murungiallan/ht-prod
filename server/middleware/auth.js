@@ -9,11 +9,15 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ error: 'Unauthorized - No token provided' });
     }
     
+    // Extract the token
     const token = authHeader.split('Bearer ')[1];
+    if (!token) {
+      return res.status(401).json({ error: "Unauthorized - Token is empty" });
+    }
+    console.log("Received token:", token);
     
     // Verify the token with Firebase Admin
     const decodedToken = await getAuth().verifyIdToken(token);
-    
     if (!decodedToken) {
       return res.status(401).json({ error: 'Unauthorized - Invalid token' });
     }
@@ -29,6 +33,10 @@ const authMiddleware = async (req, res, next) => {
     if (error.code === 'auth/id-token-expired') {
       return res.status(401).json({ error: 'Unauthorized - Token expired' });
     }
+
+    if (error.code === "auth/argument-error") {
+      return res.status(401).json({ error: "Unauthorized - Invalid token format" });
+    } 
     
     return res.status(401).json({ error: 'Unauthorized - Invalid token' });
   }

@@ -61,28 +61,48 @@ export const updatePreferences = async (token, preferences) => {
 };
 
 // Exercise API
-export const createExercise = async (exerciseData) => {
-  const response = await api.post("/exercises/add", exerciseData);
+export const createExercise = async (exerciseData, token) => {
+  const response = await api.post("/exercises/add", exerciseData, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
   return response.data;
 };
 
-export const getUserExercises = async () => {
-  const response = await api.get("/exercises/get-exercises");
+export const getUserExercises = async (token) => {
+  const response = await api.get("/exercises/get-exercises", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
   return response.data;
 };
 
-export const updateExercise = async (id, exerciseData) => {
-  const response = await api.put(`/exercises/update/${id}`, exerciseData);
+export const updateExercise = async (id, exerciseData, token) => {
+  const response = await api.put(`/exercises/update/${id}`, exerciseData, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
   return response.data;
 };
 
-export const deleteExercise = async (id) => {
-  const response = await api.delete(`/exercises/delete/${id}`);
+export const deleteExercise = async (id, token) => {
+  const response = await api.delete(`/exercises/delete/${id}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
   return response.data;
 };
 
-export const getExerciseStats = async () => {
-  const response = await api.get("/exercises/exercise-stats");
+export const getExerciseStats = async (token) => {
+  const response = await api.get("/exercises/exercise-stats", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
   return response.data;
 };
 
@@ -105,22 +125,46 @@ export const getUserMedications = async (token) => {
   return response.data;
 };
 
-export const updateMedication = async (id, medicationData) => {
-  const response = await api.put(`/medications/update/${id}`, medicationData);
+export const updateMedication = async (id, medicationData, token) => {
+  const response = await api.put(`/medications/update/${id}`, medicationData, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
   return response.data;
 };
 
-export const deleteMedication = async (id) => {
-  const response = await api.delete(`/medications/delete/${id}`);
+export const deleteMedication = async (id, token) => {
+  const response = await api.delete(`/medications/delete/${id}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
   return response.data;
 };
 
-export const updateMedicationTakenStatus = async (id, taken) => {
-  const response = await api.put(`/medications/${id}/taken`, { taken });
-  return response.data;
+export const updateMedicationTakenStatus = async (id, taken, token) => {
+  try{
+    const response = await api.put(`/medications/${id}/taken`, { taken }, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.log(`Error updating medication taken: ${error}`);
+  }
 };
 
-export const markMedicationAsMissed = async (id) => {
-  const response = await api.put(`/medications/${id}/missed`);
-  return response.data;
+export const markMedicationAsMissed = async (id, token) => {
+  try{
+    const response = await api.put(`/medications/${id}/missed`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.log(`Error marking medication as missed: ${error}`);
+  }
 };
