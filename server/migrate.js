@@ -77,8 +77,11 @@ const runMigrations = async () => {
   }
 };
 
-// Execute migrations
-runMigrations().catch((err) => {
-  console.error('Migration failed:', err);
-  process.exit(1);
-});
+db.query(createTables, (err, results) => {
+    if (err) {
+      console.error(' Error running migration:', err.message);
+    } else {
+      console.log(' Tables created successfully!');
+    }
+    db.end();
+  });
