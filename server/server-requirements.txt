@@ -1,0 +1,13 @@
+bcrypt
+bcryptjs
+cors
+dotenv
+express
+firebase-admin
+helmet
+jsonwebtoken
+mongoose
+morgan
+MySQL
+mysql2
+socket.io
