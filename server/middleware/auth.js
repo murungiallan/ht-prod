@@ -14,7 +14,6 @@ const authMiddleware = async (req, res, next) => {
     if (!token) {
       return res.status(401).json({ error: "Unauthorized - Token is empty" });
     }
-    console.log("Received token:", token);
     
     // Verify the token with Firebase Admin
     const decodedToken = await getAuth().verifyIdToken(token);

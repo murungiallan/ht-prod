@@ -87,7 +87,7 @@ const Home = () => {
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
             <Link
-              to="/signup"
+              to="/register"
               className="inline-block px-6 py-3 text-white bg-black rounded-md font-medium hover:bg-gray-950 focus:outline-none focus:ring-2 focus:ring-gray-800 focus:ring-offset-2 transition-all duration-200"
             >
               Start Your Journey
@@ -236,7 +236,7 @@ const Home = () => {
         </p>
         <motion.div variants={fadeInUp}>
           <Link
-            to="/signup"
+            to="/register"
             className="inline-block px-8 py-4 text-white bg-gray-800 font-medium hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-950 focus:ring-offset-2 focus:ring-offset-gray-800 transition-all duration-200 rounded-full"
           >
             Get Started Now

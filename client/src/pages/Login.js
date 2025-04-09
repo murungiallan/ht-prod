@@ -3,25 +3,26 @@ import { AuthContext } from "../contexts/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
 import { motion } from "framer-motion";
+import { toast } from "react-toastify";
 
 const Login = () => {
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(null);
+  const [error] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError(null);
     setLoading(true);
 
     try {
       await login(email, password);
-      navigate("/dashboard");
+      toast.success('Successfully logged in!');
+      navigate('/dashboard');
     } catch (err) {
-      setError(err.message || "Failed to login");
+      toast.error(err.message || "Failed to login");
       console.error(err);
     } finally {
       setLoading(false);
@@ -66,7 +67,7 @@ const Login = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition duration-200"
               required
               placeholder="you@example.com"
             />
@@ -78,12 +79,12 @@ const Login = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition duration-200"
               required
               placeholder="••••••••"
             />
             <div className="mt-1 text-right">
-              <Link to="/forgot-password" className="text-sm text-blue-600 hover:text-blue-800">
+              <Link to="/forgot-password" className="text-sm text-gray-600 hover:text-gray-800">
                 Forgot password?
               </Link>
             </div>
@@ -92,7 +93,7 @@ const Login = () => {
           <button
             type="submit"
             disabled={loading}
-            className={`w-full p-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-xl hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 ${
+            className={`w-full p-3 bg-gradient-to-r from-gray-400 to-gray-800 text-white font-medium rounded-xl hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 transition duration-200 ${
               loading ? "opacity-70 cursor-not-allowed" : ""
             }`}
           >
@@ -126,9 +127,9 @@ const Login = () => {
           </button>
           
           <div className="mt-6 text-center">
-            <p className="text-gray-600">
+            <p>
               Don't have an account?{" "}
-              <Link to="/register" className="text-blue-600 hover:text-blue-800 font-medium transition duration-200">
+              <Link to="/register" className="text-amber-950 hover:text-amber-800 transition duration-200 underline underline-offset-8">
                 Create account
               </Link>
             </p>

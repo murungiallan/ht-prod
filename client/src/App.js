@@ -6,13 +6,13 @@ import AppRoutes from "./routes/AppRoutes";
 
 function App() {
     return (
-        <SocketProvider>
-            <AuthProvider>
+        <AuthProvider>
+            <SocketProvider>
                 <Router>
                     <AppRoutes />
                 </Router>
-            </AuthProvider>
-        </SocketProvider>
+            </SocketProvider>
+        </AuthProvider>
     );
 }
 

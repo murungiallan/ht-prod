@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { getUser, getUserMedications, getUserExercises, getExerciseStats } from '../services/api';
 import placeholder from '../assets/placeholder.jpg';
+import { toast } from 'react-toastify';
 
 const Profile = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState('');
   const [userData, setUserData] = useState({
     displayName: '',
     email: '',
@@ -54,7 +53,7 @@ const Profile = () => {
 
         setIsLoading(false);
       } catch (err) {
-        setError('Failed to load profile data. Please try again.');
+        toast.error('Failed to load profile data. Please try again.');
         setIsLoading(false);
       }
     };
@@ -68,8 +67,7 @@ const Profile = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setUserData(prev => ({ ...prev, photoURL: reader.result }));
-        setSuccessMessage('Profile picture updated successfully (client-side preview)');
-        setTimeout(() => setSuccessMessage(''), 3000);
+        toast.success('Profile picture updated successfully (client-side preview)');
       };
       reader.readAsDataURL(file);
     }
@@ -89,24 +87,6 @@ const Profile = () => {
   return (
     <div className="max-w-5xl mx-auto p-6">
       <h1 className="text-3xl font-bold text-gray-800 mb-8">Your Profile</h1>
-
-      {/* Error and Success Messages */}
-      {error && (
-        <div className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2 animate-fade-in">
-          <p>{error}</p>
-          <button onClick={() => setError(null)} className="text-white font-bold">
-            x
-          </button>
-        </div>
-      )}
-      {successMessage && (
-        <div className="fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2 animate-fade-in">
-          <p>{successMessage}</p>
-          <button onClick={() => setSuccessMessage('')} className="text-white font-bold">
-            x
-          </button>
-        </div>
-      )}
 
       {/* Profile Overview */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-8">

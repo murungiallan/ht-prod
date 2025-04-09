@@ -136,16 +136,16 @@ const Nav = () => {
               </>
             ) : (
               <>
-                <Link to="/" className="text-black hover:text-gray-800 font-medium">
+                <Link to="/" className="text-gray-700 text-sm font-bold hover:text-gray-800">
                   Home
                 </Link>
-                <Link to="/about" className="text-black hover:text-gray-800 font-medium">
+                <Link to="/about" className="text-gray-700 text-sm font-bold hover:text-gray-800">
                   About
                 </Link>
-                <Link to="/contact" className="text-black hover:text-gray-800 font-medium">
+                <Link to="/contact" className="text-gray-700 text-sm font-bold hover:text-gray-800">
                   Contact
                 </Link>
-                <Link to="/login" className="inline-block bg-gray-800 text-white text-sm border-transparent hover:border-white font-semibold py-2 px-6 rounded-full hover:bg-gray-950 transition duration-300">
+                <Link to="/register" className="inline-block bg-gray-800 text-white text-sm border-transparent hover:border-white font-semibold py-2 px-6 rounded-full hover:bg-gray-950 transition duration-300">
                   Sign Up
                 </Link>
                 {/* <Link to="/register" className="text-gray-700 hover:text-blue-600 font-medium">

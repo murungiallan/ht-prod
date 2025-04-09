@@ -1,118 +1,128 @@
-import { db } from "../services/firebase.js";
-
-const COLLECTION_NAME = "medications";
+import db from "../config/db.js";
 
 class Medication {
-  constructor(data = {}) {
-    this.id = data.id || null;
-    this.userId = data.userId || null;
-    this.name = data.name || "";
-    this.frequency = data.frequency || "";
-    this.dosage = data.dosage || "";
-    this.tabletCount = data.tabletCount || 1;
-    this.mealTiming = data.mealTiming || "After";
-    this.nextDose = data.nextDose || "";
-    this.missedDose = data.missedDose || "None";
-    this.taken = data.taken || 0;
-    this.category = data.category || "";
-    this.refillDate = data.refillDate || null;
-    this.isRecurring = data.isRecurring || false;
-    this.enableNotifications = data.enableNotifications || true;
-    this.notes = data.notes || "";
-    this.createdAt = data.createdAt || new Date();
+  static safeParseJSON(jsonString, defaultValue = []) {
+    if (!jsonString || jsonString === "") {
+      return defaultValue;
+    }
+    try {
+      return JSON.parse(jsonString);
+    } catch (error) {
+      console.error(`Error parsing JSON: ${jsonString}`, error.message);
+      return defaultValue;
+    }
   }
 
-  // Add a new medication
   static async add(medicationData) {
+    const { userId, medication_name, dosage, frequency, times_per_day, times, doses, start_date, end_date, notes } = medicationData;
+    const query = `
+      INSERT INTO medications (user_id, medication_name, dosage, frequency, times_per_day, times, doses, start_date, end_date, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    const values = [
+      userId,
+      medication_name,
+      dosage,
+      frequency,
+      times_per_day,
+      JSON.stringify(times || []),
+      JSON.stringify(doses || []),
+      start_date,
+      end_date,
+      notes || null,
+    ];
     try {
-      const docRef = await db.collection(COLLECTION_NAME).add({
-        ...medicationData,
-        createdAt: new Date(),
-      });
-      return { id: docRef.id, ...medicationData };
+      const [result] = await db.query(query, values);
+      return { id: result.insertId, ...medicationData };
     } catch (error) {
-      console.error("Error adding medication: ", error);
-      throw error;
+      console.error("Database error in Medication.add:", error.message, error.sqlMessage);
+      throw new Error(`Failed to add medication to database: ${error.message}`);
     }
   }
 
-  // Get all medications for a user
   static async getByUser(userId) {
-    try {
-      const medicationsQuery = db
-        .collection(COLLECTION_NAME)
-        .where("userId", "==", userId);
-
-      const querySnapshot = await medicationsQuery.get();
-      const medications = [];
-
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        medications.push({ id: doc.id, ...data });
-      });
-
-      return medications;
-    } catch (error) {
-      console.error("Error getting medications: ", error);
-      throw error;
-    }
+    const query = `
+      SELECT * FROM medications
+      WHERE user_id = ?
+    `;
+    const [rows] = await db.query(query, [userId]);
+    return rows.map((row) => ({
+      ...row,
+      times: this.safeParseJSON(row.times, []),
+      doses: this.safeParseJSON(row.doses, []),
+    }));
   }
 
-  // Update a medication
-  static async update(id, data) {
-    try {
-      const medicationRef = db.collection(COLLECTION_NAME).doc(id);
-      await medicationRef.update({
-        ...data,
-        updatedAt: new Date(),
-      });
-      return { id, ...data };
-    } catch (error) {
-      console.error("Error updating medication: ", error);
-      throw error;
-    }
+  static async update(id, updatedData) {
+    const { medication_name, dosage, frequency, times_per_day, times, doses, start_date, end_date, notes } = updatedData;
+    const query = `
+      UPDATE medications
+      SET medication_name = ?, dosage = ?, frequency = ?, times_per_day = ?, times = ?, doses = ?, start_date = ?, end_date = ?, notes = ?
+      WHERE id = ?
+    `;
+    const values = [
+      medication_name,
+      dosage,
+      frequency,
+      times_per_day,
+      JSON.stringify(times || []),
+      JSON.stringify(doses || []),
+      start_date,
+      end_date,
+      notes || null,
+      id,
+    ];
+    await db.query(query, values);
+    return { id: parseInt(id), ...updatedData };
   }
 
-  // Delete a medication
   static async delete(id) {
-    try {
-      const medicationRef = db.collection(COLLECTION_NAME).doc(id);
-      await medicationRef.delete();
-      return { id };
-    } catch (error) {
-      console.error("Error deleting medication: ", error);
-      throw error;
-    }
+    const query = `
+      DELETE FROM medications
+      WHERE id = ?
+    `;
+    await db.query(query, [id]);
+    return true;
   }
 
-  // Update medication taken status
-  static async updateTakenStatus(id, taken) {
-    try {
-      const medicationRef = db.collection(COLLECTION_NAME).doc(id);
-      await medicationRef.update({
-        taken,
-        updatedAt: new Date(),
-      });
-      return { id, taken };
-    } catch (error) {
-      console.error("Error updating medication status: ", error);
-      throw error;
+  static async updateTakenStatus(id, doseIndex, taken) {
+    const [rows] = await db.query("SELECT doses FROM medications WHERE id = ?", [id]);
+    if (rows.length === 0) {
+      throw new Error("Medication not found");
     }
+    const doses = this.safeParseJSON(rows[0].doses, []);
+    doses[doseIndex] = {
+      ...doses[doseIndex],
+      taken,
+      missed: taken ? doses[doseIndex].missed : false,
+    };
+    const query = `
+      UPDATE medications
+      SET doses = ?
+      WHERE id = ?
+    `;
+    await db.query(query, [JSON.stringify(doses), id]);
+    return { id: parseInt(id), doses };
   }
 
-  // Mark medication as missed
-  static async markAsMissed(id) {
-    try {
-      const medicationRef = db.collection(COLLECTION_NAME).doc(id);
-      await medicationRef.update({
-        missedDose: "Missed",
-        updatedAt: new Date(),
-      });
-      return { id, missedDose: "Missed" };
-    } catch (error) {
-      console.error("Error marking medication as missed: ", error);
-      throw error;
+  static async markAsMissed(id, doseIndex, missed) {
+    const [rows] = await db.query("SELECT doses FROM medications WHERE id = ?", [id]);
+    if (rows.length === 0) {
+      throw new Error("Medication not found");
     }
+    const doses = this.safeParseJSON(rows[0].doses, []);
+    doses[doseIndex] = {
+      ...doses[doseIndex],
+      missed,
+      taken: missed ? doses[doseIndex].taken : false,
+    };
+    const query = `
+      UPDATE medications
+      SET doses = ?
+      WHERE id = ?
+    `;
+    await db.query(query, [JSON.stringify(doses), id]);
+    return { id: parseInt(id), doses };
   }
 }
 

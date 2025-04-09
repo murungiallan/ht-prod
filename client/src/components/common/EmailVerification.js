@@ -2,21 +2,24 @@ import React, { useContext, useState } from 'react';
 import { AuthContext } from '../../contexts/AuthContext';
 import { sendEmailVerification } from 'firebase/auth';
 import { auth } from '../../firebase/config';
+import { toast } from 'react-toastify';
 
 const EmailVerification = () => {
   const { user, isEmailVerified } = useContext(AuthContext);
   const [verificationSent, setVerificationSent] = useState(false);
-  const [error, setError] = useState(null);
+  const [error] = useState(null);
 
   const handleResendVerification = async () => {
+    if (!user) return;
     try {
       await sendEmailVerification(auth.currentUser);
       setVerificationSent(true);
-      setError(null);
+      toast.success('Sent! Please check your email inbox and verify');
     } catch (err) {
-      setError(err.message || 'Failed to send verification email');
+      toast.error(err.message || 'Failed to send verification email');
     }
   };
+  if (user) handleResendVerification();
 
   if (isEmailVerified) {
     return null;

@@ -1,20 +1,32 @@
-const mysql = require('mysql2');
+import { createPool } from 'mysql2/promise';
 
-const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: 'Cinnamomo80854',
-    database: 'healthtrack_db'
+// Create a connection pool
+const db = createPool({
+  host: 'localhost',
+  user: 'root',
+  password: 'root', // 'Cinnamomo80854' ,
+  database: 'healthtrack_db',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
 });
 
-db.connect((err) => {
+// Test the connection on startup
+const initializeDb = async () => {
+  try {
+    const connection = await db.getConnection();
+    console.log('Connected to MySQL Database');
+    connection.release(); // Release the connection back to the pool
+  } catch (error) {
+    console.error('Database connection failed:', error.message);
+    throw error;
+  }
+};
 
-    if (err) {
-        console.error('Database connection failed:', err.message);
-    } else {
-        console.log('Connected to MySQL Database');
-    }
-
+// Initialize the database connection
+initializeDb().catch((error) => {
+  console.error('Failed to initialize database:', error);
+  process.exit(1);
 });
 
-module.exports = db;
+export default db;

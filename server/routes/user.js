@@ -9,6 +9,5 @@ router.post("/last-login", authMiddleware, AuthController.updateLastLogin);
 router.post("/reset-password", AuthController.resetPassword);
 router.get("/", authMiddleware, AuthController.getUser);
 router.put("/profile", authMiddleware, AuthController.updateProfile);
-router.put("/preferences", authMiddleware, AuthController.updatePreferences);
 
 export default router;

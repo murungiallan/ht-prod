@@ -1,4 +1,4 @@
-import EmailVerification from "../components/common/EmailVerification";
+
 import Nav from "./Nav";
 
 const MainLayout = ({ children }) => {
@@ -11,7 +11,6 @@ const MainLayout = ({ children }) => {
       <main className="flex-1 pt-16 px-1 sm:px-6 lg:px-8 py-6">
         <div className="max-w-7xl mx-2">
           {children}
-          <EmailVerification />
         </div>
       </main>
     </div>

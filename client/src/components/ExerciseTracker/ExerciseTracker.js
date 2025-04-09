@@ -1,61 +1,105 @@
 import { useState, useEffect, useContext } from "react";
+import { useSocket } from "../../contexts/SocketContext";
 import { FaRunning, FaWalking, FaSwimmer, FaHiking, FaDumbbell, FaBicycle, FaEllipsisH, FaClock, FaList, FaEdit, FaTrash } from "react-icons/fa";
 import { AuthContext } from "../../contexts/AuthContext";
-import { createExercise, getUserExercises, updateExercise, deleteExercise } from "../../services/api";
+import { createExercise, getUserExercises, updateExercise, deleteExercise, getExerciseStats } from "../../services/api";
+import { toast } from "react-toastify";
 
 const ExerciseTracker = () => {
-  const { user } = useContext(AuthContext);
-  const [exerciseType, setExerciseType] = useState("");
+  const { user, getCachedToken } = useContext(AuthContext);
+  const { socket, getSocket } = useSocket();
+  const [activity, setActivity] = useState("");
   const [duration, setDuration] = useState("");
-  const [calories, setCalories] = useState("");
+  const [caloriesBurned, setCaloriesBurned] = useState("");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error] = useState(null);
   const [exercises, setExercises] = useState([]);
+  const [stats, setStats] = useState({ totalCalories: 0, totalDuration: 0, totalSessions: 0 });
 
   useEffect(() => {
-    const fetchExercises = async () => {
+    const fetchData = async () => {
       if (!user) return;
 
       try {
         setLoading(true);
-        const userExercises = await getUserExercises();
+        const [userExercises, exerciseStats] = await Promise.all([
+          getUserExercises({ getCachedToken }),
+          getExerciseStats({ getCachedToken }),
+        ]);
         setExercises(userExercises);
+        setStats({
+          totalCalories: exerciseStats.totalCalories || 0,
+          totalDuration: exerciseStats.totalDuration || 0,
+          totalSessions: exerciseStats.totalSessions || 0,
+        });
       } catch (err) {
-        setError("Failed to load exercises");
+        toast.error("Failed to load exercises or stats");
         console.error(err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchExercises();
-  }, [user]);
+    if (user) fetchData();
+    if (!socket) return;
+
+    socket.on("exerciseAdded", (newExercise) => {
+      setExercises((prev) => [newExercise, ...prev]);
+      toast.success(`New exercise added: ${newExercise.activity}`);
+    });
+
+    socket.on("exerciseDeleted", (id) => {
+      setExercises((prev) => prev.filter((exercise) => exercise.id !== id));
+      toast.success("Exercise deleted");
+    });
+
+    socket.on("exerciseUpdated", (updatedExercise) => {
+      setExercises((prev) =>
+        prev.map((exercise) => (exercise.id === updatedExercise.id ? updatedExercise : exercise))
+      );
+      toast.success(`Exercise updated: ${updatedExercise.activity}`);
+    });
+
+    return () => {
+      socket.off("exerciseAdded");
+      socket.off("exerciseDeleted");
+      socket.off("exerciseUpdated");
+    };
+  }, [socket, user, getCachedToken]);
 
   const handleLogExercise = async (e) => {
     e.preventDefault();
 
     if (!user) {
-      setError("You must be logged in to log an exercise");
+      toast.error("You must be logged in to log an exercise");
       return;
     }
 
-    if (exerciseType && duration && calories) {
+    if (activity && duration && caloriesBurned) {
       try {
         const newExercise = {
-          type: exerciseType,
+          activity,
           duration: Number(duration),
-          calories: Number(calories),
-          date: new Date().toISOString(),
+          calories_burned: Number(caloriesBurned),
+          date_logged: new Date().toISOString(),
         };
-
-        const createdExercise = await createExercise(newExercise);
+        const createdExercise = await createExercise(newExercise, { getCachedToken, getSocket });
         setExercises([createdExercise, ...exercises]);
-
-        setExerciseType("");
+        // Remove duplicate socket.emit (already handled in api.js)
+        setActivity("");
         setDuration("");
-        setCalories("");
+        setCaloriesBurned("");
+        toast.success("Exercise logged successfully");
+
+        // Refresh stats
+        const exerciseStats = await getExerciseStats({ getCachedToken });
+        setStats({
+          totalCalories: exerciseStats.totalCalories || 0,
+          totalDuration: exerciseStats.totalDuration || 0,
+          totalSessions: exerciseStats.totalSessions || 0,
+        });
       } catch (err) {
-        setError("Failed to log exercise");
+        toast.error("Failed to log exercise");
         console.error(err);
       }
     }
@@ -63,31 +107,47 @@ const ExerciseTracker = () => {
 
   const handleDeleteExercise = async (id) => {
     try {
-      await deleteExercise(id);
+      await deleteExercise(id, { getCachedToken, getSocket });
       setExercises(exercises.filter((exercise) => exercise.id !== id));
+      // Remove duplicate socket.emit (already handled in api.js)
+      toast.success("Exercise deleted successfully");
+
+      // Refresh stats
+      const exerciseStats = await getExerciseStats({ getCachedToken });
+      setStats({
+        totalCalories: exerciseStats.totalCalories || 0,
+        totalDuration: exerciseStats.totalDuration || 0,
+        totalSessions: exerciseStats.totalSessions || 0,
+      });
     } catch (err) {
-      setError("Failed to delete exercise");
+      toast.error("Failed to delete exercise");
       console.error(err);
     }
   };
 
   const handleUpdateExercise = async (id, updatedData) => {
     try {
-      const updatedExercise = await updateExercise(id, updatedData);
+      const updatedExercise = await updateExercise(id, updatedData, { getCachedToken, getSocket });
       setExercises(
         exercises.map((exercise) =>
           exercise.id === id ? updatedExercise : exercise
         )
       );
+      // Remove duplicate socket.emit (already handled in api.js)
+      toast.success("Exercise updated successfully");
+
+      // Refresh stats
+      const exerciseStats = await getExerciseStats({ getCachedToken });
+      setStats({
+        totalCalories: exerciseStats.totalCalories || 0,
+        totalDuration: exerciseStats.totalDuration || 0,
+        totalSessions: exerciseStats.totalSessions || 0,
+      });
     } catch (err) {
-      setError("Failed to update exercise");
+      toast.error("Failed to update exercise");
       console.error(err);
     }
   };
-
-  const totalCalories = exercises.reduce((sum, ex) => sum + ex.calories, 0);
-  const totalDuration = exercises.reduce((sum, ex) => sum + ex.duration, 0);
-  const totalSessions = exercises.length;
 
   const exerciseIcons = {
     Running: <FaRunning className="text-blue-500" />,
@@ -101,7 +161,7 @@ const ExerciseTracker = () => {
   };
 
   return (
-    <div className="min-h-screen p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen p-4 sm:p-6 lg:p-8 max-w-7xl mx-2">
       <header className="mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
           Hello, {user?.displayName || "User"}
@@ -123,7 +183,7 @@ const ExerciseTracker = () => {
             </div>
             <div>
               <h3 className="text-sm text-gray-600">Calories Burned</h3>
-              <p className="text-lg font-semibold text-gray-800">{totalCalories} kcal</p>
+              <p className="text-lg font-semibold text-gray-800">{stats.totalCalories} kcal</p>
             </div>
           </div>
           <div className="bg-white p-4 rounded-lg shadow-md flex items-center space-x-4">
@@ -132,7 +192,7 @@ const ExerciseTracker = () => {
             </div>
             <div>
               <h3 className="text-sm text-gray-600">Total Time</h3>
-              <p className="text-lg font-semibold text-gray-800">{totalDuration} min</p>
+              <p className="text-lg font-semibold text-gray-800">{stats.totalDuration} min</p>
             </div>
           </div>
           <div className="bg-white p-4 rounded-lg shadow-md flex items-center space-x-4">
@@ -141,7 +201,7 @@ const ExerciseTracker = () => {
             </div>
             <div>
               <h3 className="text-sm text-gray-600">Sessions</h3>
-              <p className="text-lg font-semibold text-gray-800">{totalSessions}</p>
+              <p className="text-lg font-semibold text-gray-800">{stats.totalSessions}</p>
             </div>
           </div>
         </div>
@@ -150,10 +210,10 @@ const ExerciseTracker = () => {
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Log New Exercise</h2>
           <form onSubmit={handleLogExercise} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm text-gray-700 mb-1">Exercise Type</label>
+              <label className="block text-sm text-gray-700 mb-1">Exercise Activity</label>
               <select
-                value={exerciseType}
-                onChange={(e) => setExerciseType(e.target.value)}
+                value={activity}
+                onChange={(e) => setActivity(e.target.value)}
                 className="w-full p-2 border-none rounded-md outline-gray-200 focus:border-gray-400 focus:outline-none focus:ring active:border-gray-100"
                 required
               >
@@ -183,8 +243,8 @@ const ExerciseTracker = () => {
               <label className="block text-sm text-gray-700 mb-1">Calories Burned</label>
               <input
                 type="number"
-                value={calories}
-                onChange={(e) => setCalories(e.target.value)}
+                value={caloriesBurned}
+                onChange={(e) => setCaloriesBurned(e.target.value)}
                 placeholder="e.g., 200"
                 className="w-full p-2 border-none rounded-md outline-gray-200 focus:border-gray-400 focus:outline-none focus:ring active:border-gray-100"
                 required
@@ -215,23 +275,23 @@ const ExerciseTracker = () => {
                   key={exercise.id}
                   className="p-4 bg-gray-50 rounded-md flex items-center space-x-4 hover:bg-gray-100 transition"
                 >
-                  <div className="text-2xl">{exerciseIcons[exercise.type] || exerciseIcons.Other}</div>
+                  <div className="text-2xl">{exerciseIcons[exercise.activity] || exerciseIcons.Other}</div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-medium text-gray-700">{exercise.type}</h3>
+                    <h3 className="text-lg font-medium text-gray-700">{exercise.activity}</h3>
                     <p className="text-sm text-gray-600">Duration: {exercise.duration} min</p>
-                    <p className="text-sm text-gray-600">Calories: {exercise.calories} kcal</p>
+                    <p className="text-sm text-gray-600">Calories: {exercise.calories_burned} kcal</p>
                     <p className="text-xs text-gray-400">
-                      {new Date(exercise.date).toLocaleDateString()}
+                      {new Date(exercise.date_logged).toLocaleDateString()}
                     </p>
                   </div>
                   <div className="flex space-x-2">
                     <button
                       onClick={() =>
                         handleUpdateExercise(exercise.id, {
-                          type: exercise.type,
+                          activity: exercise.activity,
                           duration: exercise.duration + 5,
-                          calories: exercise.calories,
-                          date: exercise.date,
+                          calories_burned: exercise.calories_burned,
+                          date_logged: exercise.date_logged,
                         })
                       }
                       className="text-blue-500 hover:text-blue-600"

@@ -1,53 +1,93 @@
-// src/contexts/SocketContext.js
-import { createContext, useContext, useEffect, useState } from "react";
+// SocketContext.js
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { io } from "socket.io-client";
-import { ToastContainer, toast } from "react-toastify";
+import { AuthContext } from "./AuthContext";
+import { debounce } from "lodash";
 
 export const SocketContext = createContext();
 
 export const SocketProvider = ({ children }) => {
-    const [socket, setSocket] = useState(null);
+  const [socket, setSocket] = useState(null);
+  const authContext = useContext(AuthContext);
+  const { getCachedToken, user } = authContext || {};
 
-    useEffect(() => {
-        const newSocket = io("http://localhost:5000", {
-            reconnection: true, // Enable automatic reconnection
-            reconnectionAttempts: Infinity, // Keep trying to reconnect
-            reconnectionDelay: 1000, // Wait 1s between attempts
-        });
+  const debouncedToastError = debounce((message) => {
+    console.error(message);
+  }, 5000);
 
-        newSocket.on("connect", () => {
-            console.log("Socket.IO connected:", newSocket.id);
-            toast.success("Connected to server");
-        });
+  const initializeSocket = useCallback(async () => {
+    if (!user || !getCachedToken) {
+      console.warn("Skipping socket initialization: User or token not available");
+      return;
+    }
 
-        newSocket.on("message", (msg) => {
-            console.log("Server message:", msg);
-            toast.info(msg);
-        });
+    try {
+      const token = await getCachedToken();
+      console.log("Connecting with token:", token);
+      const newSocket = io("http://127.0.0.1:5000", {
+        auth: { token },
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
 
-        newSocket.on("disconnect", () => {
-            console.log("Socket.IO disconnected");
-            toast.error("Disconnected from server");
-        });
+      newSocket.on("connect", () => {
+        console.log("Socket.IO connected:", newSocket.id);
+      });
 
-        newSocket.on("connect_error", (error) => {
-            console.error("Connection error:", error);
-            toast.error("Failed to connect to server");
-        });
+      newSocket.on("message", (msg) => {
+        console.log("Server message:", msg);
+      });
 
-        setSocket(newSocket);
+      newSocket.on("disconnect", (reason) => {
+        console.log("Socket.IO disconnected:", reason);
+        debouncedToastError("Disconnected from server: " + reason);
+      });
 
-        return () => {
+      newSocket.on("connect_error", async (error) => {
+        console.error("Connection error:", error);
+        if (error.message.includes("Token expired") || error.message.includes("Invalid token")) {
+          try {
+            const newToken = await getCachedToken();
+            newSocket.auth.token = newToken; // Update token for reconnection
+            newSocket.connect();
+            console.log("Retrying connection with new token:", newToken);
+          } catch (tokenError) {
+            debouncedToastError("Failed to refresh token. Please log in again.");
             newSocket.disconnect();
-        };
-    }, []);
+          }
+        } else {
+          debouncedToastError("Failed to connect to server: " + error.message);
+        }
+      });
 
-    return (
-        <SocketContext.Provider value={{ socket }}>
-            {children}
-            <ToastContainer position="top-right" autoClose={3000} theme="light" />
-        </SocketContext.Provider>
-    );
+      setSocket(newSocket);
+
+      return () => {
+        newSocket.disconnect();
+      };
+    } catch (error) {
+      console.error("Error initializing Socket.IO:", error);
+      debouncedToastError("Failed to initialize real-time connection");
+    }
+  }, [user, getCachedToken]);
+
+  useEffect(() => {
+    initializeSocket();
+  }, [initializeSocket]);
+
+  const getSocket = () => {
+    if (!socket) {
+      throw new Error("Socket.IO not connected");
+    }
+    return socket;
+  };
+
+  return (
+    <SocketContext.Provider value={{ socket, getSocket }}>
+      {children}
+    </SocketContext.Provider>
+  );
 };
 
 export const useSocket = () => useContext(SocketContext);

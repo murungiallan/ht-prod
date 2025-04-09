@@ -1,9 +1,30 @@
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
 import { AuthContext } from "../../contexts/AuthContext";
 import { FaPills, FaUtensils, FaRunning, FaLightbulb, FaTrophy, FaCog } from "react-icons/fa";
+import {useSocket} from '../../contexts/SocketContext';
 
 const Dashboard = () => {
   const { user, loading } = useContext(AuthContext);
+  const {socket} = useSocket();
+
+  useEffect(() => {
+    // Listen for medication updates
+    socket.on("medicationUpdated", (data) => {
+      console.log("Medication updated:", data);
+    });
+
+    // Listen for errors
+    socket.on("error", (error) => {
+      console.error("Socket error:", error.message);
+    });
+
+    // Clean up listeners on unmount
+    return () => {
+      socket.off("welcome");
+      socket.off("medicationUpdated");
+      socket.off("error");
+    };
+  }, [socket]);
 
   if (loading) {
     return <div>Loading...</div>;
@@ -14,7 +35,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 min-h-screen max-w-7xl mx-2">
       {/* Header */}
       <header className="mb-6 flex justify-between items-center">
         <div>
