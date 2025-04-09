@@ -1,33 +1,29 @@
-# Health-Tracker-App
+# HealthTrack
 
-## Setting Up Frontend
+## Frontend (client/)
 
 ```bash
-npx create-react-app Health-Tracker-App
+git clone https://github.com/Zasha11/Health-Tracker-App.git
 cd Health-Tracker-App
-
-mkdir client
 cd client
-
-npm install react-router-dom axios chart.js react-chartjs-2 tailwindcss firebase
+npm install < client-requirements.txt
 
 ```
 
-## Setting Up Backend
+## Backend (server/)
 
 ```bash
-mkdir server
 cd server
-
-npm init -y
-npm install express cors helmet morgan dotenv mongoose jsonwebtoken bcryptjs firebase-admin
+npm install < server-requirements.txt
 ```
 
 ## Running the Project
 
-```md
+```bash
 - Client: npm start
 - Tailwind: npx @tailwindcss/cli -i ./public/assets/css/index.css -o ./public/assets/css/output.css --watch
-- Server: node server
-- Killing the Processes: taskkill -F -IM node.exe (unsure on whether it's safe or not)
+- Server: npm run dev
+- Killing the Processes: taskkill -F -IM node.exe (only when CTRL+C doesn't work)
 ```
+
+access through http://127.0.0.1:3000 (development)
