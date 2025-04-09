@@ -26,4 +26,4 @@ npm install < server-requirements.txt
 - Killing the Processes: taskkill -F -IM node.exe (only when CTRL+C doesn't work)
 ```
 
-access through http://127.0.0.1:3000 (development)
+access through <http://127.0.0.1:3000> (development)
