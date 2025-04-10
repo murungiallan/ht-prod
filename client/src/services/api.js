@@ -1,7 +1,8 @@
 import axios from "axios";
 import { auth, database } from "../firebase/config.js";
-import { ref, update, get } from "firebase/database";
+import { ref, update, get, push, query, orderByChild, limitToLast } from "firebase/database";
 import { debounce } from "lodash";
+import moment from "moment"; // For date manipulation in streak calculation
 
 const api = axios.create({ baseURL: "http://127.0.0.1:5000/api" });
 
@@ -171,7 +172,6 @@ export const createMedication = async (medicationData, token) => {
   return response.data;
 };
 
-
 export const getUserMedications = async (token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
@@ -213,7 +213,7 @@ export const getUserMedications = async (token) => {
   return medicationsFromMySQL;
 };
 
-// Update Medication 
+// Update Medication
 export const updateMedication = async (id, medicationData, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
@@ -284,21 +284,40 @@ export const updateMedicationTakenStatus = async (id, doseIndex, taken, token) =
     console.error("Error fetching existing medication data from Firebase:", error);
   }
 
-  // Update the specific dose
-  const updatedDoses = [...existingData.doses];
-  updatedDoses[doseIndex] = {
-    ...updatedDoses[doseIndex],
-    taken,
-    missed: taken ? updatedDoses[doseIndex].missed : false,
+  // Ensure doses array exists and is an array
+  const doses = Array.isArray(existingData.doses) ? [...existingData.doses] : [];
+  
+  // Ensure the dose at doseIndex exists and has all required properties
+  const currentDose = doses[doseIndex] || { time: "00:00:00", taken: false, missed: false, takenAt: null };
+  const updatedDose = {
+    time: currentDose.time || "00:00:00",
+    taken: taken,
+    missed: taken ? false : (currentDose.missed || false),
+    takenAt: taken ? new Date().toISOString() : null,
   };
+
+  // Update the doses array
+  doses[doseIndex] = updatedDose;
 
   const updatedData = {
     ...existingData,
-    doses: updatedDoses,
+    doses,
   };
 
   // Update Firebase with the merged data
   updateMedicationDebounced(user.uid, id, updatedData);
+
+  // Log the taken action to medication history in Firebase
+  if (taken) {
+    const historyPath = `medication_history/${user.uid}`;
+    const historyEntry = {
+      medicationId: id,
+      medication_name: existingData.medication_name || "Unknown",
+      doseIndex,
+      takenAt: new Date().toISOString(),
+    };
+    await retryWithBackoff(() => push(ref(database, historyPath), historyEntry));
+  }
 
   return response.data;
 };
@@ -325,17 +344,24 @@ export const markMedicationAsMissed = async (id, doseIndex, missed, token) => {
     console.error("Error fetching existing medication data from Firebase:", error);
   }
 
-  // Update the specific dose
-  const updatedDoses = [...existingData.doses];
-  updatedDoses[doseIndex] = {
-    ...updatedDoses[doseIndex],
+  // Ensure doses array exists and is an array
+  const doses = Array.isArray(existingData.doses) ? [...existingData.doses] : [];
+
+  // Ensure the dose at doseIndex exists and has all required properties
+  const currentDose = doses[doseIndex] || { time: "00:00:00", taken: false, missed: false, takenAt: null };
+  const updatedDose = {
+    time: currentDose.time || "00:00:00",
+    taken: missed ? false : (currentDose.taken || false),
     missed,
-    taken: missed ? updatedDoses[doseIndex].taken : false,
+    takenAt: missed ? null : (currentDose.takenAt || null),
   };
+
+  // Update the doses array
+  doses[doseIndex] = updatedDose;
 
   const updatedData = {
     ...existingData,
-    doses: updatedDoses,
+    doses,
   };
 
   // Update Firebase with the merged data
@@ -350,7 +376,7 @@ export const deleteMedication = async (id, token) => {
 
   // Sync with MySQL
   const response = await api.delete(`/medications/delete/${id}`, {
-    headers: { Authorization: `Bearer ${await token}` },
+    headers: { Authorization: `Bearer ${token}` },
   });
 
   // Delete in Firebase with a single request
@@ -359,6 +385,96 @@ export const deleteMedication = async (id, token) => {
 
   return response.data;
 };
+
+
+// Fetch taken medication history from MySQL using the medications table
+export const getTakenMedicationHistory = async (limit = 3) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const token = await user.getIdToken(true);
+  try {
+    const response = await authFetch("/medications/get-medications", {}, token);
+
+    const takenDoses = [];
+    response.forEach((medication) => {
+      if (!medication.doses || !Array.isArray(medication.doses)) return;
+
+      medication.doses.forEach((dose, doseIndex) => {
+        if (dose.taken && dose.takenAt) {
+          takenDoses.push({
+            id: `${medication.id}-${doseIndex}`,
+            medicationId: medication.id.toString(),
+            medication_name: medication.medication_name,
+            doseIndex: doseIndex,
+            takenAt: dose.takenAt,
+          });
+        }
+      });
+    });
+
+    // Sort by takenAt in descending order (most recent first)
+    takenDoses.sort((a, b) => new Date(b.takenAt) - new Date(a.takenAt));
+
+    // Apply the limit
+    return limit > 0 ? takenDoses.slice(0, limit) : takenDoses;
+  } catch (error) {
+    console.error("Error fetching taken medication history from MySQL:", error);
+    throw new Error("Failed to fetch taken medication history");
+  }
+};
+
+// Calculate medication adherence streak using MySQL medications table
+export const calculateMedicationStreak = async () => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const token = await user.getIdToken(true);
+  try {
+    const response = await authFetch("/medications/get-medications", {}, token);
+    if (!response || response.length === 0) {
+      return 0;
+    }
+
+    const takenTimestamps = [];
+    response.forEach((medication) => {
+      if (!medication.doses || !Array.isArray(medication.doses)) return; 
+
+      medication.doses.forEach((dose) => {
+        if (dose.taken && dose.takenAt) {
+          takenTimestamps.push(dose.takenAt);
+        }
+      });
+    });
+
+    if (takenTimestamps.length === 0) {
+      return 0;
+    }
+
+    // Extract unique dates from takenAt timestamps and sort them
+    const takenDates = [...new Set(
+      takenTimestamps.map((timestamp) => new Date(timestamp).toISOString().split("T")[0])
+    )].sort();
+
+    let streak = 1;
+    for (let i = 1; i < takenDates.length; i++) {
+      const prevDate = new Date(takenDates[i - 1]);
+      const currDate = new Date(takenDates[i]);
+      const diffDays = (currDate - prevDate) / (1000 * 60 * 60 * 24);
+      if (diffDays === 1) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+
+    return streak;
+  } catch (error) {
+    console.error("Error calculating medication streak:", error);
+    throw new Error("Failed to calculate medication streak");
+  }
+};
+
 
 // Exercise API
 export const createExercise = async (exerciseData, token) => {
@@ -377,7 +493,7 @@ export const createExercise = async (exerciseData, token) => {
 
   // Sync with MySQL
   const response = await api.post("/exercises/add", exerciseEntry, {
-    headers: { Authorization: `Bearer ${await token}` },
+    headers: { Authorization: `Bearer ${token}` },
   });
 
   // Write to Firebase with a single update
@@ -438,8 +554,8 @@ export const updateExercise = async (id, exerciseData, token) => {
   if (!user) throw new Error("User not authenticated");
 
   // Sync with MySQL
-  const response = await api.put(`/exercises/update/${id}`, exerciseData, {
-    headers: { Authorization: `Bearer ${await token}` },
+  const response = await api.put(`/medications/update/${id}`, exerciseData, {
+    headers: { Authorization: `Bearer ${token}` },
   });
 
   // Update Firebase with a single request (debounced)
@@ -454,7 +570,7 @@ export const deleteExercise = async (id, token) => {
 
   // Sync with MySQL
   const response = await api.delete(`/exercises/delete/${id}`, {
-    headers: { Authorization: `Bearer ${await token}` },
+    headers: { Authorization: `Bearer ${token}` },
   });
 
   // Delete in Firebase with a single request

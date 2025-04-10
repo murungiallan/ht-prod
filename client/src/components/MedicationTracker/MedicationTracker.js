@@ -15,135 +15,232 @@ import moment from "moment";
 import { toast } from "react-toastify";
 import styled from "styled-components";
 import { WiDaySunnyOvercast, WiDaySunny, WiDayWindy } from "react-icons/wi";
+import { BsCheck2Circle, BsXCircle, BsClock } from "react-icons/bs";
+import { useNavigate } from "react-router-dom";
+import { useSocket } from '../../contexts/SocketContext';
 
 Modal.setAppElement("#root");
 
+// Styled components
 const CalendarContainer = styled.div`
   width: 100%;
-  margin-top: 1rem;
   background-color: #ffffff;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  border: 1px solid #e0e0e0;
-
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border: 1px solid #eaeaea;
+  
   .react-calendar {
+    max-width: 100%;
+    background: white;
     border: none;
-    background: transparent;
-    font-family: inherit;
-    width: 100%;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.25em;
+  }
+  
+  .react-calendar--doubleView {
+    width: 700px;
+  }
+  
+  .react-calendar--doubleView .react-calendar__viewContainer {
+    display: flex;
+    margin: -0.5em;
+  }
+  
+  .react-calendar--doubleView .react-calendar__viewContainer > * {
+    width: 50%;
+    margin: 0.5em;
+  }
+  
+  .react-calendar,
+  .react-calendar *,
+  .react-calendar *:before,
+  .react-calendar *:after {
+    box-sizing: border-box;
+  }
+  
+  .react-calendar button {
+    margin: 0;
+    border: 0;
+    outline: none;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+  
+  .react-calendar button:enabled:hover {
+    cursor: pointer;
+  }
+  
+  .react-calendar__navigation {
+    display: flex;
+    height: 48px;
+    margin-bottom: 1.25em;
+  }
+  
+  .react-calendar__navigation button {
+    min-width: 44px;
+    background: none;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333;
+  }
+  
+  .react-calendar__navigation button:enabled:hover,
+  .react-calendar__navigation button:enabled:focus {
+    background-color: #f5f7fa;
+    border-radius: 8px;
+  }
+  
+  .react-calendar__navigation button[disabled] {
+    background-color: #f8f8f8;
+    color: #bbb;
+  }
+  
+  .react-calendar__month-view__weekdays {
+    text-align: center;
+    text-transform: uppercase;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.75em;
+    color: #666;
+    padding: 0.5em 0;
+  }
+  
+  .react-calendar__month-view__weekdays__weekday {
+    padding: 0.75em;
+    text-decoration: none;
+  }
+  
+  .react-calendar__month-view__weekNumbers {
+    font-weight: bold;
+  }
+  
+  .react-calendar__month-view__weekNumbers .react-calendar__tile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75em;
+    padding: calc(0.75em / 0.75) calc(0.5em / 0.75);
+  }
+  
+  .react-calendar__month-view__days__day--weekend {
+    color: #e85c61;
+    text-decoration: none;
+  }
+  
+  .react-calendar__month-view__days__day--neighboringMonth {
+    color: #b3b3b3;
+  }
+  
+  .react-calendar__year-view .react-calendar__tile,
+  .react-calendar__decade-view .react-calendar__tile,
+  .react-calendar__century-view .react-calendar__tile {
+    padding: 2em 0.5em;
+  }
+  
+  .react-calendar__tile {
+    max-width: 100%;
+    text-align: center;
+    padding: 0.85em 0.5em;
+    background: none;
+    font-weight: 500;
+    font-size: 0.9em;
+  }
+  
+  .react-calendar__tile:disabled {
+    background-color: #f8f8f8;
+    color: #d0d0d0;
+  }
+  
+  .react-calendar__tile:enabled:hover,
+  .react-calendar__tile:enabled:focus {
+    background-color: #f0f5ff;
+  }
+  
+  .react-calendar__tile--now {
+    background: #fff5e0;
+    border: 2px solid #ffb74d;
+    font-weight: 600;
+  }
+  
+  .react-calendar__tile--now:enabled:hover,
+  .react-calendar__tile--now:enabled:focus {
+    background: #ffefc7;
+  }
+  
+  .react-calendar__tile--hasActive {
+    background: #d6e9ff;
+  }
+  
+  .react-calendar__tile--hasActive:enabled:hover,
+  .react-calendar__tile--hasActive:enabled:focus {
+    background: #c2deff;
+  }
+  
+  .react-calendar__tile--active {
+    background: #3182ce;
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 2px 6px rgba(49, 130, 206, 0.4);
+  }
+  
+  .react-calendar__tile--active:enabled:hover,
+  .react-calendar__tile--active:enabled:focus {
+    background: #2b6cb0;
+  }
+  
+  .react-calendar--selectRange .react-calendar__tile--hover {
+    background-color: #e6f2ff;
+  }
+`;
 
-    &__viewContainer {
-      width: 100%;
-    }
+const StatusBadge = styled.span`
+  padding: 0.375rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  
+  svg {
+    width: 1rem;
+    height: 1rem;
+  }
 
-    &__navigation {
-      display: flex;
-      margin-bottom: 1rem;
+  &.pending {
+    background-color: #f3f4f6;
+    color: #6b7280;
+  }
+  
+  &.taken {
+    background-color: #d1fae5;
+    color: #065f46;
+  }
+  
+  &.missed {
+    background-color: #fee2e2;
+    color: #b91c1c;
+  }
+`;
 
-      &__label {
-        font-weight: 600;
-        color: #333;
-        flex-grow: 1;
-        text-align: center;
-        font-size: 1.125rem; /* 18px */
-      }
-
-      &__arrow {
-        background-color: #f0f0f0;
-        color: #333;
-        border-radius: 0.25rem;
-        padding: 0.375rem;
-        border: 1px solid #e0e0e0;
-        width: 1.875rem;
-        height: 1.875rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        &:hover {
-          background-color: #e5e5e5;
-        }
-        &:active {
-          background-color: #d9d9d9;
-        }
-      }
-    }
-
-    &__month-view {
-      width: 100%;
-
-      &__weekdays {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        width: 100%;
-        text-align: center;
-        color: #555;
-        font-weight: 500;
-        margin-bottom: 0.5rem;
-
-        abbr {
-          text-decoration: none;
-          border-bottom: none;
-        }
-
-        &__weekday {
-          padding: 0.3125rem 0;
-          box-sizing: border-box;
-          font-size: 0.875rem; /* 14px */
-        }
-      }
-
-      &__days {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        width: 100%;
-        gap: 0.25rem;
-      }
-    }
-
-    &__tile {
-      padding: 0.625rem 0;
-      background-color: #f8f8f8;
-      color: #333;
-      border-radius: 0.25rem;
-      border: 1px solid #eaeaea;
-      box-sizing: border-box;
-      aspect-ratio: 1/1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.875rem; /* 14px */
-
-      &:hover {
-        background-color: #e9e9e9;
-        border-color: #d0d0d0;
-      }
-      &:active {
-        background-color: #d9d9d9;
-      }
-      &--active {
-        background-color: #e6e6e6;
-        color: #000;
-        border-color: #ccc;
-        font-weight: 600;
-      }
-      &--range {
-        box-shadow: 0 0 4px 1px rgba(0, 0, 0, 0.1);
-      }
-    }
-
-    &__month-view__days__day--neighboringMonth {
-      opacity: 0.55;
-      color: #777;
-    }
-
-    &__month-view__days__day--weekend {
-      color: #555;
+const LoadingSpinner = styled.div`
+  display: inline-block;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top-color: #333;
+  animation: spin 1s ease-in-out infinite;
+  
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
     }
   }
 `;
 
+// Modal styles
 const ModalOverlay = {
   backgroundColor: "rgba(0, 0, 0, 0.5)",
   position: "fixed",
@@ -155,7 +252,6 @@ const ModalOverlay = {
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
-  padding: "20px",
 };
 
 const ModalContentWrapper = {
@@ -165,16 +261,84 @@ const ModalContentWrapper = {
   maxWidth: "500px",
   maxHeight: "80vh",
   margin: "auto",
-  border: "1px solid #e5e7eb",
   borderRadius: "8px",
   padding: "1.5rem",
   position: "relative",
   overflowY: "auto",
   boxSizing: "border-box",
+  inset: 0,
 };
 
+// Component to display time of day sections
+const TimeOfDaySection = ({ title, meds, icon }) => {
+  if (!meds || meds.length === 0) {
+    return (
+      <div className="bg-white rounded-lg p-4 shadow-md border border-gray-200">
+        <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-3 flex items-center">
+          {icon}
+          <span className="ml-2">{title}</span>
+        </h2>
+        <p className="text-gray-500 text-sm sm:text-base">
+          No medications for this time
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-lg p-4 shadow-md border border-gray-200">
+      <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-3 flex items-center">
+        {icon}
+        <span className="ml-2">{title}</span>
+      </h2>
+      {meds.map((med) => (
+        <div
+          key={`${med.id}-${med.doseIndex}`}
+          className="flex flex-col sm:flex-row sm:items-center justify-between py-2 border-b border-gray-200 last:border-0"
+        >
+          <div className="mb-2 sm:mb-0">
+            <span className="text-gray-900 text-sm sm:text-base font-medium">
+              {med.medication_name} ({med.dosage})
+            </span>
+            <div className="text-xs text-gray-500">
+              Time: {med.doseTime}
+            </div>
+          </div>
+          <MedicationStatusBadge med={med} />
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Component for medication status badge
+const MedicationStatusBadge = ({ med }) => {
+  if (med.doseTaken) {
+    return (
+      <StatusBadge className="taken">
+        <BsCheck2Circle /> Taken
+      </StatusBadge>
+    );
+  } else if (med.doseMissed) {
+    return (
+      <StatusBadge className="missed">
+        <BsXCircle /> Missed
+      </StatusBadge>
+    );
+  } else {
+    return (
+      <StatusBadge className="pending">
+        <BsClock /> Pending
+      </StatusBadge>
+    );
+  }
+};
+
+// Medication tracker
 const MedicationTracker = () => {
-  const { user } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const { socket } = useSocket();
   const [medications, setMedications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -192,7 +356,28 @@ const MedicationTracker = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [drugList, setDrugList] = useState([]);
+  const [filteredDrugs, setFilteredDrugs] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [drugInfo, setDrugInfo] = useState({ interactions: [], usage: "" });
+  const [drugInfoLoading, setDrugInfoLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
+  // Mock drug data
+  const mockDrugData = [
+    { id: 1, name: "Acetaminophen" },
+    { id: 2, name: "Amoxicillin" },
+    { id: 3, name: "Atorvastatin" },
+    { id: 4, name: "Lisinopril" },
+    { id: 5, name: "Metformin" },
+    { id: 6, name: "Simvastatin" },
+    { id: 7, name: "Levothyroxine" },
+    { id: 8, name: "Metoprolol" },
+    { id: 9, name: "Amlodipine" },
+    { id: 10, name: "Albuterol" },
+  ];
+
+  // Fetch medications for the user
   useEffect(() => {
     const fetchMedications = async () => {
       if (!user) return;
@@ -200,22 +385,120 @@ const MedicationTracker = () => {
         setLoading(true);
         const token = await auth.currentUser.getIdToken(true);
         const userMedications = await getUserMedications(token);
-        console.log("Fetched medications:", userMedications);
         setMedications(userMedications);
       } catch (err) {
-        toast.error("Failed to load medications");
-        console.error(err);
+        console.error("Error fetching medications:", err);
+        if (err.response?.status === 401) {
+          try {
+            const newToken = await auth.currentUser.getIdToken(true);
+            const userMedications = await getUserMedications(newToken);
+            setMedications(userMedications);
+          } catch (refreshErr) {
+            toast.error("Session expired. Please log in again.");
+            logout();
+            navigate("/login");
+            console.error("Error refreshing token:", refreshErr);
+          }
+        } else {
+          toast.error("Failed to load medications");
+        }
       } finally {
         setLoading(false);
       }
     };
+    
     if (user) fetchMedications();
-  }, [user, selectedMedication?.id]);
+  }, [user]);
+
+  // Load mock drug data
+  useEffect(() => {
+    setDrugList(mockDrugData);
+    setFilteredDrugs(mockDrugData);
+  }, []);
+
+  // Mock drug info when a medication is selected
+  useEffect(() => {
+    const fetchMockDrugInfo = async () => {
+      if (!selectedMedication) return;
+      
+      setDrugInfoLoading(true);
+      try {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Mock drug interactions and usage info
+        const mockInteractions = [
+          "May interact with blood thinners, increasing risk of bleeding.",
+          "Can interact with certain antidepressants. Monitor for side effects.",
+          "Avoid grapefruit juice while taking this medication."
+        ];
+        
+        const mockUsage = "Take as directed by your healthcare provider. May be taken with or without food. Store at room temperature away from moisture and heat.";
+        
+        setDrugInfo({ 
+          interactions: mockInteractions, 
+          usage: mockUsage 
+        });
+      } catch (err) {
+        console.error("Error fetching drug info:", err);
+        setDrugInfo({ 
+          interactions: [], 
+          usage: "Information not available." 
+        });
+      } finally {
+        setDrugInfoLoading(false);
+      }
+    };
+    
+    if (showDetailModal && selectedMedication) {
+      fetchMockDrugInfo();
+    }
+  }, [showDetailModal, selectedMedication]);
+
+  // Helper function to determine if a dose is due, taken or missed based on time
+  const getDoseStatus = (med, doseIndex) => {
+    if (!med || !med.doses || !med.doses[doseIndex]) {
+      return { isTaken: false, isMissed: false, isTimeToTake: false, hasPassed: false };
+    }
+  
+    const dose = med.doses[doseIndex];
+    const isTaken = dose.taken || false;
+    const isMissed = dose.missed || false;
+  
+    // Check if the dose time has passed
+    const doseTime = dose.time;
+    const [hours, minutes] = doseTime.split(':').map(Number);
+  
+    const doseDateTime = new Date(selectedDate);
+    doseDateTime.setHours(hours, minutes, 0);
+  
+    const now = new Date();
+    const hasPassed = doseDateTime < now;
+  
+    // Determine if it's time to take the medication (within 1 hour before or after scheduled time)
+    const oneHourInMs = 60 * 60 * 1000;
+    const isTimeToTake = Math.abs(doseDateTime - now) <= oneHourInMs;
+  
+    return { isTaken, isMissed, isTimeToTake, hasPassed };
+  };
+
+  // Filter drugs based on user input
+  const handleDrugSearch = (value) => {
+    setName(value);
+    if (value.trim() === "") {
+      setFilteredDrugs(drugList);
+      setShowDropdown(false);
+    } else {
+      const filtered = drugList.filter((drug) =>
+        drug.name.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredDrugs(filtered);
+      setShowDropdown(true);
+    }
+  };
 
   const calculateTimes = (timesPerDay) => {
     const times = [];
-    const startHour = 8;
-
+    
     if (timesPerDay === "1") {
       times.push("08:00:00");
     } else if (timesPerDay === "2") {
@@ -226,7 +509,7 @@ const MedicationTracker = () => {
       times.push("14:00:00");
       times.push("20:00:00");
     }
-
+    
     return times;
   };
 
@@ -234,116 +517,283 @@ const MedicationTracker = () => {
     e.preventDefault();
     if (!user) {
       toast.error("You must be logged in to add a medication");
+      logout();
+      navigate("/login");
       return;
     }
     if (!name || !frequency || !dosage || !timesPerDay || !startDate || !endDate) {
       toast.error("Please fill in all required fields");
       return;
     }
+    
+    setActionLoading(true);
+    
+    try {
+      const token = await auth.currentUser.getIdToken(true);
+      const formattedStartDate = moment(startDate, ["YYYY-MM-DD", "DD/MM/YYYY"]).format("YYYY-MM-DD");
+      const formattedEndDate = moment(endDate, ["YYYY-MM-DD", "DD/MM/YYYY"]).format("YYYY-MM-DD");
+      const calculatedTimes = calculateTimes(timesPerDay);
+      
+      const newMedication = {
+        medication_name: name,
+        frequency: frequency.toLowerCase(),
+        dosage,
+        times_per_day: parseInt(timesPerDay),
+        times: calculatedTimes,
+        start_date: formattedStartDate,
+        end_date: formattedEndDate,
+        notes: notes || null,
+        doses: calculatedTimes.map((time) => ({
+          time,
+          taken: false,
+          missed: false,
+        })),
+      };
+      
+      const createdMedication = await createMedication(newMedication, token);
+      setMedications((prev) => [createdMedication, ...prev]);
+      
+      // Reset form
+      setName("");
+      setFrequency("daily");
+      setDosage("");
+      setTimesPerDay("1");
+      setStartDate("");
+      setEndDate("");
+      setNotes("");
+      setShowAddModal(false);
+      setShowDropdown(false);
+      toast.success("Medication added successfully");
+    } catch (err) {
+      console.error("Error adding medication:", err);
+      if (err.response?.status === 401) {
+        try {
+          const newToken = await auth.currentUser.getIdToken(true);
+          const formattedStartDate = moment(startDate, ["YYYY-MM-DD", "DD/MM/YYYY"]).format("YYYY-MM-DD");
+          const formattedEndDate = moment(endDate, ["YYYY-MM-DD", "DD/MM/YYYY"]).format("YYYY-MM-DD");
+          const calculatedTimes = calculateTimes(timesPerDay);
+          
+          const newMedication = {
+            medication_name: name,
+            frequency: frequency.toLowerCase(),
+            dosage,
+            times_per_day: parseInt(timesPerDay),
+            times: calculatedTimes,
+            start_date: formattedStartDate,
+            end_date: formattedEndDate,
+            notes: notes || null,
+            doses: calculatedTimes.map((time) => ({
+              time,
+              taken: false,
+              missed: false,
+              takenAt: null,
+            })),
+          };
+          const createdMedication = await createMedication(newMedication, newToken);
+          setMedications((prev) => [createdMedication, ...prev]);
 
-    const attemptRequest = async (retry = true) => {
-      try {
-        const token = await auth.currentUser.getIdToken(true);
-        const formattedStartDate = moment(startDate, ["YYYY-MM-DD", "DD/MM/YYYY"]).format("YYYY-MM-DD");
-        const formattedEndDate = moment(endDate, ["YYYY-MM-DD", "DD/MM/YYYY"]).format("YYYY-MM-DD");
-        const calculatedTimes = calculateTimes(timesPerDay);
-
-        const newMedication = {
-          medication_name: name,
-          frequency: frequency.toLowerCase(),
-          dosage,
-          times_per_day: parseInt(timesPerDay),
-          times: calculatedTimes,
-          start_date: formattedStartDate,
-          end_date: formattedEndDate,
-          notes: notes || null,
-          doses: calculatedTimes.map((time) => ({
-            time,
-            taken: false,
-            missed: false,
-          })),
-        };
-
-        const createdMedication = await createMedication(newMedication, token);
-        setMedications((prev) => [createdMedication, ...prev]);
-        setName("");
-        setFrequency("daily");
-        setDosage("");
-        setTimesPerDay("1");
-        setStartDate("");
-        setEndDate("");
-        setNotes("");
-        setShowAddModal(false);
-        toast.success("Medication added successfully");
-      } catch (err) {
-        if (err.response?.status === 401 && retry) {
-          await auth.currentUser.getIdToken(true);
-          return attemptRequest(false);
+          setName("");
+          setFrequency("daily");
+          setDosage("");
+          setTimesPerDay("1");
+          setStartDate("");
+          setEndDate("");
+          setNotes("");
+          setShowAddModal(false);
+          setShowDropdown(false);
+          toast.success("Medication added successfully");
+        } catch (refreshErr) {
+          toast.error("Session expired. Please log in again.");
+          console.error("Error refreshing token:", refreshErr);
+          logout();
+          navigate("/login");
         }
+      } else {
         toast.error("Failed to add medication");
-        console.error(err);
       }
-    };
-
-    await attemptRequest();
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleDeleteMedication = async (id) => {
+    setActionLoading(true);
     try {
       const token = await auth.currentUser.getIdToken(true);
       await deleteMedication(id, token);
       setMedications((prev) => prev.filter((med) => med.id !== id));
-      if (selectedMedication?.id === id) setShowDetailModal(false);
-      toast.success(`Medication deleted successfully`);
+      if (selectedMedication?.id === id) {
+        setShowDetailModal(false);
+      }
+      toast.success("Medication deleted successfully");
     } catch (err) {
-      toast.error("Failed to delete medication");
-      console.error(err);
+      console.error("Error deleting medication:", err);
+      if (err.response?.status === 401) {
+        try {
+          const newToken = await auth.currentUser.getIdToken(true);
+          await deleteMedication(id, newToken);
+          setMedications((prev) => prev.filter((med) => med.id !== id));
+          if (selectedMedication?.id === id) {
+            setShowDetailModal(false);
+          }
+          toast.success("Medication deleted successfully");
+        } catch (refreshErr) {
+          toast.error("Session expired. Please log in again.");
+          logout();
+          navigate("/login");
+        }
+      } else {
+        toast.error("Failed to delete medication");
+      }
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleUpdateTakenStatus = async (id, doseIndex, taken) => {
+    const med = medications.find(m => m.id === id);
+    if (!med) return;
+  
+    const { isTimeToTake, hasPassed } = getDoseStatus(med, doseIndex);
+  
+    if (taken && hasPassed && !isTimeToTake) {
+      toast.error("Cannot mark as taken more than 1 hour after the scheduled time");
+      return;
+    }
+  
+    if (!taken && hasPassed && !isTimeToTake) {
+      toast.error("Cannot undo taken status more than 1 hour after the scheduled time");
+      return;
+    }
+  
+    setActionLoading(true);
     try {
       const token = await auth.currentUser.getIdToken(true);
       const updatedMedication = await updateMedicationTakenStatus(id, doseIndex, taken, token);
-      setMedications((prev) =>
-        prev.map((med) => (med.id === updatedMedication.id ? updatedMedication : med))
+  
+      // Update medications in state
+      setMedications(prev =>
+        prev.map(med => (med.id === updatedMedication.id ? updatedMedication : med))
       );
+  
+      // Update selected medication if it's the one being modified
       if (selectedMedication?.id === updatedMedication.id) {
         setSelectedMedication(updatedMedication);
       }
-      toast.success(`Medication status updated`);
+  
+      // Emit Socket.IO event to notify other clients (e.g., Dashboard)
+      if (socket) {
+        socket.emit("medicationUpdated", updatedMedication);
+      }
+  
+      toast.success(taken ? "Medication marked as taken" : "Taken status undone");
     } catch (err) {
-      toast.error("Failed to update medication status");
-      console.error(err);
+      console.error("Error updating taken status:", err);
+      if (err.response?.status === 401) {
+        try {
+          const newToken = await auth.currentUser.getIdToken(true);
+          const updatedMedication = await updateMedicationTakenStatus(id, doseIndex, taken, newToken);
+          setMedications(prev =>
+            prev.map(med => (med.id === updatedMedication.id ? updatedMedication : med))
+          );
+          if (selectedMedication?.id === updatedMedication.id) {
+            setSelectedMedication(updatedMedication);
+          }
+  
+          // Emit Socket.IO event after refreshing token
+          if (socket) {
+            socket.emit("medicationUpdated", updatedMedication);
+          }
+  
+          toast.success(taken ? "Medication marked as taken" : "Taken status undone");
+        } catch (refreshErr) {
+          toast.error("Session expired. Please log in again.");
+          logout();
+          navigate("/login");
+        }
+      } else {
+        toast.error("Failed to update medication status");
+      }
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  const handleMarkAsMissed = async (id, doseIndex, missed) => {
-    try {
-      const token = await auth.currentUser.getIdToken(true);
-      const updatedMedication = await markMedicationAsMissed(id, doseIndex, missed, token);
-      setMedications((prev) =>
-        prev.map((med) => (med.id === updatedMedication.id ? updatedMedication : med))
-      );
-      if (selectedMedication?.id === updatedMedication.id) {
-        setSelectedMedication(updatedMedication);
-      }
-      toast.success(missed ? "Medication marked as missed" : "Missed status undone");
-    } catch (err) {
-      toast.error("Failed to update missed status");
-      console.error(err);
+  const checkForMissedMedications = () => {
+    const now = new Date();
+    
+    const medicationsWithUpdatedStatus = medications.map(med => {
+      if (!med.doses) return med;
+      
+      const updatedDoses = med.doses.map((dose, index) => {
+        if (dose.taken || dose.missed) return dose;
+        
+        const [hours, minutes] = dose.time.split(':').map(Number);
+        const doseDateTime = new Date(selectedDate);
+        doseDateTime.setHours(hours, minutes, 0);
+        
+        // If dose time has passed by more than 2 hours and not taken
+        const twoHoursInMs = 2 * 60 * 60 * 1000;
+        if (now - doseDateTime > twoHoursInMs) {
+          return { ...dose, missed: true };
+        }
+        
+        return dose;
+      });
+      
+      return { ...med, doses: updatedDoses };
+    });
+    
+    // Update medications state if any changes were made
+    if (JSON.stringify(medications) !== JSON.stringify(medicationsWithUpdatedStatus)) {
+      setMedications(medicationsWithUpdatedStatus);
+  
+      medicationsWithUpdatedStatus.forEach(async (med, medIndex) => {
+        if (!med.doses) return;
+  
+        med.doses.forEach(async (dose, index) => {
+          const originalDose = medications[medIndex]?.doses?.[index];
+          if (dose.missed && !originalDose?.missed) {
+            try {
+              const token = await auth.currentUser.getIdToken(true);
+              const updatedMedication = await markMedicationAsMissed(med.id, index, true, token);
+              if (socket) {
+                socket.emit("medicationUpdated", updatedMedication);
+              }
+            } catch (err) {
+              console.error("Error auto-marking medication as missed:", err);
+            }
+          }
+        });
+      });
     }
   };
+
+  // Check for missed medications every minute
+  useEffect(() => {
+    checkForMissedMedications();
+    const interval = setInterval(checkForMissedMedications, 60 * 1000);
+    return () => clearInterval(interval);
+  }, [medications, selectedDate]);
 
   const confirmTakenStatus = (id, doseIndex, taken) => {
-    setConfirmMessage(`Did you ${taken ? "take" : "undo taking"} your medicine?`);
+    const med = medications.find(m => m.id === id);
+    if (!med) return;
+  
+    const { isTaken, isTimeToTake, hasPassed } = getDoseStatus(med, doseIndex);
+  
+    if (taken && hasPassed && !isTimeToTake) {
+      toast.error("Cannot mark as taken more than 1 hour after the scheduled time");
+      return;
+    }
+  
+    if (!taken && hasPassed && !isTimeToTake) {
+      toast.error("Cannot undo taken status more than 1 hour after the scheduled time");
+      return;
+    }
+  
+    setConfirmMessage(`${taken ? "Did you take your medicine?" : "Not taken your medicine yet?"}`);
     setConfirmAction(() => () => handleUpdateTakenStatus(id, doseIndex, taken));
-    setShowConfirmModal(true);
-  };
-
-  const confirmMissedStatus = (id, doseIndex, missed) => {
-    setConfirmMessage(`Did you ${missed ? "miss" : "undo missing"} your medicine?`);
-    setConfirmAction(() => () => handleMarkAsMissed(id, doseIndex, missed));
     setShowConfirmModal(true);
   };
 
@@ -361,215 +811,170 @@ const MedicationTracker = () => {
     setShowDetailModal(true);
   };
 
-  const calculateProgress = () => Math.floor(Math.random() * 100);
-  const calculateDaysRemaining = () => Math.floor(Math.random() * 30) + 1;
+  const calculateProgress = () => {
+    if (!selectedMedication) return 0;
+    const { totalDoses, takenDoses } = calculateDoseStatus(selectedMedication);
+    return totalDoses > 0 ? Math.floor((takenDoses / totalDoses) * 100) : 0;
+  };
 
-  const filteredMeds = (timeOfDay) =>
-    medications.flatMap((med) => {
-      const doses = Array.isArray(med.doses) ? med.doses : [];
-      return doses
-        .map((dose, index) => {
-          if (!dose || !dose.time) {
-            return null;
-          }
+  const calculateDaysRemaining = () => {
+    if (!selectedMedication) return 0;
+    const end = moment(selectedMedication.end_date);
+    const today = moment();
+    return Math.max(0, end.diff(today, "days"));
+  };
 
-          const medHour = parseInt(dose.time.split(":")[0], 10);
-          let doseTimeOfDay = "morning";
-          if (medHour >= 12 && medHour < 17) doseTimeOfDay = "afternoon";
-          else if (medHour >= 17) doseTimeOfDay = "evening";
-
-          const medMoment = moment(med.start_date || med.createdAt);
-          const selectedMoment = moment(selectedDate);
-          if (
-            doseTimeOfDay === timeOfDay &&
-            medMoment.isSame(selectedMoment, "day")
-          ) {
-            return {
-              ...med,
-              doseIndex: index,
-              doseTime: dose.time,
-              doseTaken: dose.taken ?? false,
-              doseMissed: dose.missed ?? false,
-            };
-          }
-          return null;
-        })
-        .filter(Boolean);
+  const categorizeMedicationsByTime = () => {
+    const morningMeds = [];
+    const afternoonMeds = [];
+    const eveningMeds = [];
+    
+    medications.forEach(med => {
+      if (!med.doses) return;
+      
+      med.doses.forEach((dose, index) => {
+        if (!dose || !dose.time) return;
+        
+        const [hours] = dose.time.split(':').map(Number);
+        let timeOfDay = "morning";
+        if (hours >= 12 && hours < 17) timeOfDay = "afternoon";
+        else if (hours >= 17) timeOfDay = "evening";
+        
+        const medDate = moment(med.start_date || med.createdAt).format('YYYY-MM-DD');
+        const selectedDateStr = moment(selectedDate).format('YYYY-MM-DD');
+        
+        if (medDate === selectedDateStr) {
+          const medicationWithDoseInfo = {
+            ...med,
+            doseIndex: index,
+            doseTime: dose.time,
+            doseTaken: dose.taken || false,
+            doseMissed: dose.missed || false,
+          };
+          
+          if (timeOfDay === "morning") morningMeds.push(medicationWithDoseInfo);
+          else if (timeOfDay === "afternoon") afternoonMeds.push(medicationWithDoseInfo);
+          else eveningMeds.push(medicationWithDoseInfo);
+        }
+      });
     });
+    
+    return { morningMeds, afternoonMeds, eveningMeds };
+  };
 
   const getDailyDoses = () => {
-    return medications.flatMap((med) => {
+    return medications.flatMap(med => {
       const doses = Array.isArray(med.doses) ? med.doses : [];
-      const medMoment = moment(med.start_date || med.createdAt);
-      const selectedMoment = moment(selectedDate);
-      if (medMoment.isSame(selectedMoment, "day")) {
+      const medDate = moment(med.start_date || med.createdAt).format('YYYY-MM-DD');
+      const selectedDateStr = moment(selectedDate).format('YYYY-MM-DD');
+      
+      if (medDate === selectedDateStr) {
         return doses.map((dose, index) => ({
           ...med,
           doseIndex: index,
           doseTime: dose?.time || "Unknown time",
-          doseTaken: dose?.taken ?? false,
-          doseMissed: dose?.missed ?? false,
+          doseTaken: dose?.taken || false,
+          doseMissed: dose?.missed || false,
+          timeOfDay: (() => {
+            if (!dose?.time) return "unknown";
+            const [hours] = dose.time.split(':').map(Number);
+            if (hours < 12) return "Morning";
+            if (hours < 17) return "Afternoon";
+            return "Evening";
+          })()
         }));
       }
       return [];
     });
   };
 
-  const morningMeds = filteredMeds("morning");
-  const afternoonMeds = filteredMeds("afternoon");
-  const eveningMeds = filteredMeds("evening");
+  const { morningMeds, afternoonMeds, eveningMeds } = categorizeMedicationsByTime();
   const dailyDoses = getDailyDoses();
-
-  const isPastDate = (date) => moment(date).isBefore(moment(), "day");
-
+  
   const calculateDoseStatus = (med) => {
     const doses = Array.isArray(med.doses) ? med.doses : [];
     const totalDoses = doses.length;
-    const takenDoses = doses.filter((dose) => dose?.taken).length;
-    const missedDoses = doses.filter((dose) => dose?.missed).length;
+    const takenDoses = doses.filter(dose => dose?.taken).length;
+    const missedDoses = doses.filter(dose => dose?.missed).length;
     return { totalDoses, takenDoses, missedDoses };
   };
 
+  const isPastDate = (date) => moment(date).isBefore(moment(), "day");
+  const isFutureDate = (date) => moment(date).isAfter(moment(), "day");
+
   return (
-    <div className="min-h-screen max-w-7xl mx-auto bg-gray-100 text-gray-900 p-4 sm:p-6 md:p-8">
+    <div className="min-h-screen p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
-      <header className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold">
-          Hello, {user?.displayName || "User"}
-        </h1>
-        <p className="text-gray-600 mt-1 text-sm sm:text-base">
-          Track your medications with ease
-        </p>
+      <header className="flex flex-col lg:flex-row items-start justify-between lg:space-x-6 mb-6 space-y-4 lg:space-y-0">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold">
+            Your Medications
+          </h1>
+          <p className="text-gray-600 mt-1 text-sm sm:text-base">
+            Track your medications with ease
+          </p>
+        </div>
+        <button
+          onClick={() => setShowChecklistModal(true)}
+          className="bg-white text-black px-4 py-2 rounded-lg text-sm sm:text-base font-semibold hover:bg-gray-100 transition-colors duration-200 border border-gray-300 w-1/4 sm:w-auto"
+        >
+          View Daily Checklist
+        </button>
       </header>
 
       {/* Main Content */}
-      <div className="flex flex-col lg:flex-row lg:space-x-6 mb-6">
+      <div className="flex flex-col lg:flex-row lg:space-x-6 space-y-6 lg:space-y-0">
         {/* Calendar Section */}
-        <div className="w-full lg:w-1/3 mb-6 lg:mb-0">
+        <div className="w-full lg:w-1/3">
           <CalendarContainer>
             <Calendar
               onChange={setSelectedDate}
               value={selectedDate}
               showNeighboringMonth={true}
               showFixedNumberOfWeeks={false}
+              tileDisabled={({ date }) => isFutureDate(date)}
             />
           </CalendarContainer>
         </div>
 
         {/* Time of Day Sections */}
         <div className="w-full lg:w-2/3 flex flex-col space-y-4">
-          {[
-            {
-              id: "morning",
-              title: (
-                <span className="flex items-center">
-                  <WiDaySunnyOvercast className="mr-2 text-xl sm:text-2xl" /> Morning
-                </span>
-              ),
-              meds: morningMeds,
-            },
-            {
-              id: "afternoon",
-              title: (
-                <span className="flex items-center">
-                  <WiDaySunny className="mr-2 text-xl sm:text-2xl" /> Afternoon
-                </span>
-              ),
-              meds: afternoonMeds,
-            },
-            {
-              id: "evening",
-              title: (
-                <span className="flex items-center">
-                  <WiDayWindy className="mr-2 text-xl sm:text-2xl" /> Evening
-                </span>
-              ),
-              meds: eveningMeds,
-            },
-          ].map(({ id, title, meds }) => (
-            <div
-              key={id}
-              className="bg-white rounded-lg p-4 shadow-md border border-gray-200"
-            >
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-3">
-                {title}
-              </h2>
-              {meds.length === 0 ? (
-                <p className="text-gray-500 text-sm sm:text-base">
-                  No {id} medications
-                </p>
-              ) : (
-                meds.map((med) => (
-                  <div
-                    key={`${med.id}-${med.doseIndex}`}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between py-2 border-b border-gray-200 last:border-0"
-                  >
-                    <div className="mb-2 sm:mb-0">
-                      <span className="text-gray-900 text-sm sm:text-base font-medium">
-                        {med.dosage} of {med.medication_name} should be taken{" "}
-                        {med.times_per_day} time{med.times_per_day > 1 ? "s" : ""} a day
-                      </span>
-                      <div className="text-xs text-gray-500">
-                        Frequency: {med.frequency}, Time: {med.doseTime}
-                      </div>
-                    </div>
-                    {isPastDate(selectedDate) ? (
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${
-                          med.doseTaken
-                            ? "bg-gray-600 text-white"
-                            : med.doseMissed
-                            ? "bg-gray-500 text-white"
-                            : "bg-gray-300 text-gray-800"
-                        }`}
-                      >
-                        {med.doseTaken ? "Taken" : med.doseMissed ? "Skipped" : "Not Taken"}
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => confirmTakenStatus(med.id, med.doseIndex, !med.doseTaken)}
-                        className={`px-3 py-1 rounded-full text-xs sm:text-sm font-semibold transition-colors duration-200 ${
-                          med.doseTaken
-                            ? "bg-gray-600 text-white hover:bg-gray-700"
-                            : "bg-gray-300 text-gray-800 hover:bg-gray-400"
-                        }`}
-                      >
-                        {med.doseTaken ? "Taken" : "Take"}
-                      </button>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          ))}
+          <TimeOfDaySection
+            title="Morning"
+            meds={morningMeds}
+            icon={<WiDaySunnyOvercast className="text-xl sm:text-2xl" />}
+          />
+          <TimeOfDaySection
+            title="Afternoon"
+            meds={afternoonMeds}
+            icon={<WiDaySunny className="text-xl sm:text-2xl" />}
+          />
+          <TimeOfDaySection
+            title="Evening"
+            meds={eveningMeds}
+            icon={<WiDayWindy className="text-xl sm:text-2xl" />}
+          />
         </div>
       </div>
 
       {/* Medications Table Section */}
-      <div className="bg-white rounded-lg p-4 sm:p-6 shadow-md border border-gray-200">
-        <div className="flex flex-col sm:flex-row justify-between items-center sm:items-center mb-4 sm:mb-6">
+      <div className="bg-white rounded-lg p-4 sm:p-6 shadow-md border border-gray-200 mt-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6">
           <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-3 sm:mb-0">
-            Your Medications
+            Medication List
           </h2>
-          <div className="flex flex-col sm:flex-row sm:space-y-0 w-1/4 sm:w-auto items-center justify-center gap-2">
-            <button
-              onClick={() => setShowChecklistModal(true)}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm sm:text-base font-semibold hover:bg-green-800 transition-colors duration-200 w-1/4 sm:w-auto"
-            >
-              View Daily Checklist
-            </button>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm sm:text-base font-semibold hover:bg-gray-800 transition-colors duration-200 w-1/4 sm:w-auto"
-            >
-              + Add Medication
-            </button>
-          </div>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm sm:text-base font-semibold hover:bg-gray-800 transition-colors duration-200 w-1/4 sm:w-auto"
+          >
+            + Add Medication
+          </button>
         </div>
         {loading ? (
-          <p className="text-gray-600 text-center py-4 text-sm sm:text-base">
-            Loading medications...
-          </p>
+          <div className="text-gray-600 text-center py-4 text-sm sm:text-base">
+            <LoadingSpinner />
+            <p className="mt-2">Loading medications...</p>
+          </div>
         ) : medications.length === 0 ? (
           <p className="text-gray-600 text-center py-4 text-sm sm:text-base">
             No medications added yet.
@@ -583,7 +988,7 @@ const MedicationTracker = () => {
                   <th className="py-3 px-2 sm:px-4 font-semibold">Times</th>
                   <th className="py-3 px-2 sm:px-4 font-semibold">Dosage</th>
                   <th className="py-3 px-2 sm:px-4 font-semibold">Status</th>
-                  <th className="py-3 px-2 sm:px-4 font-semibold">Actions</th>
+                  <th className="py-3 px-2 sm:px-4 font-semibold"></th>
                 </tr>
               </thead>
               <tbody>
@@ -617,36 +1022,32 @@ const MedicationTracker = () => {
                         className="py-3 px-2 sm:px-4"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            onClick={() =>
-                              confirmTakenStatus(med.id, 0, !(med.doses[0]?.taken ?? false))
-                            }
-                            disabled={med.doses[0]?.missed ?? false}
-                            className={`px-3 py-1 rounded text-xs sm:text-sm font-semibold transition-colors duration-200 ${
-                              med.doses[0]?.taken
-                                ? "bg-gray-300 text-gray-800 hover:bg-gray-400"
-                                : "bg-gray-600 text-white hover:bg-gray-700"
-                            } ${med.doses[0]?.missed ? "opacity-50 cursor-not-allowed" : ""}`}
-                          >
-                            {med.doses[0]?.taken ? "Undo" : "Take"}
-                          </button>
-                          <button
-                            onClick={() =>
-                              confirmMissedStatus(med.id, 0, !(med.doses[0]?.missed ?? false))
-                            }
-                            disabled={med.doses[0]?.taken ?? false}
-                            className={`px-3 py-1 rounded text-xs sm:text-sm font-semibold transition-colors duration-200 ${
-                              med.doses[0]?.missed
-                                ? "bg-gray-300 text-gray-800 hover:bg-gray-400"
-                                : "bg-gray-500 text-white hover:bg-gray-600"
-                            } ${med.doses[0]?.taken ? "opacity-50 cursor-not-allowed" : ""}`}
-                          >
-                            {med.doses[0]?.missed ? "Undo" : "Miss"}
-                          </button>
+                        <div className="flex flex-wrap gap-2 justify-end">
+                          {med.doses.map((dose, doseIndex) => {
+                            const { isTaken, isMissed, isTimeToTake } = getDoseStatus(med, doseIndex);
+                            return (
+                              <button
+                                key={doseIndex}
+                                onClick={() =>
+                                  confirmTakenStatus(med.id, doseIndex, !isTaken)
+                                }
+                                disabled={isTaken || isMissed || !isTimeToTake || actionLoading}
+                                className={`px-3 py-1 rounded text-xs sm:text-sm transition-colors duration-200 ${
+                                  isTaken
+                                    ? "bg-gray-600 text-gray-200 hover:bg-gray-800"
+                                    : "bg-green-100 text-green-800 hover:bg-green-800"
+                                } ${isTaken || isMissed || !isTimeToTake || actionLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+                              >
+                                {isTaken ? "Undo" : `Take (${dose.time})`}
+                              </button>
+                            );
+                          })}
                           <button
                             onClick={() => handleDeleteMedication(med.id)}
-                            className="px-3 py-1 rounded bg-gray-800 text-white hover:bg-gray-900 text-xs sm:text-sm font-semibold transition-colors duration-200"
+                            disabled={actionLoading}
+                            className={`px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 text-xs sm:text-sm font-semibold transition-colors duration-200 ${
+                              actionLoading ? "opacity-50 cursor-not-allowed" : ""
+                            }`}
                           >
                             Delete
                           </button>
@@ -673,17 +1074,34 @@ const MedicationTracker = () => {
       >
         <h2 className="text-lg sm:text-xl font-semibold mb-4">Add Medication</h2>
         <form onSubmit={handleAddMedication} className="space-y-4">
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Medication Name
             </label>
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => handleDrugSearch(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
               required
+              placeholder="Search for a medication..."
             />
+            {showDropdown && filteredDrugs.length > 0 && (
+              <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-40 overflow-y-auto">
+                {filteredDrugs.map((drug) => (
+                  <li
+                    key={drug.id}
+                    onClick={() => {
+                      setName(drug.name);
+                      setShowDropdown(false);
+                    }}
+                    className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
+                  >
+                    {drug.name}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -764,18 +1182,20 @@ const MedicationTracker = () => {
           </div>
           <div className="flex justify-end space-x-3 pt-2">
             <button
-              type="button"
-              onClick={() => setShowAddModal(false)}
-              className="px-4 py-2 rounded bg-gray-300 text-gray-800 hover:bg-gray-400 text-sm sm:text-base font-semibold transition-colors duration-200"
+              type="submit"
+              disabled={actionLoading}
+              className={`px-4 py-2 rounded bg-green-600 text-white hover:bg-green-800 text-sm sm:text-base transition-colors duration-200 ${
+                actionLoading ? "opacity-50 cursor-not-allowed" : ""
+              }`}
             >
-              Cancel
+              {actionLoading ? <LoadingSpinner /> : "Add"}
             </button>
             <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 rounded bg-gray-900 text-white hover:bg-gray-800 text-sm sm:text-base font-semibold transition-colors duration-200"
+              type="button"
+              onClick={() => setShowAddModal(false)}
+              className="px-4 py-2 rounded bg-gray-200 text-black hover:bg-gray-200 text-sm sm:text-base transition-colors duration-200 border-2 border-gray-200"
             >
-              {loading ? "Adding..." : "Add"}
+              Cancel
             </button>
           </div>
         </form>
@@ -804,13 +1224,12 @@ const MedicationTracker = () => {
             </button>
           </div>
           <p className="text-sm text-gray-600 mb-4">
-            {selectedMedication.notes ||
-              `Solgar's ${selectedMedication.medication_name} ${selectedMedication.dosage}. High concentration of EPA and DHA. Supports cardiovascular, joint, and brain health. Molecularly distilled for purity.`}
+            {selectedMedication.notes || "No additional notes provided."}
           </p>
           <div className="mb-4">
             <div className="flex justify-between text-sm text-gray-600">
               <span>{calculateProgress()}% complete</span>
-              <span>{calculateDaysRemaining()} days/60 days</span>
+              <span>{calculateDaysRemaining()} days remaining</span>
             </div>
             <div className="w-full bg-gray-200 h-2 rounded mt-1">
               <div
@@ -836,52 +1255,68 @@ const MedicationTracker = () => {
             {(Array.isArray(selectedMedication.doses)
               ? selectedMedication.doses
               : []
-            ).map((dose, index) => (
-              <div
-                key={index}
-                className="flex justify-between items-center py-1"
-              >
-                <span className="text-xs text-gray-500">
-                  {dose?.time || "Unknown time"}
-                </span>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() =>
-                      confirmTakenStatus(
-                        selectedMedication.id,
-                        index,
-                        !(dose?.taken ?? false)
-                      )
-                    }
-                    disabled={dose?.missed ?? false}
-                    className={`px-2 py-1 rounded text-xs font-semibold transition-colors duration-200 ${
-                      dose?.taken
-                        ? "bg-gray-300 text-gray-800 hover:bg-gray-400"
-                        : "bg-gray-600 text-white hover:bg-gray-700"
-                    } ${dose?.missed ? "opacity-50 cursor-not-allowed" : ""}`}
-                  >
-                    {dose?.taken ? "Undo" : "Take"}
-                  </button>
-                  <button
-                    onClick={() =>
-                      confirmMissedStatus(
-                        selectedMedication.id,
-                        index,
-                        !(dose?.missed ?? false)
-                      )
-                    }
-                    disabled={dose?.taken ?? false}
-                    className={`px-2 py-1 rounded text-xs font-semibold transition-colors duration-200 ${
-                      dose?.missed
-                        ? "bg-gray-300 text-gray-800 hover:bg-gray-400"
-                        : "bg-gray-500 text-white hover:bg-gray-600"
-                    } ${dose?.taken ? "opacity-50 cursor-not-allowed" : ""}`}
-                  >
-                    {dose?.missed ? "Undo" : "Miss"}
-                  </button>
+            ).map((dose, index) => {
+              const { isTaken, isMissed, isTimeToTake } = getDoseStatus(selectedMedication, index);
+              return (
+                <div
+                  key={index}
+                  className="flex justify-between items-center py-1"
+                >
+                  <span className="text-xs text-gray-500">
+                    {dose?.time || "Unknown time"}
+                  </span>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() =>
+                        confirmTakenStatus(
+                          selectedMedication.id,
+                          index,
+                          !isTaken
+                        )
+                      }
+                      disabled={isTaken || isMissed || !isTimeToTake || actionLoading || isPastDate(selectedDate) || isFutureDate(selectedDate)}
+                      className={`px-2 py-1 rounded text-xs font-semibold transition-colors duration-200 ${
+                        isTaken
+                          ? "bg-gray-300 text-gray-800 hover:bg-gray-400"
+                          : "bg-gray-600 text-white hover:bg-gray-700"
+                      } ${
+                        isTaken || isMissed || !isTimeToTake || actionLoading || isPastDate(selectedDate) || isFutureDate(selectedDate)
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
+                      }`}
+                    >
+                      {isTaken ? "Undo" : "Take"}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
+          </div>
+          {/* Drug Interactions Section */}
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-gray-700 mb-1">Interactions</h4>
+            {drugInfoLoading ? (
+              <p className="text-xs text-gray-500">Loading interactions...</p>
+            ) : drugInfo.interactions.length > 0 ? (
+              <ul className="list-disc pl-4 text-xs text-gray-500">
+                {drugInfo.interactions.map((interaction, index) => (
+                  <li key={index}>{interaction}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-gray-500">No interactions found.</p>
+            )}
+          </div>
+          {/* Usage Section */}
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-gray-700 mb-1">Usage Instructions</h4>
+            {drugInfoLoading ? (
+              <p className="text-xs text-gray-500">Loading usage instructions...</p>
+            ) : drugInfo.usage ? (
+              <p className="text-xs text-gray-500">{drugInfo.usage}</p>
+            ) : (
+              <p className="text-xs text-gray-500">No usage instructions available.</p>
+            )}
           </div>
         </Modal>
       )}
@@ -927,66 +1362,33 @@ const MedicationTracker = () => {
                       {dose.times_per_day > 1 ? "s" : ""} a day)
                     </span>
                     <div className="text-xs text-gray-500">
-                      Frequency: {dose.frequency}, Time: {dose.doseTime}
+                      {dose.timeOfDay} - {dose.doseTime}
                     </div>
                   </div>
                   <div className="flex space-x-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${
-                        dose.doseTaken
-                          ? "bg-gray-600 text-white"
-                          : dose.doseMissed
-                          ? "bg-gray-500 text-white"
-                          : "bg-gray-300 text-gray-800"
-                      }`}
-                    >
-                      {dose.doseTaken
-                        ? "Taken"
-                        : dose.doseMissed
-                        ? "Missed"
-                        : "Pending"}
-                    </span>
-                    {!isPastDate(selectedDate) && (
-                      <>
-                        <button
-                          onClick={() =>
-                            confirmTakenStatus(
-                              dose.id,
-                              dose.doseIndex,
-                              !dose.doseTaken
-                            )
-                          }
-                          disabled={dose.doseMissed}
-                          className={`px-2 py-1 rounded text-xs sm:text-sm font-semibold transition-colors duration-200 ${
-                            dose.doseTaken
-                              ? "bg-gray-300 text-gray-800 hover:bg-gray-400"
-                              : "bg-gray-600 text-white hover:bg-gray-700"
-                          } ${
-                            dose.doseMissed ? "opacity-50 cursor-not-allowed" : ""
-                          }`}
-                        >
-                          {dose.doseTaken ? "Undo" : "Take"}
-                        </button>
-                        <button
-                          onClick={() =>
-                            confirmMissedStatus(
-                              dose.id,
-                              dose.doseIndex,
-                              !dose.doseMissed
-                            )
-                          }
-                          disabled={dose.doseTaken}
-                          className={`px-2 py-1 rounded text-xs sm:text-sm font-semibold transition-colors duration-200 ${
-                            dose.doseMissed
-                              ? "bg-gray-300 text-gray-800 hover:bg-gray-400"
-                              : "bg-gray-500 text-white hover:bg-gray-600"
-                          } ${
-                            dose.doseTaken ? "opacity-50 cursor-not-allowed" : ""
-                          }`}
-                        >
-                          {dose.doseMissed ? "Undo" : "Miss"}
-                        </button>
-                      </>
+                    <MedicationStatusBadge med={dose} />
+                    {!isPastDate(selectedDate) && !isFutureDate(selectedDate) && (
+                      <button
+                        onClick={() =>
+                          confirmTakenStatus(
+                            dose.id,
+                            dose.doseIndex,
+                            !dose.doseTaken
+                          )
+                        }
+                        disabled={dose.doseMissed || actionLoading}
+                        className={`px-2 py-1 rounded text-xs sm:text-sm font-semibold transition-colors duration-200 ${
+                          dose.doseTaken
+                            ? "bg-gray-300 text-gray-800 hover:bg-gray-400"
+                            : "bg-gray-600 text-white hover:bg-gray-700"
+                        } ${
+                          dose.doseMissed || actionLoading
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }`}
+                      >
+                        {dose.doseTaken ? "Undo" : "Take"}
+                      </button>
                     )}
                   </div>
                 </div>
@@ -1024,15 +1426,18 @@ const MedicationTracker = () => {
           <div className="flex justify-end space-x-3">
             <button
               onClick={() => setShowConfirmModal(false)}
-              className="px-4 py-2 rounded bg-gray-300 text-gray-800 hover:bg-gray-400 text-sm sm:text-base font-semibold transition-colors duration-200"
+              className="px-4 py-2 rounded bg-gray-200 text-black hover:bg-gray-200 text-sm sm:text-base transition-colors duration-200 border-2 border-gray-200"
             >
               Cancel
             </button>
             <button
               onClick={handleConfirmAction}
-              className="px-4 py-2 rounded bg-gray-700 text-white hover:bg-gray-800 text-sm sm:text-base font-semibold transition-colors duration-200"
+              disabled={actionLoading}
+              className={`px-4 py-2 rounded bg-green-600 text-white hover:bg-green-800 text-sm sm:text-base transition-colors duration-200 ${
+                actionLoading ? "opacity-50 cursor-not-allowed" : ""
+              }`}
             >
-              Confirm
+              {actionLoading ? <LoadingSpinner /> : "Confirm"}
             </button>
           </div>
         </Modal>

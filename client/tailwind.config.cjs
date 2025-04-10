@@ -25,9 +25,9 @@ module.exports = {
             display: 'none',
           },
           /* Hide scrollbar for Firefox */
-          'scrollbar-width': 'none',
+          'scrollbar-width': 0,
           /* Hide scrollbar for IE and Edge */
-          '-ms-overflow-style': 'none',
+          '-ms-overflow-style': 0,
         },
       };
       addUtilities(newUtilities);
