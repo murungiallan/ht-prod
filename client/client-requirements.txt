@@ -21,3 +21,4 @@ styled-components
 web-vitals
 ws
 tailwindcss
+chartjs-adapter-moment
