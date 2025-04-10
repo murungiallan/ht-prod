@@ -53,6 +53,31 @@ class Medication {
     }));
   }
 
+  static async getById(id) {
+    const query = `
+      SELECT * FROM medications
+      WHERE id = ?
+    `;
+    const [rows] = await db.query(query, [id]);
+    if (rows.length === 0) {
+      throw new Error("Medication not found");
+    }
+    const row = rows[0];
+    return {
+      id: row.id,
+      userId: row.user_id,
+      medication_name: row.medication_name,
+      dosage: row.dosage,
+      frequency: row.frequency,
+      times_per_day: row.times_per_day,
+      times: this.safeParseJSON(row.times, []),
+      doses: this.safeParseJSON(row.doses, []),
+      start_date: row.start_date,
+      end_date: row.end_date,
+      notes: row.notes,
+    };
+  }
+
   static async update(id, updatedData) {
     const { medication_name, dosage, frequency, times_per_day, times, doses, start_date, end_date, notes } = updatedData;
     const query = `
@@ -91,6 +116,9 @@ class Medication {
       throw new Error("Medication not found");
     }
     const doses = this.safeParseJSON(rows[0].doses, []);
+    if (doseIndex >= doses.length || doseIndex < 0) {
+      throw new Error("Invalid doseIndex");
+    }
     doses[doseIndex] = {
       ...doses[doseIndex],
       taken,
@@ -102,7 +130,7 @@ class Medication {
       WHERE id = ?
     `;
     await db.query(query, [JSON.stringify(doses), id]);
-    return { id: parseInt(id), doses };
+    return this.getById(id);
   }
 
   static async markAsMissed(id, doseIndex, missed) {
@@ -111,6 +139,9 @@ class Medication {
       throw new Error("Medication not found");
     }
     const doses = this.safeParseJSON(rows[0].doses, []);
+    if (doseIndex >= doses.length || doseIndex < 0) {
+      throw new Error("Invalid doseIndex");
+    }
     doses[doseIndex] = {
       ...doses[doseIndex],
       missed,
@@ -122,7 +153,7 @@ class Medication {
       WHERE id = ?
     `;
     await db.query(query, [JSON.stringify(doses), id]);
-    return { id: parseInt(id), doses };
+    return this.getById(id);
   }
 }
 

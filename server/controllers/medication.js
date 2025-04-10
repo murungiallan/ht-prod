@@ -8,7 +8,6 @@ class MedicationController {
       const firebaseUid = req.user.uid;
       console.log(`Firebase UID: ${firebaseUid}`);
 
-      // Fetch the user's id from the users table using the Firebase UID
       const userQuery = `
         SELECT id FROM users
         WHERE uid = ?
@@ -185,6 +184,14 @@ class MedicationController {
 
       const { id } = req.params;
       const { doseIndex, taken } = req.body;
+
+      if (!Number.isInteger(doseIndex) || doseIndex < 0) {
+        return res.status(400).json({ error: "doseIndex must be a non-negative integer" });
+      }
+      if (typeof taken !== 'boolean') {
+        return res.status(400).json({ error: "taken must be a boolean value" });
+      }
+
       const medications = await Medication.getByUser(userId);
       if (!medications.some((med) => med.id === parseInt(id))) {
         return res.status(404).json({ error: "Medication not found" });
@@ -192,12 +199,24 @@ class MedicationController {
 
       const updatedMedication = await Medication.updateTakenStatus(id, doseIndex, taken);
 
-      await firebaseDb.ref(`medications/${firebaseUid}/${id}/doses`).set(updatedMedication.doses);
+      await firebaseDb.ref(`medications/${firebaseUid}/${id}`).set({
+        id: updatedMedication.id,
+        userId: updatedMedication.userId,
+        medication_name: updatedMedication.medication_name,
+        dosage: updatedMedication.dosage,
+        frequency: updatedMedication.frequency,
+        times_per_day: updatedMedication.times_per_day,
+        times: updatedMedication.times,
+        doses: updatedMedication.doses,
+        start_date: updatedMedication.start_date,
+        end_date: updatedMedication.end_date,
+        notes: updatedMedication.notes,
+      });
 
       res.status(200).json(updatedMedication);
     } catch (error) {
       console.error("Error updating medication status:", error);
-      res.status(500).json({ error: "Failed to update medication status" });
+      res.status(500).json({ error: "Failed to update medication status", details: error.message });
     }
   }
 
@@ -212,6 +231,14 @@ class MedicationController {
 
       const { id } = req.params;
       const { doseIndex, missed } = req.body;
+
+      if (!Number.isInteger(doseIndex) || doseIndex < 0) {
+        return res.status(400).json({ error: "doseIndex must be a non-negative integer" });
+      }
+      if (typeof missed !== 'boolean') {
+        return res.status(400).json({ error: "missed must be a boolean value" });
+      }
+
       const medications = await Medication.getByUser(userId);
       if (!medications.some((med) => med.id === parseInt(id))) {
         return res.status(404).json({ error: "Medication not found" });
@@ -219,12 +246,24 @@ class MedicationController {
 
       const updatedMedication = await Medication.markAsMissed(id, doseIndex, missed);
 
-      await firebaseDb.ref(`medications/${firebaseUid}/${id}/doses`).set(updatedMedication.doses);
+      await firebaseDb.ref(`medications/${firebaseUid}/${id}`).set({
+        id: updatedMedication.id,
+        userId: updatedMedication.userId,
+        medication_name: updatedMedication.medication_name,
+        dosage: updatedMedication.dosage,
+        frequency: updatedMedication.frequency,
+        times_per_day: updatedMedication.times_per_day,
+        times: updatedMedication.times,
+        doses: updatedMedication.doses,
+        start_date: updatedMedication.start_date,
+        end_date: updatedMedication.end_date,
+        notes: updatedMedication.notes,
+      });
 
       res.status(200).json(updatedMedication);
     } catch (error) {
       console.error("Error marking medication as missed:", error);
-      res.status(500).json({ error: "Failed to mark medication as missed" });
+      res.status(500).json({ error: "Failed to mark medication as missed", details: error.message });
     }
   }
 }
