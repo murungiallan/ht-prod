@@ -163,8 +163,8 @@ const ExerciseTracker = () => {
   return (
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 max-w-7xl mx-2">
       <header className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
-          Hello, {user?.displayName || "User"}
+        <h1 className="text-2xl sm:text-3xl font-bold capitalize">
+          Hello, {user?.username || "User"}
         </h1>
         <p className="text-gray-600 mt-1">Track your exercise progress</p>
       </header>
