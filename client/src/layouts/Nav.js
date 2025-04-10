@@ -96,8 +96,8 @@ const Nav = () => {
                   {isDropdownOpen && (
                     <div className="absolute right-2 mt-2 w-64 ml-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
                       <div className="py-2 px-4 border-b border-gray-200">
-                        <p className="font-medium text-gray-800 truncate">Username</p>
-                        <p className="text-sm text-gray-500 truncate">user-email@example.com</p>
+                        <p className="font-medium text-gray-800 truncate">{user?.display_name || "User"}</p>
+                        <p className="text-sm text-gray-500 truncate">{user?.email}</p>
                       </div>
                       <Link
                         to="/profile"
