@@ -22,6 +22,10 @@ class User {
   }
 
   static async resetPassword(email) {
+    const user = await this.getByEmail(email);
+    if (!user) {
+      throw new Error("No account found with this email");
+    }
     return true;
   }
 
