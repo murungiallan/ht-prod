@@ -1,4 +1,4 @@
-import {useState}
+import {useState} from 'react';
 
 
 const FoodDiary = () => (
