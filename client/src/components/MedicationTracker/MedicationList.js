@@ -1,0 +1,268 @@
+import React, { useState } from "react";
+import { Section, Button, SecondaryButton } from "./styles";
+import { MdDelete } from "react-icons/md";
+import { formatTimeForDisplay } from "./utils/utils";
+import Pagination from "./Pagination";
+
+const MedicationList = ({
+  medications,
+  loading,
+  currentPage,
+  setCurrentPage,
+  itemsPerPage,
+  calculateDoseStatus,
+  onAddMedication,
+  openMedicationDetail,
+  setShowTakeModal,
+  setShowUndoModal,
+  confirmDeleteMedication,
+  actionLoading,
+  searchQuery,
+}) => {
+  const [sortConfig, setSortConfig] = useState({ key: "medication_name", direction: "asc" });
+
+  const sortData = (data, key, direction) => {
+    return [...data].sort((a, b) => {
+      let aValue = a[key];
+      let bValue = b[key];
+
+      if (key === "status") {
+        const { takenDoses: aTaken, totalDoses: aTotal } = calculateDoseStatus(a);
+        const { takenDoses: bTaken, totalDoses: bTotal } = calculateDoseStatus(b);
+        aValue = aTaken / aTotal || 0;
+        bValue = bTaken / bTotal || 0;
+      }
+
+      if (typeof aValue === "string") {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      if (aValue < bValue) return direction === "asc" ? -1 : 1;
+      if (aValue > bValue) return direction === "asc" ? 1 : -1;
+      return 0;
+    });
+  };
+
+  const handleSort = (key) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
+  const filteredMedications = medications.filter(
+    (med) =>
+      med.medication_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      med.dosage.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      med.frequency.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const sortedMedications = sortData(filteredMedications, sortConfig.key, sortConfig.direction);
+
+  const paginate = (items, page) => {
+    const startIndex = (page - 1) * itemsPerPage;
+    return items.slice(startIndex, startIndex + itemsPerPage);
+  };
+
+  return (
+    <Section>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "16px",
+        }}
+      >
+        <h2
+          style={{
+            fontSize: "1.25rem",
+            fontWeight: 600,
+            color: "#333333",
+            fontFamily: "'Inter', sans-serif",
+          }}
+        >
+          Medication List
+        </h2>
+        <SecondaryButton onClick={onAddMedication} aria-label="Add new medication">
+          + Add Medication
+        </SecondaryButton>
+      </div>
+      {loading ? (
+        <div
+          style={{
+            textAlign: "center",
+            padding: "16px 0",
+            color: "#666666",
+            fontFamily: "'Inter', sans-serif",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "8px",
+          }}
+        >
+          <div
+            style={{
+              width: "16px",
+              height: "16px",
+              border: "2px solid #333333",
+              borderTop: "2px solid transparent",
+              borderRadius: "50%",
+              animation: "spin 1s linear infinite",
+            }}
+          />
+          <p style={{ fontSize: "0.875rem" }}>Loading medications...</p>
+        </div>
+      ) : filteredMedications.length === 0 ? (
+        <p
+          style={{
+            textAlign: "center",
+            padding: "16px 0",
+            color: "#666666",
+            fontSize: "0.875rem",
+            fontFamily: "'Inter', sans-serif",
+          }}
+        >
+          No medications found.
+        </p>
+      ) : (
+        <>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr
+                  style={{
+                    borderBottom: "1px solid #e0e0e0",
+                    textAlign: "left",
+                    color: "#666666",
+                  }}
+                >
+                  <th
+                    style={{ padding: "12px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                    onClick={() => handleSort("medication_name")}
+                  >
+                    Name {sortConfig.key === "medication_name" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    style={{ padding: "12px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                    onClick={() => handleSort("times_per_day")}
+                  >
+                    Times {sortConfig.key === "times_per_day" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    style={{ padding: "12px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                    onClick={() => handleSort("dosage")}
+                  >
+                    Dosage {sortConfig.key === "dosage" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    style={{ padding: "12px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                    onClick={() => handleSort("status")}
+                  >
+                    Status {sortConfig.key === "status" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    style={{
+                      padding: "12px",
+                      fontWeight: 600,
+                      fontFamily: "'Inter', sans-serif",
+                      textAlign: "right",
+                    }}
+                  ></th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginate(sortedMedications, currentPage.medications).map((med) => {
+                  const { totalDoses, takenDoses, missedDoses } = calculateDoseStatus(med);
+                  return (
+                    <tr
+                      key={med.id}
+                      onClick={() => openMedicationDetail(med)}
+                      style={{
+                        borderBottom: "1px solid #e0e0e0",
+                        cursor: "pointer",
+                        transition: "background-color 0.2s ease",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f5f5f5")}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                      role="button"
+                      tabIndex={0}
+                      onKeyPress={(e) => e.key === "Enter" && openMedicationDetail(med)}
+                    >
+                      <td style={{ padding: "12px", fontFamily: "'Inter', sans-serif" }}>
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                          <div style={{ fontWeight: 500, color: "#333333" }}>{med.medication_name}</div>
+                          <div style={{ fontSize: "0.75rem", color: "#666666", textTransform: "capitalize" }}>
+                            {med.frequency}
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ padding: "12px", fontFamily: "'Inter', sans-serif" }}>
+                        {(Array.isArray(med.times) ? med.times : []).map((time) => formatTimeForDisplay(time)).join(", ")} (
+                        {med.times_per_day} times/day)
+                      </td>
+                      <td style={{ padding: "12px", fontFamily: "'Inter', sans-serif" }}>{med.dosage}</td>
+                      <td style={{ padding: "12px", fontFamily: "'Inter', sans-serif" }}>
+                        <span style={{ fontSize: "0.875rem", color: "#666666" }}>
+                          Taken: {takenDoses}/{totalDoses}, Missed: {missedDoses}
+                        </span>
+                      </td>
+                      <td
+                        style={{ padding: "12px", textAlign: "right", fontFamily: "'Inter', sans-serif" }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", flexWrap: "wrap" }}>
+                          <Button
+                            onClick={() => setShowTakeModal(med.id)}
+                            style={{ backgroundColor: "#28a745" }}
+                            disabled={actionLoading}
+                            aria-label="Take medication"
+                          >
+                            Take
+                          </Button>
+                          <SecondaryButton
+                            onClick={() => setShowUndoModal(med.id)}
+                            disabled={actionLoading || takenDoses === 0}
+                            aria-label="Undo taken medication"
+                          >
+                            Undo
+                          </SecondaryButton>
+                          <button
+                            onClick={() => confirmDeleteMedication(med.id)}
+                            disabled={actionLoading}
+                            style={{
+                              color: "#dc3545",
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              transition: "color 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.color = "#c82333")}
+                            onMouseLeave={(e) => (e.currentTarget.style.color = "#dc3545")}
+                            aria-label="Delete medication"
+                          >
+                            <MdDelete style={{ fontSize: "1.125rem" }} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            totalItems={filteredMedications.length}
+            itemsPerPage={itemsPerPage}
+            currentPage={currentPage.medications}
+            setCurrentPage={setCurrentPage}
+            pageKey="medications"
+          />
+        </>
+      )}
+    </Section>
+  );
+};
+
+export default MedicationList;
