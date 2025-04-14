@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useContext } from "react";
 import { AuthContext } from "../contexts/AuthContext";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import Navbar from "../layouts/Nav";
 import Home from "../pages/Home";
 import About from "../components/About";
@@ -15,6 +17,7 @@ import MedicationTracker from "../components/MedicationTracker/MedicationTracker
 import FoodDiary from "../components/FoodDiary/FoodDiary";
 import ExerciseTracker from "../components/ExerciseTracker/ExerciseTracker";
 import MainLayout from "../layouts/MainLayout";
+import ForgotPassword from "../pages/ForgotPassword";
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useContext(AuthContext);
@@ -28,6 +31,19 @@ const AppRoutes = () => {
 
   return (
     <div>
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
+
       {/* Conditionally rendering the Navbar for unauthenticated routes */}
       {unauthenticatedRoutes.includes(location.pathname) && <Navbar />}
 
@@ -48,6 +64,7 @@ const AppRoutes = () => {
           <Route path="/contact" element={<Contact />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
 
           {/* Authenticated Routes */}
           <Route
