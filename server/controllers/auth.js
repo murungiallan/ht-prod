@@ -1,7 +1,9 @@
-// AuthController.js
 import User from "../models/user.js";
-import { db } from "../server.js";
+import { getAuth } from "firebase-admin/auth";
+import { db as firebaseDb } from "../server.js"; // Firebase Realtime Database
+import db from "../config/db.js"; // MySQL connection pool
 import bcrypt from "bcrypt";
+import nodemailer from "nodemailer";
 
 class AuthController {
   static async register(req, res) {
@@ -18,7 +20,7 @@ class AuthController {
         role,
       });
 
-      await db.ref(`users/${uid}`).set({
+      await firebaseDb.ref(`users/${uid}`).set({
         username,
         email,
         displayName,
@@ -44,7 +46,7 @@ class AuthController {
       const { displayName, lastLogin } = req.body;
 
       const user = await User.updateLastLogin(email, lastLogin);
-      await db.ref(`users/${req.user.uid}/lastLogin`).set(lastLogin);
+      await firebaseDb.ref(`users/${req.user.uid}/lastLogin`).set(lastLogin);
 
       res.status(200).json({ email, displayName, lastLogin });
     } catch (error) {
@@ -56,11 +58,48 @@ class AuthController {
   static async resetPassword(req, res) {
     try {
       const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
       await User.resetPassword(email);
-      res.status(200).json({ message: "Password reset link sent" });
+
+      // Generate password reset link using Firebase Admin SDK
+      const auth = getAuth();
+      const actionCodeSettings = {
+        url: "http://127.0.0.1:3000/login",
+        handleCodeInApp: true,
+      };
+      const resetLink = await auth.generatePasswordResetLink(email, actionCodeSettings);
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: "HealthTrack Password Reset",
+        html: `
+          <h2>Reset Your HealthTrack Password</h2>
+          <p>Click the link below to reset your password:</p>
+          <a href="${resetLink}" style="padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px;">Reset Password</a>
+          <p>If you didn't request this, please ignore this email.</p>
+        `,
+      };
+
+      await transporter.sendMail(mailOptions);
+
+      res.status(200).json({ message: "Password reset link sent to your email" });
     } catch (error) {
       console.error("Error resetting password:", error);
-      res.status(500).json({ error: "Failed to reset password" });
+      if (error.message === "No account found with this email") {
+        res.status(404).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: "Failed to send password reset email" });
+      }
     }
   }
 
@@ -85,7 +124,7 @@ class AuthController {
 
       const updatedUser = await User.updateProfile(email, { username, email: newEmail, displayName, role });
 
-      await db.ref(`users/${req.user.uid}`).set({
+      await firebaseDb.ref(`users/${req.user.uid}`).set({
         username: updatedUser.username,
         email: updatedUser.email,
         displayName: updatedUser.displayName,
@@ -97,6 +136,30 @@ class AuthController {
     } catch (error) {
       console.error("Error updating profile:", error);
       res.status(500).json({ error: "Failed to update profile" });
+    }
+  }
+
+  static async saveFcmToken(req, res) {
+    try {
+      const { uid, fcmToken } = req.body;
+
+      if (!uid || !fcmToken) {
+        return res.status(400).json({ error: "uid and fcmToken are required" });
+      }
+
+      // Save to MySQL
+      const [result] = await db.query("UPDATE users SET fcm_token = ? WHERE uid = ?", [fcmToken, uid]);
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: "User not found in MySQL" });
+      }
+
+      // Save to Firebase
+      await firebaseDb.ref(`users/${uid}/fcmToken`).set(fcmToken);
+
+      res.status(200).json({ message: "FCM token saved successfully" });
+    } catch (error) {
+      console.error("Error saving FCM token:", error);
+      res.status(500).json({ error: "Failed to save FCM token", details: error.message });
     }
   }
 }
