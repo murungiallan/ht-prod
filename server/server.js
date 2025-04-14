@@ -10,7 +10,10 @@ import { initializeApp, cert } from "firebase-admin/app";
 import { getDatabase } from "firebase-admin/database";
 import { getAuth } from "firebase-admin/auth";
 import dotenv from "dotenv";
+import cron from "node-cron";
+import moment from "moment";
 import serviceAccount from "./service-account-key.json" with { type: "json" };
+import scheduleReminders from "./utils/ReminderScheduler.js";
 
 dotenv.config();
 
@@ -34,6 +37,12 @@ const io = new Server(server, {
 });
 
 // Socket.IO authentication middleware
+
+// Track error counts to prevent memory leaks
+const errorLogs = new Map();
+const ERROR_LOG_LIMIT = 100; // Maximum errors to log per IP
+const CLEANUP_INTERVAL = 15 * 60 * 1000; // Run cleanup every 15 minutes
+
 io.use(async (socket, next) => {
   try {
     const token = socket.handshake.auth.token;
@@ -49,7 +58,18 @@ io.use(async (socket, next) => {
     socket.user = decodedToken;
     next();
   } catch (error) {
-    console.error("Error verifying token in Socket.IO:", error);
+    // Log the error but limit how many I store
+    const clientIP = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
+    
+    // Initialize or increment error count for this IP
+    const currentCount = errorLogs.get(clientIP) || 0;
+    
+    // Only log if under limit to prevent memory leaks
+    if (currentCount < ERROR_LOG_LIMIT) {
+      errorLogs.set(clientIP, currentCount + 1);
+      console.error("Error verifying token in Socket.IO:", error);
+    }
+    
     if (error.code === "auth/id-token-expired") {
       return next(new Error("Authentication error: Token expired"));
     }
@@ -59,6 +79,11 @@ io.use(async (socket, next) => {
     return next(new Error("Authentication error: Invalid token"));
   }
 });
+
+// Periodically clean up the error logs to prevent memory leaks
+setInterval(() => {
+  errorLogs.clear();
+}, CLEANUP_INTERVAL);
 
 app.use(cors({ origin: "http://127.0.0.1:3000" }));
 app.use(json());
@@ -82,12 +107,54 @@ app.get("*", (req, res) => {
 });
 
 io.on("connection", (socket) => {
-  // console.log("A user connected:", socket.id);
+  console.log("A user connected:", socket.id);
+
+  socket.on("join", (userId) => {
+    socket.join(userId);
+    console.log(`User ${userId} joined room`);
+  });
+
   socket.on("disconnect", (reason) => {
     console.log("User disconnected:", socket.id, "Reason:", reason);
     socket.emit("disconnection_reason", reason);
   });
 });
+
+// Schedule reminders every minute
+cron.schedule("* * * * *", async () => {
+  const now = moment();
+  const twoHoursFromNow = moment().add(2, "hours");
+
+  const remindersRef = db.ref("reminders");
+  const snapshot = await remindersRef
+    .orderByChild("reminder_time")
+    .startAt(now.format("YYYY-MM-DD HH:mm:ss"))
+    .endAt(twoHoursFromNow.format("YYYY-MM-DD HH:mm:ss"))
+    .once("value");
+
+  const reminders = [];
+  snapshot.forEach((childSnapshot) => {
+    const reminder = childSnapshot.val();
+    if (reminder.status === "pending") {
+      reminders.push({ id: childSnapshot.key, ...reminder });
+    }
+  });
+
+  for (const reminder of reminders) {
+    try {
+      io.to(reminder.user_id).emit("reminderSent", {
+        message: `Time to take your medication!`,
+        reminder,
+      });
+  
+      await db.ref(`reminders/${reminder.id}`).update({ status: "sent" });
+    } catch (error) {
+      console.error(`Failed to process reminder ${reminder.id}:`, error);
+    }
+  }
+});
+
+scheduleReminders();
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
