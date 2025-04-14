@@ -1,3 +1,6 @@
+import {useState}
+
+
 const FoodDiary = () => (
   <div className="min-h-screen p-4 sm:p-6 lg:p-8 max-w-7xl mx-2">
     <h1 className="text-3xl font-bold text-light-600 mb-6">Hello, User</h1>
