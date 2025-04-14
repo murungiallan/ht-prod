@@ -1,4 +1,3 @@
-// AuthContext.js
 import { createContext, useState, useEffect, useCallback } from "react";
 import { auth, database } from "../firebase/config.js";
 import {
@@ -63,8 +62,8 @@ export const AuthProvider = ({ children }) => {
       }
 
       const token = await retryWithBackoff(() => firebaseUser.getIdToken(true));
-      // const expiry = Date.now() + 55 * 60 * 1000;
-      await tokenStore.setItem(`token_${firebaseUser.uid}`, { token/*, expiry */ });
+      const expiry = Date.now() + 55 * 60 * 1000;
+      await tokenStore.setItem(`token_${firebaseUser.uid}`, { token, expiry });
       setCachedToken(token);
       return token;
     },
@@ -310,7 +309,6 @@ export const AuthProvider = ({ children }) => {
       throw error;
     }
   };
-
   const resetPassword = async (email) => {
     try {
       const response = await fetch("http://127.0.0.1:5000/api/users/reset-password", {
@@ -320,15 +318,15 @@ export const AuthProvider = ({ children }) => {
         },
         body: JSON.stringify({ email }),
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to reset password");
-      }
-
+  
       const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to reset password");
+      }
+  
       toast.info(result.message);
     } catch (error) {
-      toast.error("Password reset failed: " + error.message);
+      toast.error(error.message || "Password reset failed");
       throw error;
     }
   };

@@ -1,4 +1,3 @@
-// SocketContext.js
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { io } from "socket.io-client";
 import { AuthContext } from "./AuthContext";
@@ -31,12 +30,19 @@ export const SocketProvider = ({ children }) => {
         reconnectionDelay: 1000,
       });
 
+      // Listen to connections
       newSocket.on("connect", () => {
         console.log("Socket.IO connected:", newSocket.id);
       });
 
       newSocket.on("message", (msg) => {
         console.log("Server message:", msg);
+      });
+
+      // Join a room based on user ID
+      newSocket.on("connect", () => {
+        console.log("Socket.IO connected:", newSocket.id);
+        newSocket.emit("join", user.uid);
       });
 
       newSocket.on("disconnect", (reason) => {
@@ -49,7 +55,7 @@ export const SocketProvider = ({ children }) => {
         if (error.message.includes("Token expired") || error.message.includes("Invalid token")) {
           try {
             const newToken = await getCachedToken();
-            newSocket.auth.token = newToken; // Update token for reconnection
+            newSocket.auth.token = newToken;
             newSocket.connect();
             console.log("Retrying connection with new token:", newToken);
           } catch (tokenError) {
@@ -65,6 +71,7 @@ export const SocketProvider = ({ children }) => {
 
       return () => {
         newSocket.disconnect();
+        setSocket(null);
       };
     } catch (error) {
       console.error("Error initializing Socket.IO:", error);
@@ -73,8 +80,17 @@ export const SocketProvider = ({ children }) => {
   }, [user, getCachedToken]);
 
   useEffect(() => {
-    initializeSocket();
-  }, [initializeSocket]);
+    let cleanup;
+    if (user && getCachedToken) {
+      initializeSocket().then((cleanupFn) => {
+        cleanup = cleanupFn;
+      });
+    }
+
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, [initializeSocket, user, getCachedToken]);
 
   const getSocket = () => {
     if (!socket) {
