@@ -22,3 +22,5 @@ web-vitals
 ws
 tailwindcss
 chartjs-adapter-moment
+@tippyjs/react
+moment-timezone

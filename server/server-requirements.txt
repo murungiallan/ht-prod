@@ -11,3 +11,7 @@ morgan
 MySQL
 mysql2
 socket.io
+moment
+node-cron
+node-schedule
+nodemailer
