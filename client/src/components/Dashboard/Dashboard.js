@@ -16,7 +16,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 ChartJS.register(LineElement, PointElement, LinearScale, Title, Tooltip, Legend, TimeScale);
 
-// Helper components for better organization
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center min-h-screen">
     <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -65,12 +64,23 @@ const StatWidget = ({ icon, title, value, percentage, color }) => {
       </div>
       <div className="flex-1">
         <h3 className="text-sm text-gray-500 uppercase">{title}</h3>
-        <p className="text-xl font-bold text-gray-800">{value}</p>
+        {/* Animation of percentage text */}
+        <motion.p
+          className="text-xl font-bold text-gray-800"
+          initial={{ textContent: "0%" }}
+          animate={{ textContent: value }}
+          transition={{ duration: 1.5, ease: "easeOut" }}
+        >
+          {value}
+        </motion.p>
         <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-          <div
+          {/* Animation of progress bar width */}
+          <motion.div
             className={`${progressColorClass} h-2 rounded-full`}
-            style={{ width: `${percentage}%` }}
-          ></div>
+            initial={{ width: "0%" }}
+            animate={{ width: `${percentage}%` }}
+            transition={{ duration: 1.5, ease: "easeOut" }}
+          />
         </div>
       </div>
     </div>
@@ -89,7 +99,7 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("medication");
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
 
-  // Add window resize listener to detect screen size changes
+  // Listens to detect screen size changes
   useEffect(() => {
     const handleResize = () => {
       setIsDesktop(window.innerWidth >= 1024);
@@ -107,11 +117,14 @@ const Dashboard = () => {
     let takenDoses = 0;
 
     medications.forEach((med) => {
-      if (!med.doses) return;
-      
-      med.doses.forEach((dose) => {
-        totalDoses++;
-        if (dose.taken) takenDoses++;
+      if (!med.doses || typeof med.doses !== "object") return;
+
+      Object.values(med.doses).forEach((dosesForDate) => {
+        if (!Array.isArray(dosesForDate)) return;
+        dosesForDate.forEach((dose) => {
+          totalDoses++;
+          if (dose.taken) takenDoses++;
+        });
       });
     });
 
@@ -144,7 +157,7 @@ const Dashboard = () => {
       });
   
       takenDoses = history.filter((entry) => {
-        const entryDate = moment(entry.takenAt).startOf('day');
+        const entryDate = moment(entry.date).startOf('day');
         return entryDate.isSame(date, 'day');
       }).length;
   
@@ -175,7 +188,7 @@ const Dashboard = () => {
         const history = await getTakenMedicationHistory(5);
         setRecentActivities(history.map((entry) => ({
           type: 'medication',
-          description: `Logged ${entry.medication_name} at ${moment(entry.takenAt).format('h:mm A')}`,
+          description: `Logged ${entry.medication_name} on ${moment(entry.date).format('MMM D, YYYY')} at ${moment(entry.takenAt).format('h:mm A')}`,
           timestamp: entry.takenAt,
         })));
 
@@ -215,7 +228,7 @@ const Dashboard = () => {
         const history = await getTakenMedicationHistory(5);
         setRecentActivities(history.map((entry) => ({
           type: 'medication',
-          description: `Logged ${entry.medication_name} at ${moment(entry.takenAt).format('h:mm A')}`,
+          description: `Logged ${entry.medication_name} on ${moment(entry.date).format('MMM D, YYYY')} at ${moment(entry.takenAt).format('h:mm A')}`,
           timestamp: entry.takenAt,
         })));
   
