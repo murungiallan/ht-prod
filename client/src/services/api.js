@@ -2,7 +2,7 @@ import axios from "axios";
 import { auth, database } from "../firebase/config.js";
 import { ref, update, get, push, query, orderByChild, limitToLast } from "firebase/database";
 import { debounce } from "lodash";
-import moment from "moment"; // For date manipulation in streak calculation
+import moment from "moment";
 
 const api = axios.create({ baseURL: "http://127.0.0.1:5000/api" });
 
@@ -45,6 +45,11 @@ const authFetch = async (endpoint, options = {}, token) => {
         error: "An unknown error occurred",
       }));
       if (response.status === 401) {
+        if (errorData.code === "auth/id-token-expired") {
+          const error = new Error("Unauthorized - ID token expired");
+          error.code = "auth/id-token-expired";
+          throw error;
+        }
         throw new Error("Unauthorized - Invalid or expired token");
       } else if (response.status === 429) {
         throw new Error("Too Many Requests - Please try again later");
@@ -185,9 +190,19 @@ export const getUserMedications = async (token) => {
     throw new Error("Failed to fetch medications from server");
   }
 
+  // Remove duplicates based on medication_name, dosage, times_per_day, and frequency
+  const uniqueMedications = Array.from(
+    new Map(
+      medicationsFromMySQL.map((med) => [
+        `${med.medication_name}-${med.dosage}-${med.times_per_day}-${med.frequency}`,
+        med,
+      ])
+    ).values()
+  );
+
   try {
     const updates = {};
-    medicationsFromMySQL.forEach((medication) => {
+    uniqueMedications.forEach((medication) => {
       const medicationPath = `medications/${user.uid}/${medication.id}`;
       updates[medicationPath] = {
         id: medication.id.toString(),
@@ -196,12 +211,11 @@ export const getUserMedications = async (token) => {
         dosage: medication.dosage,
         frequency: medication.frequency,
         times_per_day: medication.times_per_day,
-        times: medication.times,
-        doses: medication.doses ?? medication.times.map((time) => ({
-          time,
-          taken: false,
-          missed: false,
-        })),
+        times: medication.times || [],
+        doses: medication.doses || {},
+        start_date: medication.start_date,
+        end_date: medication.end_date,
+        notes: medication.notes,
         createdAt: medication.createdAt || new Date().toISOString(),
       };
     });
@@ -210,7 +224,7 @@ export const getUserMedications = async (token) => {
     console.error("Error updating Firebase with medications:", error);
   }
 
-  return medicationsFromMySQL;
+  return uniqueMedications;
 };
 
 // Update Medication
@@ -263,51 +277,43 @@ const updateMedicationDebounced = debounce((userId, id, medicationData) => {
 }, 2000);
 
 // Update medication as taken
-export const updateMedicationTakenStatus = async (id, doseIndex, taken, token) => {
+export const updateMedicationTakenStatus = async (id, doseIndex, taken, token, date) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  // Fetch the existing medication from MySQL
-  const response = await api.put(`/medications/${id}/taken`, { doseIndex, taken }, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await api.put(
+    `/medications/${id}/taken`,
+    { doseIndex, taken, date },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
 
-  // Fetch the existing medication data from Firebase
   const medicationPath = `medications/${user.uid}/${id}`;
   let existingData = {};
   try {
     const snapshot = await get(ref(database, medicationPath));
-    if (snapshot.exists()) {
-      existingData = snapshot.val();
-    }
+    if (snapshot.exists()) existingData = snapshot.val();
   } catch (error) {
     console.error("Error fetching existing medication data from Firebase:", error);
   }
 
-  // Ensure doses array exists and is an array
-  const doses = Array.isArray(existingData.doses) ? [...existingData.doses] : [];
-  
-  // Ensure the dose at doseIndex exists and has all required properties
-  const currentDose = doses[doseIndex] || { time: "00:00:00", taken: false, missed: false, takenAt: null };
-  const updatedDose = {
-    time: currentDose.time || "00:00:00",
-    taken: taken,
-    missed: taken ? false : (currentDose.missed || false),
+  const doses = { ...(existingData.doses || {}) };
+  const dailyDoses = doses[date] || existingData.times.map((time) => ({
+    time,
+    taken: false,
+    missed: false,
+    takenAt: null,
+  }));
+  dailyDoses[doseIndex] = {
+    time: dailyDoses[doseIndex]?.time || existingData.times[doseIndex],
+    taken,
+    missed: taken ? false : dailyDoses[doseIndex]?.missed || false,
     takenAt: taken ? new Date().toISOString() : null,
   };
+  doses[date] = dailyDoses;
 
-  // Update the doses array
-  doses[doseIndex] = updatedDose;
-
-  const updatedData = {
-    ...existingData,
-    doses,
-  };
-
-  // Update Firebase with the merged data
+  const updatedData = { ...existingData, doses };
   updateMedicationDebounced(user.uid, id, updatedData);
 
-  // Log the taken action to medication history in Firebase
   if (taken) {
     const historyPath = `medication_history/${user.uid}`;
     const historyEntry = {
@@ -315,6 +321,7 @@ export const updateMedicationTakenStatus = async (id, doseIndex, taken, token) =
       medication_name: existingData.medication_name || "Unknown",
       doseIndex,
       takenAt: new Date().toISOString(),
+      date,
     };
     await retryWithBackoff(() => push(ref(database, historyPath), historyEntry));
   }
@@ -323,48 +330,41 @@ export const updateMedicationTakenStatus = async (id, doseIndex, taken, token) =
 };
 
 // Mark medication as missed
-export const markMedicationAsMissed = async (id, doseIndex, missed, token) => {
+export const markMedicationAsMissed = async (id, doseIndex, missed, token, date) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  // Sync with MySQL
-  const response = await api.put(`/medications/${id}/missed`, { doseIndex, missed }, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await api.put(
+    `/medications/${id}/missed`,
+    { doseIndex, missed, date },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
 
-  // Fetch the existing medication data from Firebase
   const medicationPath = `medications/${user.uid}/${id}`;
   let existingData = {};
   try {
     const snapshot = await get(ref(database, medicationPath));
-    if (snapshot.exists()) {
-      existingData = snapshot.val();
-    }
+    if (snapshot.exists()) existingData = snapshot.val();
   } catch (error) {
     console.error("Error fetching existing medication data from Firebase:", error);
   }
 
-  // Ensure doses array exists and is an array
-  const doses = Array.isArray(existingData.doses) ? [...existingData.doses] : [];
-
-  // Ensure the dose at doseIndex exists and has all required properties
-  const currentDose = doses[doseIndex] || { time: "00:00:00", taken: false, missed: false, takenAt: null };
-  const updatedDose = {
-    time: currentDose.time || "00:00:00",
-    taken: missed ? false : (currentDose.taken || false),
+  const doses = { ...(existingData.doses || {}) };
+  const dailyDoses = doses[date] || existingData.times.map((time) => ({
+    time,
+    taken: false,
+    missed: false,
+    takenAt: null,
+  }));
+  dailyDoses[doseIndex] = {
+    time: dailyDoses[doseIndex]?.time || existingData.times[doseIndex],
+    taken: missed ? false : dailyDoses[doseIndex]?.taken || false,
     missed,
-    takenAt: missed ? null : (currentDose.takenAt || null),
+    takenAt: missed ? null : dailyDoses[doseIndex]?.takenAt || null,
   };
+  doses[date] = dailyDoses;
 
-  // Update the doses array
-  doses[doseIndex] = updatedDose;
-
-  const updatedData = {
-    ...existingData,
-    doses,
-  };
-
-  // Update Firebase with the merged data
+  const updatedData = { ...existingData, doses };
   updateMedicationDebounced(user.uid, id, updatedData);
 
   return response.data;
@@ -398,25 +398,26 @@ export const getTakenMedicationHistory = async (limit = 3) => {
 
     const takenDoses = [];
     response.forEach((medication) => {
-      if (!medication.doses || !Array.isArray(medication.doses)) return;
+      if (!medication.doses || typeof medication.doses !== "object") return;
 
-      medication.doses.forEach((dose, doseIndex) => {
-        if (dose.taken && dose.takenAt) {
-          takenDoses.push({
-            id: `${medication.id}-${doseIndex}`,
-            medicationId: medication.id.toString(),
-            medication_name: medication.medication_name,
-            doseIndex: doseIndex,
-            takenAt: dose.takenAt,
-          });
-        }
+      Object.entries(medication.doses).forEach(([date, dosesForDate]) => {
+        if (!Array.isArray(dosesForDate)) return;
+        dosesForDate.forEach((dose, doseIndex) => {
+          if (dose.taken && dose.takenAt) {
+            takenDoses.push({
+              id: `${medication.id}-${doseIndex}-${date}`,
+              medicationId: medication.id.toString(),
+              medication_name: medication.medication_name,
+              doseIndex: doseIndex,
+              date: date,
+              takenAt: dose.takenAt,
+            });
+          }
+        });
       });
     });
 
-    // Sort by takenAt in descending order (most recent first)
     takenDoses.sort((a, b) => new Date(b.takenAt) - new Date(a.takenAt));
-
-    // Apply the limit
     return limit > 0 ? takenDoses.slice(0, limit) : takenDoses;
   } catch (error) {
     console.error("Error fetching taken medication history from MySQL:", error);
@@ -438,12 +439,15 @@ export const calculateMedicationStreak = async () => {
 
     const takenTimestamps = [];
     response.forEach((medication) => {
-      if (!medication.doses || !Array.isArray(medication.doses)) return; 
+      if (!medication.doses || typeof medication.doses !== "object") return;
 
-      medication.doses.forEach((dose) => {
-        if (dose.taken && dose.takenAt) {
-          takenTimestamps.push(dose.takenAt);
-        }
+      Object.values(medication.doses).forEach((dosesForDate) => {
+        if (!Array.isArray(dosesForDate)) return;
+        dosesForDate.forEach((dose) => {
+          if (dose.taken && dose.takenAt) {
+            takenTimestamps.push(dose.takenAt);
+          }
+        });
       });
     });
 
@@ -451,7 +455,6 @@ export const calculateMedicationStreak = async () => {
       return 0;
     }
 
-    // Extract unique dates from takenAt timestamps and sort them
     const takenDates = [...new Set(
       takenTimestamps.map((timestamp) => new Date(timestamp).toISOString().split("T")[0])
     )].sort();
@@ -473,6 +476,340 @@ export const calculateMedicationStreak = async () => {
     console.error("Error calculating medication streak:", error);
     throw new Error("Failed to calculate medication streak");
   }
+};
+
+// Fetching drug names from RxNorm API
+
+// Cache to store recent drug search results
+const drugSearchCache = new Map();
+// Cache to store minimal drug details (name and dosage only)
+const drugDetailsCache = new Map();
+
+// Function to simplify drug names
+const simplifyDrugName = (name) => {
+  let simplified = name;
+  
+  // Remove pack/kit labels
+  simplified = simplified.replace(/\b(Pack|Kit)\b/i, "").trim();
+  
+  // Extract components from parentheses if present
+  const match = simplified.match(/\((.*?)\)/g);
+  if (match) {
+    const components = match
+      .map((part) => {
+        const inner = part.replace(/[\(\)]/g, "");
+        const parts = inner.split("/").map((comp) => {
+          const dosageMatch = comp.match(/\d+\s*(MG|G|ML)/i);
+          const drugName = comp
+            .replace(/\d+\s*(MG|G|ML)\b/i, "")
+            .replace(/\b(Oral Tablet|Capsule|Solution|Effervescent)\b/i, "")
+            .trim();
+          return dosageMatch ? `${drugName} ${dosageMatch[0]}` : drugName;
+        });
+        return parts.join(" / ");
+      })
+      .join(" + ");
+    simplified = components;
+  }
+
+  simplified = simplified.replace(/\s*\/\s*/g, " / ").replace(/\s+/g, " ").trim();
+  return simplified || name;
+};
+
+// Extract dosage from drug name (as a fallback)
+const extractDosageFromName = (name) => {
+  const dosageMatch = name.match(/\d+\s*(MG|G|ML)/gi);
+  return dosageMatch ? dosageMatch.join(" / ") : null;
+};
+
+// Search drugs by name using RxNorm SCDs
+export const searchDrugsByName = async (query) => {
+  if (!query || query.length < 2) return [];
+
+  const cacheKey = query.toLowerCase();
+  if (drugSearchCache.has(cacheKey)) {
+    return drugSearchCache.get(cacheKey);
+  }
+
+  try {
+    const response = await fetch(
+      `https://rxnav.nlm.nih.gov/REST/drugs.json?name=${encodeURIComponent(query)}&search=2`
+    );
+
+    if (!response.ok) {
+      throw new Error(`RxNorm API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    let medications = [];
+
+    if (data?.drugGroup?.conceptGroup) {
+      medications = data.drugGroup.conceptGroup
+        .filter(group => group.conceptProperties)
+        .flatMap(group =>
+          group.conceptProperties.map(drug => {
+            const displayName = simplifyDrugName(drug.name);
+            const dosage = extractDosageFromName(drug.name) || "Not specified";
+
+            return {
+              id: drug.rxcui,
+              name: drug.name,
+              displayName,
+              type: group.tty || "Unknown",
+              dosage
+            };
+          })
+        )
+        .filter((drug, index, self) => 
+          index === self.findIndex(d => d.id === drug.id)
+        );
+
+      // Sort to prioritize SCDs and then by name
+      medications.sort((a, b) => {
+        if (a.type === "SCD" && b.type !== "SCD") return -1;
+        if (a.type !== "SCD" && b.type === "SCD") return 1;
+        return a.displayName.localeCompare(b.displayName);
+      });
+
+      // Limit to 10 results
+      medications = medications.slice(0, 10);
+    }
+
+    // Update cache with a larger limit
+    if (drugSearchCache.size > 500) { 
+      drugSearchCache.clear();
+    }
+    drugSearchCache.set(cacheKey, medications);
+    return medications;
+  } catch (error) {
+    console.error("Error searching drugs:", error);
+    throw new Error("Failed to search medications");
+  }
+};
+
+// Get minimal drug information for AddMedicationModal (name and dosage only)
+export const getDrugDetails = async (rxcui, fallbackName = "Unknown Drug") => {
+  if (drugDetailsCache.has(rxcui)) {
+    return drugDetailsCache.get(rxcui);
+  }
+
+  try {
+    // Fetch only the properties endpoint (name and dosage)
+    const propertiesResponse = await fetch(
+      `https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/allproperties.json`
+    );
+
+    const drugInfo = {
+      name: fallbackName,
+      dosages: []
+    };
+
+    // Handle properties response
+    if (propertiesResponse.ok) {
+      const propertiesData = await propertiesResponse.json();
+      if (propertiesData?.propConceptGroup?.propConcept) {
+        const props = propertiesData.propConceptGroup.propConcept;
+        drugInfo.name = props.find(p => p.propName === "RxNorm Name")?.propValue || fallbackName;
+      }
+    } else {
+      console.warn(`Properties not found for RxCUI ${rxcui}: ${propertiesResponse.status}`);
+    }
+
+    // Fetch dosage information using the related endpoint
+    const relatedResponse = await fetch(
+      `https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/allrelated.json`
+    );
+
+    if (relatedResponse.ok) {
+      const relatedData = await relatedResponse.json();
+      if (relatedData?.allRelatedGroup?.conceptGroup) {
+        const relatedConcepts = relatedData.allRelatedGroup.conceptGroup
+          .filter(group => group.conceptProperties)
+          .flatMap(group => group.conceptProperties);
+
+        // Get standard dosage forms (DF/DFG)
+        const dfDosages = relatedConcepts
+          .filter(concept => concept.tty === "DF" || concept.tty === "DFG")
+          .map(concept => concept.name)
+          .filter(Boolean);
+
+        // Get specific dosages from SCDs
+        const scdConcepts = relatedConcepts.filter(concept => concept.tty === "SCD");
+        const scdDosages = scdConcepts
+          .map(concept => {
+            const dosageMatch = concept.name.match(/\d+\s*(MG|G|ML)/gi);
+            return dosageMatch ? dosageMatch.join(" / ") : null;
+          })
+          .filter(Boolean);
+
+        // Combine and deduplicate dosages
+        drugInfo.dosages = [...new Set([...dfDosages, ...scdDosages])];
+      }
+    } else {
+      console.warn(`Related info not found for RxCUI ${rxcui}: ${relatedResponse.status}`);
+      drugInfo.dosages = [extractDosageFromName(fallbackName) || "Not specified"].filter(Boolean);
+    }
+
+    // Add fallback dosage if none were found
+    if (drugInfo.dosages.length === 0) {
+      const fallbackDosage = extractDosageFromName(fallbackName);
+      if (fallbackDosage) {
+        drugInfo.dosages = [fallbackDosage];
+      }
+    }
+
+    // Update cache with a larger limit
+    if (drugDetailsCache.size > 500) {
+      drugDetailsCache.clear();
+    }
+    drugDetailsCache.set(rxcui, drugInfo);
+
+    return drugInfo;
+  } catch (error) {
+    console.error("Error fetching drug details:", error);
+    throw new Error("Failed to fetch drug details");
+  }
+};
+
+// Reminder API
+export const createReminder = async (reminderData, token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const reminderEntry = {
+    medicationId: reminderData.medicationId,
+    doseIndex: reminderData.doseIndex,
+    reminderTime: reminderData.reminderTime,
+    date: reminderData.date,
+    type: reminderData.type || "single",
+  };
+
+  const response = await api.post("/reminders/add", reminderEntry, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const reminderId = response.data.id.toString();
+  const reminderPath = `reminders/${user.uid}/${reminderId}`;
+  const firebaseEntry = {
+    ...reminderEntry,
+    id: reminderId,
+    userId: user.uid,
+    status: "pending",
+    createdAt: new Date().toISOString(),
+  };
+  await retryWithBackoff(() => update(ref(database), { [reminderPath]: firebaseEntry }));
+
+  return { id: reminderId, ...firebaseEntry };
+};
+
+// Reminders API
+export const getUserReminders = async (token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  let remindersFromMySQL;
+  try {
+    const response = await authFetch("/reminders/get-reminders", {}, token);
+    remindersFromMySQL = response;
+  } catch (error) {
+    console.error("Error fetching reminders from MySQL:", error);
+    throw new Error("Failed to fetch reminders from server");
+  }
+
+  try {
+    const updates = {};
+    remindersFromMySQL.forEach((reminder) => {
+      const reminderPath = `reminders/${user.uid}/${reminder.id}`;
+      updates[reminderPath] = {
+        id: reminder.id.toString(),
+        userId: user.uid,
+        medicationId: reminder.medication_id,
+        doseIndex: reminder.dose_index,
+        reminderTime: reminder.reminder_time,
+        date: reminder.date,
+        type: reminder.type,
+        status: reminder.status || "pending",
+        createdAt: reminder.createdAt || new Date().toISOString(),
+      };
+    });
+    await retryWithBackoff(() => update(ref(database), updates));
+  } catch (error) {
+    console.error("Error updating Firebase with reminders:", error);
+  }
+
+  return remindersFromMySQL.map(reminder => ({
+    id: reminder.id.toString(),
+    userId: reminder.user_id,
+    medicationId: reminder.medication_id,
+    doseIndex: reminder.dose_index,
+    reminderTime: reminder.reminder_time,
+    date: reminder.date,
+    type: reminder.type,
+    status: reminder.status || "pending",
+    createdAt: reminder.createdAt,
+  }));
+};
+
+export const deleteReminder = async (reminderId, token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  await api.delete(`/reminders/delete/${reminderId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const reminderPath = `reminders/${user.uid}/${reminderId}`;
+  await retryWithBackoff(() => update(ref(database), { [reminderPath]: null }));
+
+  return { success: true };
+};
+
+export const updateReminderStatus = async (reminderId, status, token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const response = await api.put(`/reminders/update/${reminderId}`, { status }, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const reminderPath = `reminders/${user.uid}/${reminderId}`;
+  await retryWithBackoff(() => update(ref(database), { [reminderPath + "/status"]: status }));
+
+  return response.data;
+};
+
+export const updateReminder = async (reminderId, reminderData, token) => {
+  const response = await authFetch(`/reminders/update/${reminderId}`, {}, token)
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || "Failed to update reminder");
+  }
+
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const reminderPath = `reminders/${user.uid}/${reminderId}`;
+  await retryWithBackoff(() => update(ref(database), { 
+    [reminderPath]: {
+      ...reminderData,
+      id: reminderId,
+      userId: user.uid,
+    }
+  }));
+
+  return response.json();
+};
+
+export const saveFcmToken = async (token, fcmToken) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const response = await api.post(
+    "/users/save-fcm-token",
+    { uid: user.uid, fcmToken },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  return response.data;
 };
 
 
