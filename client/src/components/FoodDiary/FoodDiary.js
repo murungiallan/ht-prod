@@ -1,6 +1,3 @@
-<<<<<<< Updated upstream
-import {useState} from 'react';
-=======
 import { useState, useEffect, useContext } from "react";
 import { AuthContext } from "../../contexts/AuthContext";
 import {
@@ -21,7 +18,6 @@ import { WiDaySunnyOvercast, WiDaySunny, WiDayWindy } from "react-icons/wi";
 import { BsCheck2Circle, BsXCircle, BsClock } from "react-icons/bs";
 import { useNavigate } from "react-router-dom";
 import { useSocket } from '../../contexts/SocketContext';
->>>>>>> Stashed changes
 
 Modal.setAppElement("#root");
 
