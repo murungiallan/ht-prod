@@ -1,27 +1,27 @@
-import Exercise from "../models/exercise.js";
-import { db } from "../server.js";
+import Food from "../models/food.js";
+import { db } from "../server.js";  
 
-class ExerciseController {
+class FoodController {
   static async addExercise(req, res) {
     try {
       const userId = req.user.uid;
-      const { activity, duration, calories_burned, date_logged } = req.body;
+      const { food_name, portion_size, calories, date_logged } = req.body;
 
-      if (!activity || !duration) {
-        return res.status(400).json({ error: "Activity and duration are required" });
+      if (!food_name || !portion_size) {
+        return res.status(400).json({ error: "Name and portion size are required" });
       }
 
-      const exerciseData = {
+      const foodData = {
         userId,
-        activity,
-        duration: parseInt(duration),
-        calories_burned: calories_burned ? parseInt(calories_burned) : null,
+        food_name,
+        portion_size: parseInt(portion_size),
+        calories: calories ? parseInt(calories) : null,
         date_logged: date_logged ? new Date(date_logged) : new Date(),
       };
 
-      const exercise = await Exercise.add(exerciseData);
+      const food = await Food.add(foodData);
 
-      await db.ref(`exercises/${userId}/${exercise.id}`).set({
+      await db.ref(`food_diary/${userId}/${food.id}`).set({
         ...exerciseData,
         id: exercise.id,
       });
@@ -50,11 +50,11 @@ class ExerciseController {
     try {
       const userId = req.user.uid;
       const { id } = req.params;
-      const { activity, duration, calories_burned, date_logged } = req.body;
-      const exercises = await Exercise.getByUser(userId);
-      const exercise = exercises.find((ex) => ex.id === parseInt(id));
+      const { food_name, portion_size, calories, date_logged } = req.body;
+      const foods = await Exercise.getByUser(userId);
+      const food = foods.find((ex) => ex.id === parseInt(id));
 
-      if (!exercise) {
+      if (!food) {
         return res.status(404).json({ error: "Exercise not found or unauthorized" });
       }
 
