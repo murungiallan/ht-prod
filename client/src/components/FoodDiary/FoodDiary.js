@@ -902,16 +902,37 @@ const FoodTracker = () => {
   const isPastDate = (date) => moment(date).isBefore(moment(), "day");
   const isFutureDate = (date) => moment(date).isAfter(moment(), "day");
 
+  const dummyData = {
+    '2025-04-13': {
+      breakfast: ['Oatmeal with honey', 'Boiled egg'],
+      lunch: ['Grilled chicken sandwich', 'Apple juice'],
+      dinner: ['Baked salmon', 'Steamed broccoli'],
+    },
+    '2025-04-14': {
+      breakfast: ['Greek yogurt', 'Banana'],
+      lunch: ['Quinoa salad', 'Orange'],
+      dinner: ['Chicken stir-fry', 'Brown rice'],
+    },
+  };
+  
+  const mealTypes = ['breakfast', 'lunch', 'dinner'];
+  //const [selectedDate, setSelectedDate] = useState(new Date());
+  const [activeTab, setActiveTab] = useState('breakfast');
+
+  const formattedDate = selectedDate.toISOString().split('T')[0];
+  const foods = dummyData[formattedDate]?.[activeTab] || [];
+
+  
   return (
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
       <header className="flex flex-col lg:flex-row items-start justify-between lg:space-x-6 mb-6 space-y-4 lg:space-y-0">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">
-            Your Medications
+            Food Diary
           </h1>
           <p className="text-gray-600 mt-1 text-sm sm:text-base">
-            Track your medications with ease
+            Track your daily food intake
           </p>
         </div>
         <button
@@ -940,17 +961,17 @@ const FoodTracker = () => {
         {/* Time of Day Sections */}
         <div className="w-full lg:w-2/3 flex flex-col space-y-4">
           <TimeOfDaySection
-            title="Morning"
+            title="Breakfast"
             meds={morningMeds}
             icon={<WiDaySunnyOvercast className="text-xl sm:text-2xl" />}
           />
           <TimeOfDaySection
-            title="Afternoon"
+            title="Lunch"
             meds={afternoonMeds}
             icon={<WiDaySunny className="text-xl sm:text-2xl" />}
           />
           <TimeOfDaySection
-            title="Evening"
+            title="Dinner"
             meds={eveningMeds}
             icon={<WiDayWindy className="text-xl sm:text-2xl" />}
           />
@@ -961,7 +982,7 @@ const FoodTracker = () => {
       <div className="bg-white rounded-lg p-4 sm:p-6 shadow-md border border-gray-200 mt-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6">
           <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-3 sm:mb-0">
-            Medication List
+            Food Intake
           </h2>
           <button
             onClick={() => setShowAddModal(true)}
@@ -970,97 +991,45 @@ const FoodTracker = () => {
             + Add Medication
           </button>
         </div>
-        {loading ? (
-          <div className="text-gray-600 text-center py-4 text-sm sm:text-base">
-            <LoadingSpinner />
-            <p className="mt-2">Loading medications...</p>
-          </div>
-        ) : medications.length === 0 ? (
-          <p className="text-gray-600 text-center py-4 text-sm sm:text-base">
-            No medications added yet.
-          </p>
+        {/* Meal Tabs */}
+      <div className="flex space-x-4 border-b border-green-300 pt-4">
+        {mealTypes.map((type) => (
+          <button
+            key={type}
+            onClick={() => setActiveTab(type)}
+            className={`px-4 py-2 font-semibold capitalize ${
+              activeTab === type ? 'border-b-4 border-green-600 text-green-800' : 'text-gray-600'
+            }`}
+          >
+            {type}
+          </button>
+        ))}
+      </div>
+
+      {/* Food Items */}
+      <div className="space-y-2">
+        {foods.length > 0 ? (
+          foods.map((food, index) => (
+            <div
+              key={index}
+              className="bg-green-50 p-3 rounded-lg border border-green-200 shadow-sm"
+            >
+              {food}
+            </div>
+          ))
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs sm:text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 text-left text-gray-600">
-                  <th className="py-3 px-2 sm:px-4 font-semibold">Name</th>
-                  <th className="py-3 px-2 sm:px-4 font-semibold">Times</th>
-                  <th className="py-3 px-2 sm:px-4 font-semibold">Dosage</th>
-                  <th className="py-3 px-2 sm:px-4 font-semibold">Status</th>
-                  <th className="py-3 px-2 sm:px-4 font-semibold"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {medications.map((med) => {
-                  const { totalDoses, takenDoses, missedDoses } = calculateDoseStatus(med);
-                  return (
-                    <tr
-                      key={med.id}
-                      className="border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
-                      onClick={() => openMedicationDetail(med)}
-                    >
-                      <td className="py-3 px-2 sm:px-4">
-                        <div className="font-medium text-gray-900 text-sm sm:text-base">
-                          {med.medication_name}
-                        </div>
-                        <div className="text-xs text-gray-500">{med.frequency}</div>
-                      </td>
-                      <td className="py-3 px-2 sm:px-4 capitalize text-gray-900 text-sm sm:text-base">
-                        {(Array.isArray(med.times) ? med.times : []).join(", ")} (
-                        {med.times_per_day} times/day)
-                      </td>
-                      <td className="py-3 px-2 sm:px-4 text-gray-900 text-sm sm:text-base">
-                        {med.dosage}
-                      </td>
-                      <td className="py-3 px-2 sm:px-4">
-                        <span className="text-xs text-gray-600">
-                          Taken: {takenDoses}/{totalDoses}, Missed: {missedDoses}
-                        </span>
-                      </td>
-                      <td
-                        className="py-3 px-2 sm:px-4"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="flex flex-wrap gap-2 justify-end">
-                          {med.doses.map((dose, doseIndex) => {
-                            const { isTaken, isMissed, isTimeToTake } = getDoseStatus(med, doseIndex);
-                            return (
-                              <button
-                                key={doseIndex}
-                                onClick={() =>
-                                  confirmTakenStatus(med.id, doseIndex, !isTaken)
-                                }
-                                disabled={isTaken || isMissed || !isTimeToTake || actionLoading}
-                                className={`px-3 py-1 rounded text-xs sm:text-sm transition-colors duration-200 ${
-                                  isTaken
-                                    ? "bg-gray-600 text-gray-200 hover:bg-gray-800"
-                                    : "bg-green-100 text-green-800 hover:bg-green-800"
-                                } ${isTaken || isMissed || !isTimeToTake || actionLoading ? "opacity-50 cursor-not-allowed" : ""}`}
-                              >
-                                {isTaken ? "Undo" : `Take (${dose.time})`}
-                              </button>
-                            );
-                          })}
-                          <button
-                            onClick={() => handleDeleteMedication(med.id)}
-                            disabled={actionLoading}
-                            className={`px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 text-xs sm:text-sm font-semibold transition-colors duration-200 ${
-                              actionLoading ? "opacity-50 cursor-not-allowed" : ""
-                            }`}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <p className="text-gray-500 italic">
+            No food logged for {activeTab} on {formattedDate}.
+          </p>
         )}
       </div>
+      </div>
+
+      <div className="p-6 space-y-6 text-gray-800">
+      
+    </div>
+
+      
 
       {/* Add Medication Modal */}
       <Modal
