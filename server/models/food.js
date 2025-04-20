@@ -4,7 +4,7 @@ class Food {
   static async add(foodData) {
     const { userId, food_name, portion_size, calories, date_logged } = foodData;
     const query = `
-      INSERT INTO exercises (user_id, food_name, portion_size, calories, date_logged)
+      INSERT INTO food_diary (user_id, food_name, portion_size, calories, date_logged)
       VALUES (?, ?, ?, ?, ?)
     `;
     const values = [userId, food_name, portion_size, calories || null, date_logged];
@@ -44,7 +44,7 @@ class Food {
   static async getStats(userId) {
     const query = `
       SELECT 
-        COUNT(*) as totalExercises,
+        COUNT(*) as totalEntries,
         SUM(calories) as totalCalories
       FROM food_diary
       WHERE user_id = ?
