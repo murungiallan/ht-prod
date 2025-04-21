@@ -88,31 +88,31 @@ const HistorySection = ({ medicationHistory, currentPage, setCurrentPage, itemsP
                   }}
                 >
                   <th
-                    style={{ padding: "12px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                    style={{ padding: "8px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
                     onClick={() => handleSort("medication_name")}
                   >
                     Medication {sortConfig.key === "medication_name" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </th>
                   <th
-                    style={{ padding: "12px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                    style={{ padding: "8px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
                     onClick={() => handleSort("dosage")}
                   >
                     Dosage {sortConfig.key === "dosage" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </th>
                   <th
-                    style={{ padding: "12px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                    style={{ padding: "8px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
                     onClick={() => handleSort("date")}
                   >
                     Date {sortConfig.key === "date" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </th>
                   <th
-                    style={{ padding: "12px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                    style={{ padding: "8px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
                     onClick={() => handleSort("time")}
                   >
                     Time {sortConfig.key === "time" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </th>
                   <th
-                    style={{ padding: "12px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                    style={{ padding: "8px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
                     onClick={() => handleSort("status")}
                   >
                     Status {sortConfig.key === "status" && (sortConfig.direction === "asc" ? "↑" : "↓")}
@@ -127,13 +127,13 @@ const HistorySection = ({ medicationHistory, currentPage, setCurrentPage, itemsP
                       borderBottom: "1px solid #e0e0e0",
                     }}
                   >
-                    <td style={{ padding: "12px", fontFamily: "'Inter', sans-serif" }}>{entry.medication_name}</td>
-                    <td style={{ padding: "12px", fontFamily: "'Inter', sans-serif" }}>{entry.dosage}</td>
-                    <td style={{ padding: "12px", fontFamily: "'Inter', sans-serif" }}>{entry.date}</td>
-                    <td style={{ padding: "12px", fontFamily: "'Inter', sans-serif" }}>
+                    <td style={{ padding: "8px", fontFamily: "'Inter', sans-serif" }}>{entry.medication_name}</td>
+                    <td style={{ padding: "8px", fontFamily: "'Inter', sans-serif" }}>{entry.dosage}</td>
+                    <td style={{ padding: "8px", fontFamily: "'Inter', sans-serif" }}>{entry.date}</td>
+                    <td style={{ padding: "8px", fontFamily: "'Inter', sans-serif" }}>
                       {formatTimeForDisplay(entry.time)}
                     </td>
-                    <td style={{ padding: "12px", fontFamily: "'Inter', sans-serif" }}>
+                    <td style={{ padding: "8px", fontFamily: "'Inter', sans-serif" }}>
                       <span
                         style={{
                           color: entry.status === "Taken" ? "#28a745" : "#dc3545",

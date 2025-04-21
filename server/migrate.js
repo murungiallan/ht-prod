@@ -1,5 +1,6 @@
 import db from './config/db.js';
 
+// Array of SQL statements to create tables
 const createTables = [
   `
   CREATE TABLE IF NOT EXISTS users (
@@ -7,25 +8,20 @@ const createTables = [
     uid VARCHAR(255) NOT NULL,
     username VARCHAR(100) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
-    display_name VARCHAR(255) NOT NULL,
+    display_name VARCHAR(255),
     password VARCHAR(255) NOT NULL,
-    role ENUM('user','admin'),
+    role ENUM('user', 'admin') DEFAULT 'user',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP NULL DEFAULT NULL
   )`,
   `
-  CREATE TABLE IF NOT EXISTS medications (
+  CREATE TABLE IF NOT EXISTS exercises (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
-    medication_name VARCHAR(100) NOT NULL,
-    dosage VARCHAR(50) NOT NULL,
-    frequency ENUM('daily','weekly','monthly') NOT NULL,
-    times_per_day INT NOT NULL,
-    times JSON NOT NULL,
-    doses JSON NOT NULL,
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
-    notes TEXT,
+    activity VARCHAR(100) NOT NULL,
+    duration INT NOT NULL,
+    calories_burned INT,
+    date_logged TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )`,
   `
@@ -40,36 +36,45 @@ const createTables = [
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )`,
   `
+  CREATE TABLE IF NOT EXISTS medications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    medication_name VARCHAR(100) NOT NULL,
+    dosage VARCHAR(50) NOT NULL,
+    frequency ENUM('daily', 'weekly', 'monthly') NOT NULL,
+    times_per_day INT NOT NULL,
+    times JSON NOT NULL,
+    doses JSON NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    notes TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
+  `
   CREATE TABLE IF NOT EXISTS reminders (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     medication_id INT NOT NULL,
+    dose_index INT NOT NULL,
     reminder_time DATETIME NOT NULL,
+    date DATE NOT NULL,
+    type ENUM('single', 'daily') NOT NULL,
     status ENUM('pending', 'sent') DEFAULT 'pending',
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (medication_id) REFERENCES medications(id) ON DELETE CASCADE
   )`,
-  `
-  CREATE TABLE IF NOT EXISTS exercises (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    activity VARCHAR(100) NOT NULL,
-    duration INT NOT NULL,
-    calories_burned INT,
-    date_logged TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  )`
 ];
 
-// Run migrations sequentially
+// Function to run migrations sequentially
 const runMigrations = async () => {
   try {
     for (const tableSQL of createTables) {
       await db.query(tableSQL);
-      console.log('Table created or already exists.');
+      console.log(`Table created or already exists: ${tableSQL.match(/CREATE TABLE IF NOT EXISTS (\w+)/)[1]}`);
     }
+    console.log('All migrations completed successfully!');
   } catch (err) {
-    console.error('Error executing statement:', err.sqlMessage || err.message);
+    console.error('Error executing migration:', err.sqlMessage || err.message);
     throw err;
   } finally {
     await db.end();
@@ -77,11 +82,8 @@ const runMigrations = async () => {
   }
 };
 
-db.query(createTables, (err, results) => {
-    if (err) {
-      console.error(' Error running migration:', err.message);
-    } else {
-      console.log(' Tables created successfully!');
-    }
-    db.end();
-  });
+// Execute migrations
+runMigrations().catch((err) => {
+  console.error('Migration failed:', err.message);
+  process.exit(1);
+});

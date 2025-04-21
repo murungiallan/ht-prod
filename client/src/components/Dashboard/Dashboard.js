@@ -58,7 +58,7 @@ const StatWidget = ({ icon, title, value, percentage, color }) => {
   const progressColorClass = `bg-${color}-500`;
 
   return (
-    <div className="bg-white p-4 rounded-xl shadow-lg flex items-center space-x-4">
+    <div className="bg-white p-4 rounded-xl shadow-lg flex items-center space-x-4 justify-center">
       <div className={`p-2 ${bgColorClass} rounded-full`}>
         {icon}
       </div>

@@ -9,7 +9,7 @@ const MainLayout = ({ children }) => {
 
       {/* Main Content */}
       <main className="flex-1 pt-16 px-1 sm:px-6 lg:px-8 py-6 .scrollbar-hide">
-        <div className="max-w-7xl mx-2">
+        <div className="max-w-7xl mx-auto">
           {children}
         </div>
       </main>
