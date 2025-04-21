@@ -9,7 +9,7 @@ import {
   calculateMedicationStreak,
 } from "../../services/api";
 import { Line } from 'react-chartjs-2';
-import { Chart as ChartJS, LineElement, PointElement, LinearScale, Title, Tooltip, Legend, TimeScale } from 'chart.js';
+import { Chart as ChartJS, LineElement, PointElement, LinearScale, Title, Tooltip, Legend, TimeScale, Filler } from 'chart.js';
 import 'chartjs-adapter-moment';
 import moment from 'moment';
 import { motion, AnimatePresence } from 'framer-motion';

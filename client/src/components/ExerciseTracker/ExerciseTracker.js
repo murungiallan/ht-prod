@@ -1,335 +1,465 @@
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect, useContext, useCallback } from "react";
 import { useSocket } from "../../contexts/SocketContext";
-import { FaRunning, FaWalking, FaSwimmer, FaHiking, FaDumbbell, FaBicycle, FaEllipsisH, FaClock, FaList, FaEdit, FaTrash } from "react-icons/fa";
 import { AuthContext } from "../../contexts/AuthContext";
 import { createExercise, getUserExercises, updateExercise, deleteExercise, getExerciseStats } from "../../services/api";
 import { toast } from "react-toastify";
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from "chart.js";
+import { auth } from "../../firebase/config";
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import Header from "./Header";
+import Calendar from "./Calendar";
+import Stats from "./Stats";
+import LogExercise from "./LogExercise";
+import RecentExercises from "./RecentExercises";
+import WeeklyActivity from "./WeeklyActivity";
+
+// Register Chart.js components
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
 const ExerciseTracker = () => {
-  const { user, getCachedToken } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
   const { socket, getSocket } = useSocket();
-  const [activity, setActivity] = useState("");
-  const [duration, setDuration] = useState("");
-  const [caloriesBurned, setCaloriesBurned] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error] = useState(null);
+  const navigate = useNavigate();
+
+  const getUserToken = async () => {
+    return await auth.currentUser.getIdToken(true);
+  };
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [lastFailedAction, setLastFailedAction] = useState(null);
   const [exercises, setExercises] = useState([]);
   const [stats, setStats] = useState({ totalCalories: 0, totalDuration: 0, totalSessions: 0 });
+  const [weeklyData, setWeeklyData] = useState({
+    calories: [],
+    duration: [],
+    sessions: [],
+    labels: [],
+  });
+  const [filter, setFilter] = useState("All-Time");
+  const [selectedDate, setSelectedDate] = useState(null);
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: "top",
+        labels: {
+          boxWidth: 12,
+          usePointStyle: true,
+          font: {
+            size: 10,
+            family: "'Inter', sans-serif",
+          },
+        },
+      },
+      tooltip: {
+        backgroundColor: "rgba(31, 41, 55, 0.9)",
+        padding: 12,
+        titleFont: {
+          size: 14,
+          weight: "bold",
+          family: "'Inter', sans-serif",
+        },
+        bodyFont: {
+          size: 14,
+          family: "'Inter', sans-serif",
+        },
+        cornerRadius: 8,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          font: {
+            size: 14,
+            family: "'Inter', sans-serif",
+          },
+          color: "#6B7280",
+        },
+        grid: {
+          color: "rgba(209, 213, 219, 0.3)",
+        },
+      },
+      x: {
+        ticks: {
+          font: {
+            size: 14,
+            family: "'Inter', sans-serif",
+          },
+          color: "#6B7280",
+        },
+        grid: {
+          display: false,
+        },
+      },
+    },
+  };
+
+  const handleSessionExpired = useCallback(() => {
+    toast.error("Your session has expired. Please log in again.");
+    logout();
+    navigate("/login");
+  }, [logout, navigate]);
+
+  const fetchData = useCallback(async () => {
+    if (!user) return;
+    try {
+      setLoading(true);
+      const token = await getUserToken();
+      const [userExercises, exerciseStats] = await Promise.all([
+        getUserExercises(token),
+        getExerciseStats(token),
+      ]);
+      setExercises(userExercises.sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged)));
+      setStats({
+        totalCalories: exerciseStats.totalCaloriesBurned || 0,
+        totalDuration: exerciseStats.totalDuration || 0,
+        totalSessions: exerciseStats.totalExercises || 0,
+      });
+    } catch (err) {
+      setError("Failed to load exercises or stats");
+      setLastFailedAction({ type: "fetchData", params: null });
+      toast.error("Failed to load exercises or stats");
+      console.error(err);
+      if (err.code === "auth/id-token-expired") {
+        handleSessionExpired();
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [user, handleSessionExpired]);
+
+  const computeWeeklyData = useCallback(() => {
+    const today = new Date();
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      return date.toISOString().split("T")[0];
+    }).reverse();
+
+    const caloriesData = last7Days.map((date) => {
+      const dailyExercises = exercises.filter(
+        (ex) => new Date(ex.date_logged).toISOString().split("T")[0] === date
+      );
+      return dailyExercises.reduce((sum, ex) => sum + (ex.calories_burned || 0), 0);
+    });
+
+    const durationData = last7Days.map((date) => {
+      const dailyExercises = exercises.filter(
+        (ex) => new Date(ex.date_logged).toISOString().split("T")[0] === date
+      );
+      return dailyExercises.reduce((sum, ex) => sum + (ex.duration || 0), 0);
+    });
+
+    const sessionsData = last7Days.map((date) => {
+      const dailyExercises = exercises.filter(
+        (ex) => new Date(ex.date_logged).toISOString().split("T")[0] === date
+      );
+      return dailyExercises.length;
+    });
+
+    setWeeklyData({
+      calories: caloriesData,
+      duration: durationData,
+      sessions: sessionsData,
+      labels: last7Days.map((date) => new Date(date).toLocaleDateString("en-US", { weekday: "short" })),
+    });
+  }, [exercises]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!user) return;
-
-      try {
-        setLoading(true);
-        const [userExercises, exerciseStats] = await Promise.all([
-          getUserExercises({ getCachedToken }),
-          getExerciseStats({ getCachedToken }),
-        ]);
-        setExercises(userExercises);
-        setStats({
-          totalCalories: exerciseStats.totalCalories || 0,
-          totalDuration: exerciseStats.totalDuration || 0,
-          totalSessions: exerciseStats.totalSessions || 0,
-        });
-      } catch (err) {
-        toast.error("Failed to load exercises or stats");
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (user) fetchData();
-    if (!socket) return;
-
-    socket.on("exerciseAdded", (newExercise) => {
-      setExercises((prev) => [newExercise, ...prev]);
-      toast.success(`New exercise added: ${newExercise.activity}`);
-    });
-
-    socket.on("exerciseDeleted", (id) => {
-      setExercises((prev) => prev.filter((exercise) => exercise.id !== id));
-      toast.success("Exercise deleted");
-    });
-
-    socket.on("exerciseUpdated", (updatedExercise) => {
-      setExercises((prev) =>
-        prev.map((exercise) => (exercise.id === updatedExercise.id ? updatedExercise : exercise))
-      );
-      toast.success(`Exercise updated: ${updatedExercise.activity}`);
-    });
-
-    return () => {
-      socket.off("exerciseAdded");
-      socket.off("exerciseDeleted");
-      socket.off("exerciseUpdated");
-    };
-  }, [socket, user, getCachedToken]);
-
-  const handleLogExercise = async (e) => {
-    e.preventDefault();
-
     if (!user) {
-      toast.error("You must be logged in to log an exercise");
+      navigate("/login");
       return;
     }
 
-    if (activity && duration && caloriesBurned) {
-      try {
-        const newExercise = {
-          activity,
-          duration: Number(duration),
-          calories_burned: Number(caloriesBurned),
-          date_logged: new Date().toISOString(),
-        };
-        const createdExercise = await createExercise(newExercise, { getCachedToken, getSocket });
-        setExercises([createdExercise, ...exercises]);
-        // Remove duplicate socket.emit (already handled in api.js)
-        setActivity("");
-        setDuration("");
-        setCaloriesBurned("");
-        toast.success("Exercise logged successfully");
-
-        // Refresh stats
-        const exerciseStats = await getExerciseStats({ getCachedToken });
-        setStats({
-          totalCalories: exerciseStats.totalCalories || 0,
-          totalDuration: exerciseStats.totalDuration || 0,
-          totalSessions: exerciseStats.totalSessions || 0,
-        });
-      } catch (err) {
-        toast.error("Failed to log exercise");
-        console.error(err);
+    const unsubscribe = auth.onIdTokenChanged(async (currentUser) => {
+      if (!currentUser) {
+        handleSessionExpired();
+        return;
       }
+
+      try {
+        const tokenResult = await currentUser.getIdTokenResult();
+        const expirationTime = new Date(tokenResult.expirationTime).getTime();
+        const currentTime = Date.now();
+        const timeUntilExpiration = expirationTime - currentTime;
+
+        if (timeUntilExpiration <= 0) {
+          handleSessionExpired();
+          return;
+        }
+
+        if (timeUntilExpiration < 5 * 60 * 1000) {
+          await currentUser.getIdToken(true);
+        }
+      } catch (error) {
+        console.error("Error checking token expiration:", error);
+        handleSessionExpired();
+      }
+    });
+
+    fetchData();
+
+    return () => {
+      unsubscribe();
+    };
+  }, [user, navigate, fetchData, handleSessionExpired]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleExerciseAdded = (newExercise) => {
+      setExercises((prev) => [newExercise, ...prev].sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged)));
+      toast.success(`New exercise added: ${newExercise.activity}`);
+    };
+
+    const handleExerciseDeleted = (id) => {
+      setExercises((prev) => prev.filter((exercise) => exercise.id !== id));
+      toast.success("Exercise deleted");
+    };
+
+    const handleExerciseUpdated = (updatedExercise) => {
+      setExercises((prev) =>
+        prev.map((exercise) => (exercise.id === updatedExercise.id ? updatedExercise : exercise))
+          .sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged))
+      );
+      toast.success(`Exercise updated: ${updatedExercise.activity}`);
+    };
+
+    socket.on("exerciseAdded", handleExerciseAdded);
+    socket.on("exerciseDeleted", handleExerciseDeleted);
+    socket.on("exerciseUpdated", handleExerciseUpdated);
+
+    computeWeeklyData();
+
+    return () => {
+      socket.off("exerciseAdded", handleExerciseAdded);
+      socket.off("exerciseDeleted", handleExerciseDeleted);
+      socket.off("exerciseUpdated", handleExerciseUpdated);
+    };
+  }, [socket, computeWeeklyData]);
+
+  const handleLogExercise = useCallback(async (e, activity, duration, caloriesBurned, setActivity, setDuration, setCaloriesBurned) => {
+    e.preventDefault();
+    if (!user) {
+      setError("You must be logged in to log an exercise");
+      setLastFailedAction({ type: "logExercise", params: null });
+      toast.error("You must be logged in to log an exercise");
+      handleSessionExpired();
+      return;
     }
-  };
-
-  const handleDeleteExercise = async (id) => {
+    if (!activity || !duration || !caloriesBurned) {
+      setError("All fields are required");
+      setLastFailedAction({ type: "logExercise", params: null });
+      toast.error("All fields are required");
+      return;
+    }
+    const durationNum = Number(duration);
+    const caloriesNum = Number(caloriesBurned);
+    if (isNaN(durationNum) || isNaN(caloriesNum) || durationNum <= 0 || caloriesNum <= 0) {
+      setError("Duration and calories burned must be positive numbers");
+      setLastFailedAction({ type: "logExercise", params: null });
+      toast.error("Duration and calories burned must be positive numbers");
+      return;
+    }
     try {
-      await deleteExercise(id, { getCachedToken, getSocket });
-      setExercises(exercises.filter((exercise) => exercise.id !== id));
-      // Remove duplicate socket.emit (already handled in api.js)
-      toast.success("Exercise deleted successfully");
-
-      // Refresh stats
-      const exerciseStats = await getExerciseStats({ getCachedToken });
+      setLoading(true);
+      const token = await getUserToken();
+      const newExercise = {
+        activity,
+        duration: durationNum,
+        calories_burned: caloriesNum,
+        date_logged: new Date().toISOString(),
+        status: "completed",
+      };
+      await createExercise(newExercise, token, getSocket);
+      setActivity("");
+      setDuration("");
+      setCaloriesBurned("");
+      const exerciseStats = await getExerciseStats(token);
       setStats({
-        totalCalories: exerciseStats.totalCalories || 0,
+        totalCalories: exerciseStats.totalCaloriesBurned || 0,
         totalDuration: exerciseStats.totalDuration || 0,
-        totalSessions: exerciseStats.totalSessions || 0,
+        totalSessions: exerciseStats.totalExercises || 0,
       });
+      setError(null);
     } catch (err) {
+      setError("Failed to log exercise");
+      setLastFailedAction({ type: "logExercise", params: { activity, duration: durationNum, caloriesBurned: caloriesNum } });
+      toast.error("Failed to log exercise");
+      console.error(err);
+      if (err.code === "auth/id-token-expired") {
+        handleSessionExpired();
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [user, getSocket, handleSessionExpired]);
+
+  const handleDeleteExercise = useCallback(async (id) => {
+    try {
+      setLoading(true);
+      const token = await getUserToken();
+      await deleteExercise(id, token, getSocket);
+      const exerciseStats = await getExerciseStats(token);
+      setStats({
+        totalCalories: exerciseStats.totalCaloriesBurned || 0,
+        totalDuration: exerciseStats.totalDuration || 0,
+        totalSessions: exerciseStats.totalExercises || 0,
+      });
+      setError(null);
+    } catch (err) {
+      setError("Failed to delete exercise");
+      setLastFailedAction({ type: "deleteExercise", params: { id } });
       toast.error("Failed to delete exercise");
       console.error(err);
+      if (err.code === "auth/id-token-expired") {
+        handleSessionExpired();
+      }
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [getSocket, handleSessionExpired]);
 
-  const handleUpdateExercise = async (id, updatedData) => {
+  const handleUpdateExercise = useCallback(async (editingExercise, setEditingExercise) => {
+    if (!editingExercise.activity || editingExercise.duration <= 0 || editingExercise.calories_burned <= 0 || isNaN(editingExercise.duration) || isNaN(editingExercise.calories_burned)) {
+      setError("Activity must be selected, and duration and calories burned must be positive numbers");
+      setLastFailedAction({ type: "updateExercise", params: { editingExercise } });
+      toast.error("Activity must be selected, and duration and calories burned must be positive numbers");
+      return;
+    }
     try {
-      const updatedExercise = await updateExercise(id, updatedData, { getCachedToken, getSocket });
-      setExercises(
-        exercises.map((exercise) =>
-          exercise.id === id ? updatedExercise : exercise
-        )
-      );
-      // Remove duplicate socket.emit (already handled in api.js)
-      toast.success("Exercise updated successfully");
-
-      // Refresh stats
-      const exerciseStats = await getExerciseStats({ getCachedToken });
+      setLoading(true);
+      const token = await getUserToken();
+      await updateExercise(editingExercise.id, editingExercise, token, getSocket);
+      setEditingExercise(null);
+      const exerciseStats = await getExerciseStats(token);
       setStats({
-        totalCalories: exerciseStats.totalCalories || 0,
+        totalCalories: exerciseStats.totalCaloriesBurned || 0,
         totalDuration: exerciseStats.totalDuration || 0,
-        totalSessions: exerciseStats.totalSessions || 0,
+        totalSessions: exerciseStats.totalExercises || 0,
       });
+      setError(null);
     } catch (err) {
+      setError("Failed to update exercise");
+      setLastFailedAction({ type: "updateExercise", params: { editingExercise } });
       toast.error("Failed to update exercise");
       console.error(err);
+      if (err.code === "auth/id-token-expired") {
+        handleSessionExpired();
+      }
+    } finally {
+      setLoading(false);
     }
+  }, [getSocket, handleSessionExpired]);
+
+  const handleRetry = useCallback(async () => {
+    if (!lastFailedAction) return;
+    setError(null);
+    const { type, params } = lastFailedAction;
+    switch (type) {
+      case "fetchData":
+        await fetchData();
+        break;
+      case "logExercise":
+        if (params) {
+          const { activity, duration, caloriesBurned } = params;
+          await handleLogExercise({ preventDefault: () => {} }, activity, duration, caloriesBurned, () => {}, () => {}, () => {});
+        }
+        break;
+      case "deleteExercise":
+        if (params) {
+          await handleDeleteExercise(params.id);
+        }
+        break;
+      case "updateExercise":
+        if (params) {
+          await handleUpdateExercise(params.editingExercise, () => {});
+        }
+        break;
+      default:
+        break;
+    }
+    setLastFailedAction(null);
+  }, [lastFailedAction, fetchData, handleLogExercise, handleDeleteExercise, handleUpdateExercise]);
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+      },
+    },
   };
 
-  const exerciseIcons = {
-    Running: <FaRunning className="text-blue-500" />,
-    Walking: <FaWalking className="text-green-500" />,
-    Swimming: <FaSwimmer className="text-teal-500" />,
-    Cycling: <FaBicycle className="text-indigo-500" />,
-    Treadmill: <FaRunning className="text-gray-500" />,
-    Hiking: <FaHiking className="text-brown-500" />,
-    HIIT: <FaDumbbell className="text-red-500" />,
-    Other: <FaEllipsisH className="text-gray-500" />,
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
   };
 
   return (
-    <div className="min-h-screen p-4 sm:p-6 lg:p-8 max-w-7xl mx-2">
-      <header className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold capitalize">
-          Hello, {user?.username || "User"}
-        </h1>
-        <p className="text-gray-600 mt-1">Track your exercise progress</p>
-      </header>
-
+    <motion.div
+      className="min-h-screen p-6 sm:p-8 lg:p-10 max-w-7xl mx-auto font-inter"
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
+      <Header />
+      
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          <p>{error}</p>
-        </div>
+        <motion.div
+          className="bg-red-50 border-l-4 border-red-500 text-red-800 p-4 rounded-lg mb-6 flex justify-between items-center"
+          variants={itemVariants}
+        >
+          <div className="flex items-center">
+            <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <p className="text-base font-medium">{error}</p>
+          </div>
+          <button
+            onClick={handleRetry}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:outline-none transition-all duration-300 text-sm font-medium flex items-center"
+            disabled={loading}
+            aria-label="Retry action"
+          >
+            <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            Retry
+          </button>
+        </motion.div>
       )}
 
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white p-4 rounded-lg shadow-md flex items-center space-x-4">
-            <div className="p-2 bg-blue-100 rounded-full">
-              <FaDumbbell className="text-purple-500 text-xl" />
-            </div>
-            <div>
-              <h3 className="text-sm text-gray-600">Calories Burned</h3>
-              <p className="text-lg font-semibold text-gray-800">{stats.totalCalories} kcal</p>
-            </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow-md flex items-center space-x-4">
-            <div className="p-2 bg-green-100 rounded-full">
-              <FaClock className="text-green-500 text-xl" />
-            </div>
-            <div>
-              <h3 className="text-sm text-gray-600">Total Time</h3>
-              <p className="text-lg font-semibold text-gray-800">{stats.totalDuration} min</p>
-            </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow-md flex items-center space-x-4">
-            <div className="p-2 bg-teal-100 rounded-full">
-              <FaList className="text-teal-500 text-xl" />
-            </div>
-            <div>
-              <h3 className="text-sm text-gray-600">Sessions</h3>
-              <p className="text-lg font-semibold text-gray-800">{stats.totalSessions}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Log New Exercise</h2>
-          <form onSubmit={handleLogExercise} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm text-gray-700 mb-1">Exercise Activity</label>
-              <select
-                value={activity}
-                onChange={(e) => setActivity(e.target.value)}
-                className="w-full p-2 border-none rounded-md outline-gray-200 focus:border-gray-400 focus:outline-none focus:ring active:border-gray-100"
-                required
-              >
-                <option value="">Select an exercise</option>
-                <option value="Running">Running</option>
-                <option value="Walking">Walking</option>
-                <option value="Swimming">Swimming</option>
-                <option value="Cycling">Cycling</option>
-                <option value="Treadmill">Treadmill</option>
-                <option value="Hiking">Hiking</option>
-                <option value="HIIT">HIIT</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-gray-700 mb-1">Duration (min)</label>
-              <input
-                type="number"
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-                placeholder="e.g., 30"
-                className="w-full p-2 border-none rounded-md outline-gray-200 focus:border-gray-400 focus:outline-none focus:ring active:border-gray-100"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-700 mb-1">Calories Burned</label>
-              <input
-                type="number"
-                value={caloriesBurned}
-                onChange={(e) => setCaloriesBurned(e.target.value)}
-                placeholder="e.g., 200"
-                className="w-full p-2 border-none rounded-md outline-gray-200 focus:border-gray-400 focus:outline-none focus:ring active:border-gray-100"
-                required
-              />
-            </div>
-            <div className="flex items-end">
-              <button
-                type="submit"
-                className="w-full py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition duration-200"
-                disabled={loading}
-              >
-                {loading ? "Loading..." : "Log Exercise"}
-              </button>
-            </div>
-          </form>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Recent Exercises</h2>
-          {loading ? (
-            <p className="text-gray-500">Loading exercises...</p>
-          ) : exercises.length === 0 ? (
-            <p className="text-gray-500">No exercises logged yet. Start by adding one above!</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {exercises.map((exercise) => (
-                <div
-                  key={exercise.id}
-                  className="p-4 bg-gray-50 rounded-md flex items-center space-x-4 hover:bg-gray-100 transition"
-                >
-                  <div className="text-2xl">{exerciseIcons[exercise.activity] || exerciseIcons.Other}</div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-medium text-gray-700">{exercise.activity}</h3>
-                    <p className="text-sm text-gray-600">Duration: {exercise.duration} min</p>
-                    <p className="text-sm text-gray-600">Calories: {exercise.calories_burned} kcal</p>
-                    <p className="text-xs text-gray-400">
-                      {new Date(exercise.date_logged).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() =>
-                        handleUpdateExercise(exercise.id, {
-                          activity: exercise.activity,
-                          duration: exercise.duration + 5,
-                          calories_burned: exercise.calories_burned,
-                          date_logged: exercise.date_logged,
-                        })
-                      }
-                      className="text-blue-500 hover:text-blue-600"
-                    >
-                      <FaEdit />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteExercise(exercise.id)}
-                      className="text-red-500 hover:text-red-600"
-                    >
-                      <FaTrash />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Weekly Activity</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-4 bg-gray-50 rounded-md">
-              <h3 className="text-sm font-medium text-gray-700">Calories Burned</h3>
-              <p className="text-gray-600 mt-2">Chart placeholder</p>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-md">
-              <h3 className="text-sm font-medium text-gray-700">Time (hours)</h3>
-              <p className="text-gray-600 mt-2">Chart placeholder</p>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-md">
-              <h3 className="text-sm font-medium text-gray-700">Total Sessions</h3>
-              <p className="text-gray-600 mt-2">Chart placeholder</p>
-            </div>
-          </div>
-        </div>
+      <div className="space-y-8">
+        <Calendar exercises={exercises} setSelectedDate={setSelectedDate} selectedDate={selectedDate} />
+        <Stats stats={stats} />
+        <LogExercise handleLogExercise={handleLogExercise} loading={loading} />
+        <RecentExercises
+          exercises={exercises}
+          filter={filter}
+          setFilter={setFilter}
+          handleDeleteExercise={handleDeleteExercise}
+          handleUpdateExercise={handleUpdateExercise}
+          loading={loading}
+        />
+        <WeeklyActivity weeklyData={weeklyData} chartOptions={chartOptions} />
       </div>
-    </div>
+    </motion.div>
   );
 };
 

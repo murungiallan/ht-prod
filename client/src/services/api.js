@@ -824,8 +824,7 @@ export const createExercise = async (exerciseData, token) => {
     activity: exerciseData.activity,
     duration: exerciseData.duration,
     calories_burned: exerciseData.calories_burned,
-    date_logged: exerciseData.date_logged,
-    createdAt: new Date().toISOString(),
+    date_logged: exerciseData.date_logged
   };
 
   // Sync with MySQL
@@ -863,8 +862,7 @@ export const getUserExercises = async (token) => {
       activity: exercise.activity,
       duration: exercise.duration,
       calories_burned: exercise.calories_burned,
-      date_logged: exercise.date_logged,
-      createdAt: exercise.createdAt || new Date().toISOString(),
+      date_logged: exercise.date_logged
     };
   });
   await retryWithBackoff(() => update(ref(database), updates));
@@ -884,20 +882,15 @@ const updateExerciseDebounced = debounce((userId, id, exerciseData) => {
       date_logged: exerciseData.date_logged,
     },
   });
-}, 2000);
+}, 500);
 
 export const updateExercise = async (id, exerciseData, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
-
-  // Sync with MySQL
-  const response = await api.put(`/medications/update/${id}`, exerciseData, {
+  const response = await api.put(`/exercises/update/${id}`, exerciseData, {
     headers: { Authorization: `Bearer ${token}` },
   });
-
-  // Update Firebase with a single request (debounced)
   updateExerciseDebounced(user.uid, id, exerciseData);
-
   return response.data;
 };
 
