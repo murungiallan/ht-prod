@@ -23,13 +23,13 @@ const Stats = ({ stats }) => {
         className="bg-white rounded-xl shadow-md p-5 flex items-center space-x-3"
         variants={itemVariants}
       >
-        <div className="bg-blue-100 p-3 rounded-full">
-          <FaDumbbell className="text-blue-600 text-xl" />
+        <div className="bg-yellow-100 p-3 rounded-full">
+          <FaDumbbell className="text-yellow-500 text-xl" />
         </div>
         <div>
           <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Calories Burned</h3>
-          <p className="text-xl font-semibold text-gray-900">
-            {stats.totalCalories} <span className="text-base font-normal text-gray-500">kcal</span>
+          <p className="text-sm font-semibold text-gray-900">
+            {stats.totalCalories} <span className="font-normal text-gray-500">kcal</span>
           </p>
         </div>
       </motion.div>
@@ -37,13 +37,13 @@ const Stats = ({ stats }) => {
         className="bg-white rounded-xl shadow-md p-5 flex items-center space-x-3"
         variants={itemVariants}
       >
-        <div className="bg-green-100 p-3 rounded-full">
-          <FaClock className="text-green-600 text-xl" />
+        <div className="bg-yellow-100 p-3 rounded-full">
+          <FaClock className="text-yellow-600 text-xl" />
         </div>
         <div>
           <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Total Time</h3>
-          <p className="text-xl font-semibold text-gray-900">
-            {stats.totalDuration} <span className="text-base font-normal text-gray-500">min</span>
+          <p className="text-sm font-semibold text-gray-900">
+            {stats.totalDuration} <span className="font-normal text-gray-500">min</span>
           </p>
         </div>
       </motion.div>
@@ -51,12 +51,12 @@ const Stats = ({ stats }) => {
         className="bg-white rounded-xl shadow-md p-5 flex items-center space-x-3"
         variants={itemVariants}
       >
-        <div className="bg-blue-100 p-3 rounded-full">
-          <FaList className="text-blue-600 text-xl" />
+        <div className="bg-yellow-100 p-3 rounded-full">
+          <FaList className="text-yellow-500 text-xl" />
         </div>
         <div>
           <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Sessions</h3>
-          <p className="text-xl font-semibold text-gray-900">{stats.totalSessions}</p>
+          <p className="text-sm font-semibold text-gray-900">{stats.totalSessions}</p>
         </div>
       </motion.div>
     </motion.div>

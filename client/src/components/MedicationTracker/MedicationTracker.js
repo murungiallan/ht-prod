@@ -763,6 +763,7 @@ const MedicationTracker = () => {
       }
 
       try {
+
         const tokenResult = await currentUser.getIdTokenResult();
         const expirationTime = new Date(tokenResult.expirationTime).getTime();
         const currentTime = Date.now();
@@ -785,6 +786,7 @@ const MedicationTracker = () => {
     fetchMedications();
     fetchReminders();
     setupNotifications();
+    window.scrollTo(0, 0);
 
     onMessage(messaging, (payload) => {
       toast.info(payload.notification.body);

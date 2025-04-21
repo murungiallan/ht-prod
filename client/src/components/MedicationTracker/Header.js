@@ -7,10 +7,10 @@ const Header = ({ onViewChecklist, onViewAllReminders, searchQuery, setSearchQue
     <header className="flex flex-col md:items-start gap-4 mb-4 w-full">
       <div className="flex flex-col lg:flex-row justify-between items-start w-full gap-4">
         <div className="">
-          <h1 className="text-2xl font-bold text-gray-800 font-inter">
+          <h1 className="text-2xl font-bold text-gray-800 font-mono">
             Your Medications
           </h1>
-          <p className="text-sm text-gray-600 mt-1 font-inter">
+          <p className="text-sm text-gray-600 mt-1 font-mono">
             Track your medications with ease
           </p>
         </div>
@@ -39,7 +39,7 @@ const Header = ({ onViewChecklist, onViewAllReminders, searchQuery, setSearchQue
           placeholder="Search your medications, reminders, medication history..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="px-3 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-transparent w-full font-inter bg-transparent"
+          className="px-3 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-transparent w-full font-mono bg-transparent"
           aria-label="Search medications"
         />        
       </div>

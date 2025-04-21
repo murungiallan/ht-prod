@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const RecentExercises = ({ exercises, filter, setFilter, handleDeleteExercise, handleUpdateExercise, loading }) => {
   const [editingExercise, setEditingExercise] = useState(null);
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, exercise: null });
   const [sortConfig, setSortConfig] = useState({ key: 'date_logged', direction: 'desc' });
   const [currentPage, setCurrentPage] = useState(1);
   const exercisesPerPage = 4;
@@ -16,6 +17,21 @@ const RecentExercises = ({ exercises, filter, setFilter, handleDeleteExercise, h
       calories_burned: exercise.calories_burned,
       date_logged: exercise.date_logged,
     });
+  };
+
+  const openDeleteModal = (exercise) => {
+    setDeleteModal({ isOpen: true, exercise });
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModal({ isOpen: false, exercise: null });
+  };
+
+  const confirmDelete = () => {
+    if (deleteModal.exercise) {
+      handleDeleteExercise(deleteModal.exercise.id);
+      closeDeleteModal();
+    }
   };
 
   const exerciseIcons = {
@@ -90,7 +106,7 @@ const RecentExercises = ({ exercises, filter, setFilter, handleDeleteExercise, h
 
   const handlePageChange = (pageNumber) => {
     setCurrentPage(pageNumber);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ behavior: 'smooth' });
   };
 
   const containerVariants = {
@@ -115,13 +131,6 @@ const RecentExercises = ({ exercises, filter, setFilter, handleDeleteExercise, h
       variants={itemVariants}
     >
       <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center">
-        <svg className="h-5 w-5 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-          <path
-            fillRule="evenodd"
-            d="M3 3a1 1 0 000 2h10a1 1 0 100-2H3zm0 4a1 1 0 000 2h10a1 1 0 100-2H3zm0 4a1 1 0 100 2h10a1 1 0 100-2H3z"
-            clipRule="evenodd"
-          />
-        </svg>
         Recent Exercises
       </h2>
       <div className="mb-6">
@@ -230,7 +239,7 @@ const RecentExercises = ({ exercises, filter, setFilter, handleDeleteExercise, h
                     onClick={() => requestSort('duration')}
                   >
                     <div className="flex items-center">
-                      <FaClock className="mr-1 sm:mr-2" />
+                      <FaClock className="mr-2" />
                       Duration{getHeaderArrow('duration')}
                     </div>
                   </th>
@@ -240,7 +249,7 @@ const RecentExercises = ({ exercises, filter, setFilter, handleDeleteExercise, h
                     onClick={() => requestSort('calories_burned')}
                   >
                     <div className="flex items-center">
-                      <FaFire className="mr-1 sm:mr-2 text-red-500" />
+                      <FaFire className="mr-2 text-red-500" />
                       Calories{getHeaderArrow('calories_burned')}
                     </div>
                   </th>
@@ -250,7 +259,7 @@ const RecentExercises = ({ exercises, filter, setFilter, handleDeleteExercise, h
                     onClick={() => requestSort('date_logged')}
                   >
                     <div className="flex items-center">
-                      <FaCalendarAlt className="mr-1 sm:mr-2" />
+                      <FaCalendarAlt className="mr-2" />
                       Date & Time{getHeaderArrow('date_logged')}
                     </div>
                   </th>
@@ -305,7 +314,7 @@ const RecentExercises = ({ exercises, filter, setFilter, handleDeleteExercise, h
                             <FaEdit className="text-sm" />
                           </motion.button>
                           <motion.button
-                            onClick={() => handleDeleteExercise(exercise.id)}
+                            onClick={() => openDeleteModal(exercise)}
                             className="p-2 text-red-600 hover:bg-red-100 rounded-full transition-all duration-300 focus:ring-2 focus:ring-red-500 focus:outline-none"
                             disabled={loading}
                             aria-label={`Delete ${exercise.activity}`}
@@ -389,126 +398,170 @@ const RecentExercises = ({ exercises, filter, setFilter, handleDeleteExercise, h
       <AnimatePresence>
         {editingExercise && (
           <motion.div
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4"
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            variants={modalVariants}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
           >
             <motion.div
-              className="bg-white rounded-xl shadow-2xl w-full max-w-md sm:max-w-lg p-4 sm:p-6"
-              variants={modalVariants}
+              className="bg-gray-100 rounded-xl shadow-lg w-full max-w-md overflow-hidden relative border border-gray-200"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              style={{ fontFamily: "'Inter', sans-serif" }}
             >
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Edit Exercise</h2>
-                <motion.button
-                  onClick={() => setEditingExercise(null)}
-                  className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-all duration-300 focus:ring-2 focus:ring-gray-500 focus:outline-none"
-                  aria-label="Close modal"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </motion.button>
+              <button
+                onClick={() => setEditingExercise(null)}
+                className="absolute top-4 right-4 bg-gray-100 rounded-full w-7 h-7 flex items-center justify-center text-gray-600 hover:bg-gray-200 hover:text-purple-800 transition-colors duration-200 focus:outline-none focus:ring-3 focus:ring-purple-200"
+                aria-label="Close modal"
+                data-accent-color="#6f42c1"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              
+              <div className="p-6">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Edit Exercise</h2>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Exercise Activity</label>
+                    <select
+                      value={editingExercise.activity}
+                      onChange={(e) => setEditingExercise({ ...editingExercise, activity: e.target.value })}
+                      className="w-full bg-white p-2 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:border-purple-600 focus:ring-3 focus:ring-purple-100 transition duration-200"
+                      aria-label="Select exercise activity"
+                    >
+                      <option value="">Select an exercise</option>
+                      <option value="Running">Running</option>
+                      <option value="Walking">Walking</option>
+                      <option value="Swimming">Swimming</option>
+                      <option value="Cycling">Cycling</option>
+                      <option value="Treadmill">Treadmill</option>
+                      <option value="Hiking">Hiking</option>
+                      <option value="HIIT">HIIT</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Duration (min)</label>
+                      <input
+                        type="number"
+                        value={editingExercise.duration}
+                        onChange={(e) => setEditingExercise({ ...editingExercise, duration: Number(e.target.value) })}
+                        min="1"
+                        className="w-full bg-white p-2 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:border-purple-600 focus:ring-3 focus:ring-purple-100 transition duration-200"
+                        aria-label="Enter duration in minutes"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Calories Burned</label>
+                      <input
+                        type="number"
+                        value={editingExercise.calories_burned}
+                        onChange={(e) => setEditingExercise({ ...editingExercise, calories_burned: Number(e.target.value) })}
+                        min="1"
+                        className="w-full bg-white p-2 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:border-purple-600 focus:ring-3 focus:ring-purple-100 transition duration-200"
+                        aria-label="Enter calories burned"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex space-x-3 pt-2">
+                    <button
+                      onClick={() => setEditingExercise(null)}
+                      className="flex-1 py-2 px-4 bg-gray-100 text-gray-800 rounded-lg border border-gray-200 hover:bg-gray-200 focus:outline-none font-medium text-sm transition-all duration-500 transform hover:-translate-y-px"
+                      disabled={loading}
+                      aria-label="Cancel edit"
+                    >
+                      Cancel
+                    </button>
+                    
+                    <button
+                      onClick={() => handleUpdateExercise(editingExercise, setEditingExercise)}
+                      className="flex-1 py-2 px-4 bg-green-600 text-white rounded-lg hover:bg-green-800 focus:outline-none font-medium text-sm transition-all duration-500 transform hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={loading}
+                      aria-label="Save changes"
+                    >
+                      {loading ? (
+                        <div className="flex items-center justify-center">
+                          <svg
+                            className="animate-spin mr-2 h-4 w-4 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Saving...
+                        </div>
+                      ) : (
+                        "Save Changes"
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Exercise Activity</label>
-                  <select
-                    value={editingExercise.activity}
-                    onChange={(e) => setEditingExercise({ ...editingExercise, activity: e.target.value })}
-                    className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 text-sm sm:text-base text-gray-700"
-                    aria-label="Select exercise activity"
-                  >
-                    <option value="">Select an exercise</option>
-                    <option value="Running">Running</option>
-                    <option value="Walking">Walking</option>
-                    <option value="Swimming">Swimming</option>
-                    <option value="Cycling">Cycling</option>
-                    <option value="Treadmill">Treadmill</option>
-                    <option value="Hiking">Hiking</option>
-                    <option value="HIIT">HIIT</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration (min)</label>
-                  <input
-                    type="number"
-                    value={editingExercise.duration}
-                    onChange={(e) => setEditingExercise({ ...editingExercise, duration: Number(e.target.value) })}
-                    min="1"
-                    className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 text-sm sm:text-base text-gray-700"
-                    aria-label="Enter duration in minutes"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Calories Burned</label>
-                  <input
-                    type="number"
-                    value={editingExercise.calories_burned}
-                    onChange={(e) =>
-                      setEditingExercise({ ...editingExercise, calories_burned: Number(e.target.value) })
-                    }
-                    min="1"
-                    className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 text-sm sm:text-base text-gray-700"
-                    aria-label="Enter calories burned"
-                  />
-                </div>
-                <div className="flex justify-end space-x-3 pt-4">
-                  <motion.button
-                    onClick={() => setEditingExercise(null)}
-                    className="px-3 sm:px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 focus:ring-2 focus:ring-gray-500 focus:outline-none transition-all duration-300 text-sm sm:text-base font-medium"
-                    disabled={loading}
-                    aria-label="Cancel edit"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+            </motion.div>
+          </motion.div>
+        )}
+        {deleteModal.isOpen && (
+          <motion.div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <motion.div
+              className="bg-gray-100 rounded-xl shadow-lg max-w-md overflow-hidden relative border border-gray-200"
+              variants={modalVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              style={{ fontFamily: "'Inter', sans-serif" }}
+            >
+              <button
+                onClick={closeDeleteModal}
+                className="absolute top-4 right-4 bg-gray-100 rounded-full w-7 h-7 flex items-center justify-center text-gray-600 hover:bg-gray-200 hover:text-red-800 transition-colors duration-200 focus:outline-none focus:ring-3 focus:ring-red-200"
+                aria-label="Close delete modal"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <div className="p-6">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Confirm Delete</h2>
+                <p className="text-sm text-gray-600 mb-6">
+                  Are you sure you want to delete the {deleteModal.exercise?.activity} exercise logged on{" "}
+                  {new Date(deleteModal.exercise?.date_logged).toLocaleDateString()}? This action cannot be undone.
+                </p>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={closeDeleteModal}
+                    className="flex-1 py-2 px-4 bg-gray-100 text-gray-800 rounded-lg border border-gray-200 hover:bg-gray-200 focus:outline-none font-medium text-sm transition-all duration-500 transform hover:-translate-y-px"
+                    aria-label="Cancel delete"
                   >
                     Cancel
-                  </motion.button>
-                  <motion.button
-                    onClick={() => handleUpdateExercise(editingExercise, setEditingExercise)}
-                    className="px-3 sm:px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-300 text-sm sm:text-base font-medium"
-                    disabled={loading}
-                    aria-label="Save changes"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                  </button>
+                  <button
+                    onClick={confirmDelete}
+                    className="flex-1 py-2 px-4 bg-red-600 text-white rounded-lg hover:bg-red-800 focus:outline-none font-medium text-sm transition-all duration-500 transform hover:-translate-y-px"
+                    aria-label="Confirm delete"
                   >
-                    {loading ? (
-                      <div className="flex items-center">
-                        <svg
-                          className="animate-spin -ml-1 mr-2 h-4 w-4 sm:h-5 sm:w-5 text-white"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Saving...
-                      </div>
-                    ) : (
-                      "Save Changes"
-                    )}
-                  </motion.button>
+                    Delete
+                  </button>
                 </div>
               </div>
             </motion.div>

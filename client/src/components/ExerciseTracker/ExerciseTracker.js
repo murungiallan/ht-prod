@@ -38,7 +38,8 @@ const ExerciseTracker = () => {
     labels: [],
   });
   const [filter, setFilter] = useState("All-Time");
-  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(new Date()); // Default to today
+  const [isLogExerciseModalOpen, setIsLogExerciseModalOpen] = useState(false); // Modal state
 
   const chartOptions = {
     responsive: true,
@@ -185,6 +186,7 @@ const ExerciseTracker = () => {
       try {
         const tokenResult = await currentUser.getIdTokenResult();
         const expirationTime = new Date(tokenResult.expirationTime).getTime();
+
         const currentTime = Date.now();
         const timeUntilExpiration = expirationTime - currentTime;
 
@@ -233,7 +235,7 @@ const ExerciseTracker = () => {
     socket.on("exerciseAdded", handleExerciseAdded);
     socket.on("exerciseDeleted", handleExerciseDeleted);
     socket.on("exerciseUpdated", handleExerciseUpdated);
-
+    window.scrollTo(0, 0);
     computeWeeklyData();
 
     return () => {
@@ -397,24 +399,19 @@ const ExerciseTracker = () => {
     },
   };
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
-  };
-
   return (
     <motion.div
-      className="min-h-screen p-6 sm:p-8 lg:p-10 max-w-7xl mx-auto font-inter"
+      className="min-h-screen p-6 sm:p-8 lg:p-10 max-w-7xl mx-auto font-mono"
       initial="hidden"
       animate="visible"
       variants={containerVariants}
     >
-      <Header />
+      <Header onOpenModal={() => setIsLogExerciseModalOpen(true)} />
       
       {error && (
         <motion.div
           className="bg-red-50 border-l-4 border-red-500 text-red-800 p-4 rounded-lg mb-6 flex justify-between items-center"
-          variants={itemVariants}
+          variants={containerVariants}
         >
           <div className="flex items-center">
             <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
@@ -447,8 +444,13 @@ const ExerciseTracker = () => {
 
       <div className="space-y-8">
         <Calendar exercises={exercises} setSelectedDate={setSelectedDate} selectedDate={selectedDate} />
-        <Stats stats={stats} />
-        <LogExercise handleLogExercise={handleLogExercise} loading={loading} />
+        <LogExercise
+          handleLogExercise={handleLogExercise}
+          loading={loading}
+          isOpen={isLogExerciseModalOpen}
+          onClose={() => setIsLogExerciseModalOpen(false)}
+        />
+        <WeeklyActivity weeklyData={weeklyData} chartOptions={chartOptions} />
         <RecentExercises
           exercises={exercises}
           filter={filter}
@@ -457,7 +459,6 @@ const ExerciseTracker = () => {
           handleUpdateExercise={handleUpdateExercise}
           loading={loading}
         />
-        <WeeklyActivity weeklyData={weeklyData} chartOptions={chartOptions} />
       </div>
     </motion.div>
   );

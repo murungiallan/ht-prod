@@ -9,7 +9,7 @@ const WeeklyActivity = ({ weeklyData, chartOptions }) => {
 
   return (
     <motion.div
-      className="bg-white rounded-xl shadow-md p-6"
+      className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-8"
       variants={itemVariants}
     >
       <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
