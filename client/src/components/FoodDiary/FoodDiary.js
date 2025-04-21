@@ -903,20 +903,41 @@ const FoodTracker = () => {
   const isFutureDate = (date) => moment(date).isAfter(moment(), "day");
 
   const dummyData = {
-    '2025-04-13': {
-      breakfast: ['Oatmeal with honey', 'Boiled egg'],
-      lunch: ['Grilled chicken sandwich', 'Apple juice'],
-      dinner: ['Baked salmon', 'Steamed broccoli'],
-    },
-    '2025-04-14': {
-      breakfast: ['Greek yogurt', 'Banana'],
-      lunch: ['Quinoa salad', 'Orange'],
-      dinner: ['Chicken stir-fry', 'Brown rice'],
+    '2025-04-19': {
+      breakfast: [
+        {
+          name: 'Oatmeal with Honey',
+          calories: 180,
+          portion: '1 bowl',
+          image: 'https://www.veggieinspired.com/wp-content/uploads/2015/05/healthy-oatmeal-berries-featured.jpg',
+        },
+        {
+          name: 'Boiled Egg',
+          calories: 78,
+          portion: '1 egg',
+          image: 'https://aducksoven.com/wp-content/uploads/2023/04/soft-boiled-sous-vide-egg-1-4-500x500.jpg',
+        },
+      ],
+      lunch: [
+        {
+          name: 'Grilled Chicken Sandwich',
+          calories: 450,
+          portion: '1 sandwich',
+          image: 'https://easychickenrecipes.com/wp-content/uploads/2023/06/grilled-chicken-sandwich-1-of-6-edited.jpg',
+        },
+      ],
+      dinner: [
+        {
+          name: 'Baked Salmon',
+          calories: 350,
+          portion: '1 fillet',
+          image: 'https://assets.epicurious.com/photos/62d6c5146b6e74298a39d06a/4:3/w_4031,h_3023,c_limit/BakedSalmon_RECIPE_04142022_9780_final.jpg',
+        },
+      ],
     },
   };
   
   const mealTypes = ['breakfast', 'lunch', 'dinner'];
-  //const [selectedDate, setSelectedDate] = useState(new Date());
   const [activeTab, setActiveTab] = useState('breakfast');
 
   const formattedDate = selectedDate.toISOString().split('T')[0];
@@ -959,7 +980,7 @@ const FoodTracker = () => {
         </div>
 
         {/* Time of Day Sections */}
-        <div className="w-full lg:w-2/3 flex flex-col space-y-4">
+        {/*<div className="w-full lg:w-2/3 flex flex-col space-y-4">
           <TimeOfDaySection
             title="Breakfast"
             meds={morningMeds}
@@ -975,10 +996,10 @@ const FoodTracker = () => {
             meds={eveningMeds}
             icon={<WiDayWindy className="text-xl sm:text-2xl" />}
           />
-        </div>
+        </div>*/}
       </div>
 
-      {/* Medications Table Section */}
+      {/* Food Content Section */}
       <div className="bg-white rounded-lg p-4 sm:p-6 shadow-md border border-gray-200 mt-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6">
           <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-3 sm:mb-0">
@@ -992,37 +1013,46 @@ const FoodTracker = () => {
           </button>
         </div>
         {/* Meal Tabs */}
-      <div className="flex space-x-4 border-b border-green-300 pt-4">
-        {mealTypes.map((type) => (
-          <button
-            key={type}
-            onClick={() => setActiveTab(type)}
-            className={`px-4 py-2 font-semibold capitalize ${
-              activeTab === type ? 'border-b-4 border-green-600 text-green-800' : 'text-gray-600'
-            }`}
-          >
-            {type}
-          </button>
-        ))}
-      </div>
-
-      {/* Food Items */}
-      <div className="space-y-2">
-        {foods.length > 0 ? (
-          foods.map((food, index) => (
-            <div
-              key={index}
-              className="bg-green-50 p-3 rounded-lg border border-green-200 shadow-sm"
+        <div className="flex space-x-4 border-b border-green-300 pt-4">
+          {mealTypes.map((type) => (
+            <button
+              key={type}
+              onClick={() => setActiveTab(type)}
+              className={`px-4 py-2 font-semibold capitalize ${
+                activeTab === type ? 'border-b-4 border-green-600 text-green-800' : 'text-gray-600'
+              }`}
             >
-              {food}
-            </div>
-          ))
-        ) : (
-          <p className="text-gray-500 italic">
-            No food logged for {activeTab} on {formattedDate}.
-          </p>
-        )}
-      </div>
+              {type}
+            </button>
+          ))}
+        </div>
+
+        {/* Food Cards */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {foods.length > 0 ? (
+            foods.map((food, index) => (
+              <div
+                key={index}
+                className="bg-white rounded-xl shadow border border-green-200 overflow-hidden"
+              >
+                <img
+                  src={food.image}
+                  alt={food.name}
+                  className="w-full h-40 object-cover"
+                />
+                <div className="p-4 space-y-1">
+                  <h3 className="text-lg font-semibold text-green-900">{food.name}</h3>
+                  <p className="text-sm text-gray-600">🔥 {food.calories} kcal</p>
+                  <p className="text-sm text-gray-600">🍽️ Portion: {food.portion}</p>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="text-gray-500 italic col-span-full">
+              No food logged for {activeTab} on {formattedDate}.
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="p-6 space-y-6 text-gray-800">
