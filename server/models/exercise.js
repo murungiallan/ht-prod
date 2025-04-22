@@ -2,7 +2,7 @@ import db from "../config/db.js";
 
 class Exercise {
   static async add(exerciseData) {
-    const { userId, activity, duration, calories_burned, date_logged } = exerciseData;
+    const { userId, activity, duration, calories_burned, date_logged} = exerciseData;
     const query = `
       INSERT INTO exercises (user_id, activity, duration, calories_burned, date_logged)
       VALUES (?, ?, ?, ?, ?)
