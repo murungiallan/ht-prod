@@ -1009,7 +1009,7 @@ const FoodTracker = () => {
             onClick={() => setShowAddModal(true)}
             className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm sm:text-base font-semibold hover:bg-gray-800 transition-colors duration-200 w-1/4 sm:w-auto"
           >
-            + Add Medication
+            + Add your meal
           </button>
         </div>
         {/* Meal Tabs */}
@@ -1071,7 +1071,7 @@ const FoodTracker = () => {
           content: ModalContentWrapper,
         }}
       >
-        <h2 className="text-lg sm:text-xl font-semibold mb-4">Add Medication</h2>
+        <h2 className="text-lg sm:text-xl font-semibold mb-4">Add your meal</h2>
         <form onSubmit={handleAddMedication} className="space-y-4">
           <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-1">
