@@ -104,11 +104,11 @@ const Profile = () => {
     );
   }
 
-  // Display error message if there’s an error
+  // Display error message if there's an error
   if (error) {
     return (
       <div className="min-h-screen p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-800 font-mono">Your Profile</h1>
+        <h1 className="text-2xl font-bold text-gray-800">Your Profile</h1>
         <div className="bg-white p-6 rounded-lg shadow-md">
           <p className="text-red-600">{error}</p>
           <p className="text-gray-600 mt-2">
@@ -123,7 +123,7 @@ const Profile = () => {
   if (!userData) {
     return (
       <div className="min-h-screen p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-800 font-mono">Your Profile</h1>
+        <h1 className="text-2xl font-bold text-gray-800">Your Profile</h1>
         <div className="bg-white p-6 rounded-lg shadow-md">
           <p className="text-gray-600">No profile data available.</p>
         </div>
@@ -133,7 +133,7 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-800 font-mono">Your Profile</h1>
+      <h1 className="text-2xl font-bold text-gray-800">Your Profile</h1>
 
       {/* Profile Overview */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-8">

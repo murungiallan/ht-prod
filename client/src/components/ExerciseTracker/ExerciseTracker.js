@@ -401,7 +401,7 @@ const ExerciseTracker = () => {
 
   return (
     <motion.div
-      className="min-h-screen p-6 sm:p-8 lg:p-10 max-w-7xl mx-auto font-mono"
+      className="min-h-screen p-6 mb-0 sm:p-8 lg:p-10 max-w-7xl mx-auto"
       initial="hidden"
       animate="visible"
       variants={containerVariants}

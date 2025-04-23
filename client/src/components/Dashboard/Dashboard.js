@@ -827,17 +827,6 @@ const Dashboard = () => {
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-lg">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-              <FaLightbulb className="mr-2 text-yellow-500" /> Health Insights
-            </h2>
-            <p className="text-sm text-gray-600">
-              {adherencePercentage >= 80
-                ? "Great job! Your medication adherence is excellent."
-                : "Try to improve your medication adherence this week!"}
-            </p>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow-lg">
             <h2 className="text-xl font-semibold text-gray-800 mb-4">Daily Health Tip</h2>
             <p className="text-sm text-gray-600">Drink at least 8 glasses of water today to stay hydrated.</p>
           </div>

@@ -160,7 +160,7 @@ const Register = () => {
           <div className="mt-6 text-center">
             <p>
               Already have an account?{" "}
-              <Link to="/login" className="text-amber-950 hover:text-amber-800 font-mono transition duration-200 underline underline-offset-8">
+              <Link to="/login" className="text-amber-950 hover:text-amber-800 transition duration-200 underline underline-offset-8">
                 Sign in
               </Link>
             </p>
