@@ -215,7 +215,7 @@ class Medication {
       // Validate 2-hour window
       if (taken) {
         const doseTime = doses[date][doseIndex].time;
-        const doseDateTime = moment(`${date} ${doseTime}`, "YYYY-MM-DD HH:mm:ss").utcOffset("+08:00");
+        const doseDateTime = moment(`${date} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
         const now = moment.tz.setDefault();
         const hoursDiff = Math.abs(doseDateTime.diff(now, "hours", true));
         if (hoursDiff > 2) {

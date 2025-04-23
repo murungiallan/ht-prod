@@ -32,6 +32,17 @@ class MedicationController {
       }
 
       // Validate times array
+      const normalizedTimes = times.map((time) => {
+        if (/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time)) {
+          return `${time}:00`;
+        }
+        return time;
+      });
+
+      if (!normalizedTimes.every((time) => timeRegex.test(time))) {
+        return res.status(400).json({ error: "Each time must be in HH:mm:ss format (e.g., 08:00:00)" });
+      }
+
       if (!Array.isArray(times) || times.length !== times_per_day) {
         return res.status(400).json({ error: "times must be an array with length equal to times_per_day" });
       }
@@ -284,6 +295,11 @@ class MedicationController {
   
       // Validate 2-hour window
       const doseTime = medication.doses[date]?.[doseIndex]?.time;
+      const windowStart = doseDateTime.clone().subtract(1, "hour");
+      const windowEnd = doseDateTime.clone().add(1, "hour");
+      if (taken && !now.isBetween(windowStart, windowEnd, null, "[]")) {
+        return res.status(400).json({ error: "Can only mark medication as taken within 1 hour of the scheduled time" });
+      }
       if (!doseTime) {
         return res.status(400).json({ error: "Dose time not found for the specified date and index" });
       }
@@ -291,13 +307,12 @@ class MedicationController {
       // Extract hours and minutes from doseTime (format: HH:mm:ss)
       const [hours, minutes] = doseTime.split(":").map(Number);
       const doseDateTime = moment(medication.start_date)
-        .utcOffset("+08:00")
         .set({ hour: hours, minute: minutes, second: 0, millisecond: 0 });
   
       const now = moment();
       const hoursDiff = Math.abs(doseDateTime.diff(now, "hours", true));
-      if (taken && hoursDiff > 2) {
-        return res.status(400).json({ error: "Can only mark medication as taken within 2 hours of the scheduled time" });
+      if (taken && hoursDiff > 1) {
+        return res.status(400).json({ error: "Can only mark medication as taken within 1 hour of the scheduled time" });
       }
   
       const updatedMedication = await Medication.updateTakenStatus(id, doseIndex, taken, date);
