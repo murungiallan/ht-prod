@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import Modal from "react-modal";
 import moment from "moment-timezone";
 import { ModalContentWrapper, CloseButton, Button, ModalOverlay, ModalContent } from "../styles";
+import { formatInTimeZone } from "date-fns-tz";
 
 const formatTimeForDisplay = (time) => {
   if (!time || typeof time !== "string") return "Unknown time";
@@ -28,8 +29,8 @@ const MedicationDetailModal = ({
   selectedDate,
 }) => {
   const formattedDate = selectedDate
-    ? moment(selectedDate).tz("Asia/Kuala_Lumpur").format("YYYY-MM-DD")
-    : moment().tz("Asia/Kuala_Lumpur").format("YYYY-MM-DD");
+  ? formatInTimeZone(selectedDate, Intl.DateTimeFormat().resolvedOptions().timeZone, "yyyy-MM-dd")
+  : formatInTimeZone(new Date(), Intl.DateTimeFormat().resolvedOptions().timeZone, "yyyy-MM-dd");
   const dosesForDate = selectedMedication?.doses?.[formattedDate] || [];
   const timesArray = Array.isArray(selectedMedication?.times)
     ? selectedMedication.times
