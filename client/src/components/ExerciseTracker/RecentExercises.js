@@ -410,7 +410,6 @@ const RecentExercises = ({ exercises, filter, setFilter, handleDeleteExercise, h
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               transition={{ duration: 0.3 }}
-              style={{ fontFamily: "'Inter', sans-serif" }}
             >
               <button
                 onClick={() => setEditingExercise(null)}
@@ -530,7 +529,6 @@ const RecentExercises = ({ exercises, filter, setFilter, handleDeleteExercise, h
               initial="hidden"
               animate="visible"
               exit="exit"
-              style={{ fontFamily: "'Inter', sans-serif" }}
             >
               <button
                 onClick={closeDeleteModal}

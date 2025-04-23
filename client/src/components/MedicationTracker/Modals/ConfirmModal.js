@@ -20,7 +20,6 @@ const ConfirmModal = ({ isOpen, onRequestClose, message, onConfirm, actionLoadin
             fontWeight: 600,
             color: "#333333",
             marginBottom: "16px",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           Confirm Action
@@ -30,7 +29,6 @@ const ConfirmModal = ({ isOpen, onRequestClose, message, onConfirm, actionLoadin
             fontSize: "0.875rem",
             color: "#666666",
             marginBottom: "16px",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           {message}

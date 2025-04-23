@@ -870,7 +870,7 @@ const MedicationTracker = () => {
             isFutureDate={isFutureDate}
           />
         </div>
-        <div className="flex flex-col lg:space-x-6 space-y-6 lg:space-y-0 w-full lg:max-w-3/4">
+        <div className="flex flex-col lg:space-x-6 space-y-6 lg:space-y-0 w-full gap-4 mt-4">
           <MedicationList
             medications={medications}
             loading={loading}

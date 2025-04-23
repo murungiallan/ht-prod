@@ -28,7 +28,6 @@ const EditReminderModal = ({
             fontWeight: 600,
             color: "#333333",
             marginBottom: "16px",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           Edit Reminder
@@ -46,7 +45,6 @@ const EditReminderModal = ({
                 fontWeight: 500,
                 color: "#333333",
                 marginBottom: "4px",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               Reminder Time

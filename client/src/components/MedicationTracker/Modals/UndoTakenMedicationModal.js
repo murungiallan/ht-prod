@@ -50,7 +50,6 @@ const UndoTakenMedicationModal = ({
             fontWeight: 600,
             color: "#333333",
             marginBottom: "16px",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           Undo Taken Medication
@@ -60,7 +59,6 @@ const UndoTakenMedicationModal = ({
             fontSize: "0.875rem",
             color: "#666666",
             marginBottom: "16px",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           Select the dose you want to undo the taken status for.
@@ -82,7 +80,6 @@ const UndoTakenMedicationModal = ({
                 style={{
                   fontSize: "0.875rem",
                   color: "#666666",
-                  fontFamily: "'Inter', sans-serif",
                 }}
               >
                 {formatTimeForDisplay(dose?.time || "Unknown time")}

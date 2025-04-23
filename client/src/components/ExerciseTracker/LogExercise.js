@@ -35,7 +35,6 @@ const LogExercise = ({ handleLogExercise, loading, isOpen, onClose }) => {
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
         transition={{ duration: 0.3 }}
-        style={{ fontFamily: "'Inter', sans-serif" }}
       >
         <button
           onClick={handleCancel}

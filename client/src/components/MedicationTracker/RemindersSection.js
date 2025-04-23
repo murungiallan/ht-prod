@@ -79,7 +79,7 @@ const RemindersSection = ({
           fontWeight: 600,
           color: "#333333",
           marginBottom: "16px",
-          fontFamily: "'Inter', sans-serif",
+         
         }}
       >
         Reminders
@@ -89,7 +89,6 @@ const RemindersSection = ({
           style={{
             fontSize: "0.875rem",
             color: "#666666",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           No reminders set.
@@ -107,25 +106,25 @@ const RemindersSection = ({
                   }}
                 >
                   <th
-                    style={{ padding: "12px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                    style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
                     onClick={() => handleSort("medication")}
                   >
                     Medication {sortConfig.key === "medication" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </th>
                   <th
-                    style={{ padding: "12px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                    style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
                     onClick={() => handleSort("reminderTime")}
                   >
                     Time {sortConfig.key === "reminderTime" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </th>
                   <th
-                    style={{ padding: "12px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                    style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
                     onClick={() => handleSort("date")}
                   >
                     Date {sortConfig.key === "date" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </th>
                   <th
-                    style={{ padding: "12px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                    style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
                     onClick={() => handleSort("status")}
                   >
                     Status {sortConfig.key === "status" && (sortConfig.direction === "asc" ? "↑" : "↓")}
@@ -134,7 +133,7 @@ const RemindersSection = ({
                     style={{
                       padding: "12px",
                       fontWeight: 600,
-                      fontFamily: "'Inter', sans-serif",
+                     
                       textAlign: "right",
                     }}
                   >
@@ -152,14 +151,14 @@ const RemindersSection = ({
                         borderBottom: "1px solid #e0e0e0",
                       }}
                     >
-                      <td style={{ padding: "12px", fontFamily: "'Inter', sans-serif" }}>
+                      <td style={{ padding: "12px" }}>
                         {med?.medication_name || "Unknown"}
                       </td>
-                      <td style={{ padding: "12px", fontFamily: "'Inter', sans-serif" }}>
+                      <td style={{ padding: "12px" }}>
                         {formatTimeForDisplay(reminder.reminderTime)}
                       </td>
-                      <td style={{ padding: "12px", fontFamily: "'Inter', sans-serif" }}>{reminder.date}</td>
-                      <td style={{ padding: "12px", fontFamily: "'Inter', sans-serif" }}>
+                      <td style={{ padding: "12px" }}>{reminder.date}</td>
+                      <td style={{ padding: "12px" }}>
                         <span
                           style={{
                             color: reminder.status === "sent" ? "#28a745" : "#ffc107",
@@ -169,7 +168,7 @@ const RemindersSection = ({
                           {reminder.status || "pending"}
                         </span>
                       </td>
-                      <td style={{ padding: "12px", textAlign: "right", fontFamily: "'Inter', sans-serif" }}>
+                      <td style={{ padding: "12px", textAlign: "right" }}>
                         <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
                           {reminder.status !== "sent" && (
                             <button
@@ -180,7 +179,7 @@ const RemindersSection = ({
                                 border: "none",
                                 cursor: "pointer",
                                 fontSize: "0.875rem",
-                                fontFamily: "'Inter', sans-serif",
+                               
                                 transition: "color 0.2s ease",
                               }}
                               disabled={actionLoading}
@@ -208,7 +207,7 @@ const RemindersSection = ({
                             onMouseEnter={(e) => (e.currentTarget.style.color = "#e0a800")}
                             onMouseLeave={(e) => (e.currentTarget.style.color = "#ffc107")}
                           >
-                            <MdEdit style={{ fontSize: "1.125rem" }} />
+                            <MdEdit/>
                             <span style={{ display: "none" }}>Edit</span>
                           </button>
                           <button
@@ -225,7 +224,7 @@ const RemindersSection = ({
                             onMouseEnter={(e) => (e.currentTarget.style.color = "#c82333")}
                             onMouseLeave={(e) => (e.currentTarget.style.color = "#dc3545")}
                           >
-                            <MdDelete style={{ fontSize: "1.125rem" }} />
+                            <MdDelete/>
                             <span style={{ display: "none" }}>Delete</span>
                           </button>
                         </div>

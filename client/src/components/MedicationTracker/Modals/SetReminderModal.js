@@ -30,7 +30,6 @@ const SetReminderModal = ({
             fontWeight: 600,
             color: "#333333",
             marginBottom: "16px",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           Set Reminder
@@ -48,7 +47,6 @@ const SetReminderModal = ({
                 fontWeight: 500,
                 color: "#333333",
                 marginBottom: "4px",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               Reminder Time
@@ -79,7 +77,6 @@ const SetReminderModal = ({
               style={{
                 fontSize: "0.875rem",
                 color: "#333333",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               Set as daily recurring reminder

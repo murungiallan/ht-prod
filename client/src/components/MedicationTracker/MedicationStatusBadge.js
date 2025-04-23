@@ -12,8 +12,6 @@ const StatusBadge = styled.span`
   gap: 6px;
   padding: 6px 12px;
   border-radius: 16px;
-  font-size: ${theme.typography.body};
-  font-family: ${theme.typography.fontFamily};
   font-weight: 500;
   transition: filter 0.2s ease;
 
@@ -55,7 +53,7 @@ const MedicationStatusBadge = React.memo(({ med, getDoseStatus }) => {
   if (isTaken) {
     return (
       <StatusBadge className="taken">
-        <BsCheck2Circle style={{ fontSize: "0.875rem" }} /> Taken
+        <BsCheck2Circle/> Taken
       </StatusBadge>
     );
   }
@@ -63,7 +61,7 @@ const MedicationStatusBadge = React.memo(({ med, getDoseStatus }) => {
   if (isMissed) {
     return (
       <StatusBadge className="missed">
-        <BsXCircle style={{ fontSize: "0.875rem" }} /> Missed
+        <BsXCircle/> Missed
       </StatusBadge>
     );
   }
@@ -75,11 +73,11 @@ const MedicationStatusBadge = React.memo(({ med, getDoseStatus }) => {
     <StatusBadge className={isOverdue ? "overdue" : "pending"}>
       {isOverdue ? (
         <>
-          <BsClock style={{ fontSize: "0.875rem" }} /> Overdue
+          <BsClock/> Overdue
         </>
       ) : (
         <>
-          <CiWarning style={{ fontSize: "0.875rem" }} /> Pending
+          <CiWarning/> Pending
         </>
       )}
     </StatusBadge>

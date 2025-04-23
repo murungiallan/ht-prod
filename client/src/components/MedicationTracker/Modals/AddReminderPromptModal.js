@@ -27,7 +27,6 @@ const AddReminderPromptModal = ({
             fontWeight: 600,
             color: "#333333",
             marginBottom: "16px",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           Set a Reminder
@@ -37,7 +36,6 @@ const AddReminderPromptModal = ({
             fontSize: "0.875rem",
             color: "#666666",
             marginBottom: "16px",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           Would you like to set a reminder for {showAddReminderPrompt?.medication.medication_name} on{" "}

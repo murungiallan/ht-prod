@@ -77,10 +77,9 @@ const MedicationList = ({
       >
         <h2
           style={{
-            fontSize: "1.25rem",
+            fontSize :"1.25rem",
             fontWeight: 600,
             color: "#333333",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           Medication List
@@ -95,7 +94,6 @@ const MedicationList = ({
             textAlign: "center",
             padding: "16px 0",
             color: "#666666",
-            fontFamily: "'Inter', sans-serif",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
@@ -112,7 +110,7 @@ const MedicationList = ({
               animation: "spin 1s linear infinite",
             }}
           />
-          <p style={{ fontSize: "0.875rem" }}>Loading medications...</p>
+          <p>Loading medications...</p>
         </div>
       ) : filteredMedications.length === 0 ? (
         <p
@@ -120,8 +118,6 @@ const MedicationList = ({
             textAlign: "center",
             padding: "16px 0",
             color: "#666666",
-            fontSize: "0.875rem",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           No medications found.
@@ -139,25 +135,25 @@ const MedicationList = ({
                   }}
                 >
                   <th
-                    style={{ padding: "12px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                    style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
                     onClick={() => handleSort("medication_name")}
                   >
                     Name {sortConfig.key === "medication_name" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </th>
                   <th
-                    style={{ padding: "12px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                    style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
                     onClick={() => handleSort("times_per_day")}
                   >
                     Times {sortConfig.key === "times_per_day" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </th>
                   <th
-                    style={{ padding: "12px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                    style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
                     onClick={() => handleSort("dosage")}
                   >
                     Dosage {sortConfig.key === "dosage" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </th>
                   <th
-                    style={{ padding: "12px", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                    style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
                     onClick={() => handleSort("status")}
                   >
                     Status {sortConfig.key === "status" && (sortConfig.direction === "asc" ? "↑" : "↓")}
@@ -166,7 +162,6 @@ const MedicationList = ({
                     style={{
                       padding: "12px",
                       fontWeight: 600,
-                      fontFamily: "'Inter', sans-serif",
                       textAlign: "right",
                     }}
                   ></th>
@@ -190,26 +185,26 @@ const MedicationList = ({
                       tabIndex={0}
                       onKeyPress={(e) => e.key === "Enter" && openMedicationDetail(med)}
                     >
-                      <td style={{ padding: "12px", fontFamily: "'Inter', sans-serif" }}>
+                      <td style={{ padding: "12px" }}>
                         <div style={{ display: "flex", flexDirection: "column" }}>
                           <div style={{ fontWeight: 500, color: "#333333" }}>{med.medication_name}</div>
-                          <div style={{ fontSize: "0.75rem", color: "#666666", textTransform: "capitalize" }}>
+                          <div style={{ color: "#666666", textTransform: "capitalize" }}>
                             {med.frequency}
                           </div>
                         </div>
                       </td>
-                      <td style={{ padding: "12px", fontFamily: "'Inter', sans-serif" }}>
+                      <td style={{ padding: "12px" }}>
                         {(Array.isArray(med.times) ? med.times : []).map((time) => formatTimeForDisplay(time)).join(", ")} (
                         {med.times_per_day} times/day)
                       </td>
-                      <td style={{ padding: "12px", fontFamily: "'Inter', sans-serif" }}>{med.dosage}</td>
-                      <td style={{ padding: "12px", fontFamily: "'Inter', sans-serif" }}>
-                        <span style={{ fontSize: "0.875rem", color: "#666666" }}>
+                      <td style={{ padding: "12px" }}>{med.dosage}</td>
+                      <td style={{ padding: "12px" }}>
+                        <span style={{ color: "#666666" }}>
                           Taken: {takenDoses}/{totalDoses}, Missed: {missedDoses}
                         </span>
                       </td>
                       <td
-                        style={{ padding: "12px", textAlign: "right", fontFamily: "'Inter', sans-serif" }}
+                        style={{ padding: "12px", textAlign: "right" }}
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", flexWrap: "wrap" }}>
@@ -242,7 +237,7 @@ const MedicationList = ({
                             onMouseLeave={(e) => (e.currentTarget.style.color = "#dc3545")}
                             aria-label="Delete medication"
                           >
-                            <MdDelete style={{ fontSize: "1.125rem" }} />
+                            <MdDelete />
                           </button>
                         </div>
                       </td>

@@ -64,7 +64,6 @@ const Pagination = ({ totalItems, itemsPerPage, currentPage, setCurrentPage, pag
           padding: "6px 12px",
           borderRadius: "8px",
           fontSize: "0.875rem",
-          fontFamily: "'Inter', sans-serif",
           fontWeight: 500,
           cursor: "pointer",
           transition: "background-color 0.2s ease",
@@ -87,7 +86,6 @@ const Pagination = ({ totalItems, itemsPerPage, currentPage, setCurrentPage, pag
             style={{
               padding: "6px 12px",
               fontSize: "0.875rem",
-              fontFamily: "'Inter', sans-serif",
               color: "#666666",
             }}
           >
@@ -100,7 +98,6 @@ const Pagination = ({ totalItems, itemsPerPage, currentPage, setCurrentPage, pag
               padding: "6px 12px",
               borderRadius: "8px",
               fontSize: "0.875rem",
-              fontFamily: "'Inter', sans-serif",
               fontWeight: 500,
               cursor: "pointer",
               transition: "background-color 0.2s ease",
@@ -121,7 +118,6 @@ const Pagination = ({ totalItems, itemsPerPage, currentPage, setCurrentPage, pag
           padding: "6px 12px",
           borderRadius: "8px",
           fontSize: "0.875rem",
-          fontFamily: "'Inter', sans-serif",
           fontWeight: 500,
           cursor: "pointer",
           transition: "background-color 0.2s ease",

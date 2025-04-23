@@ -30,14 +30,6 @@ export const theme = {
     medium: "16px",
     large: "24px",
   },
-  typography: {
-    fontFamily: "'Inter', sans-serif",
-    h1: "1.5rem",
-    h2: "1.25rem",
-    h3: "1rem",
-    body: "0.875rem",
-    small: "0.75rem",
-  },
 };
 
 export const Section = styled.div`
@@ -46,6 +38,7 @@ export const Section = styled.div`
   border-radius: 12px;
   box-shadow: 0 4px 12px ${theme.colors.shadow};
   border: 1px solid ${theme.colors.border};
+  width: 100%;
 
   @media (max-width: 640px) {
     padding: ${theme.spacing.medium};
@@ -55,8 +48,6 @@ export const Section = styled.div`
 export const Button = styled.button`
   padding: ${theme.spacing.small} ${theme.spacing.medium};
   border-radius: 8px;
-  font-size: ${theme.typography.body};
-  font-family: ${theme.typography.fontFamily};
   font-weight: 500;
   cursor: pointer;
   transition: background-color 0.5s ease-in-out, transform 0.2s ease;
@@ -111,7 +102,6 @@ export const CloseButton = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: ${theme.typography.small};
   font-weight: 600;
   color: ${theme.colors.textLight};
   border: none;
@@ -135,8 +125,7 @@ export const Input = styled.input`
   padding: ${theme.spacing.small};
   border: 1px solid ${theme.colors.border};
   border-radius: 8px;
-  font-size: ${theme.typography.body};
-  font-family: ${theme.typography.fontFamily};
+  
   color: ${theme.colors.text};
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
@@ -153,8 +142,7 @@ export const Select = styled.select`
   padding: ${theme.spacing.small};
   border: 1px solid ${theme.colors.border};
   border-radius: 8px;
-  font-size: ${theme.typography.body};
-  font-family: ${theme.typography.fontFamily};
+  
   color: ${theme.colors.text};
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
@@ -171,8 +159,6 @@ export const Textarea = styled.textarea`
   padding: ${theme.spacing.small};
   border: 1px solid ${theme.colors.border};
   border-radius: 8px;
-  font-size: ${theme.typography.body};
-  font-family: ${theme.typography.fontFamily};
   color: ${theme.colors.text};
   resize: vertical;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;

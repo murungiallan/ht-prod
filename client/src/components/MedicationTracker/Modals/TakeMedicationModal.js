@@ -49,7 +49,6 @@ const TakeMedicationModal = ({
             fontWeight: 600,
             color: "#333333",
             marginBottom: "16px",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           Take Medication
@@ -59,7 +58,6 @@ const TakeMedicationModal = ({
             fontSize: "0.875rem",
             color: "#666666",
             marginBottom: "16px",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           Select the dose you want to mark as taken for {medication?.medication_name}.
@@ -69,7 +67,6 @@ const TakeMedicationModal = ({
             style={{
               fontSize: "0.875rem",
               color: "#666666",
-              fontFamily: "'Inter', sans-serif",
             }}
           >
             No doses scheduled for this day.
@@ -92,7 +89,6 @@ const TakeMedicationModal = ({
                   style={{
                     fontSize: "0.875rem",
                     color: "#666666",
-                    fontFamily: "'Inter', sans-serif",
                   }}
                 >
                   {formatTimeForDisplay(dose?.time || "Unknown time")}
