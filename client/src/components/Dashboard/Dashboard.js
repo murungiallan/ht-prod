@@ -11,12 +11,12 @@ import {
   getUserExercises,
 } from "../../services/api";
 import { Line } from 'react-chartjs-2';
-import { Chart as ChartJS, LineElement, PointElement, LinearScale, Title, Tooltip, Legend, TimeScale, Filler } from 'chart.js';
+import { Chart as ChartJS, LineElement, PointElement, LinearScale, Title, Tooltip, Legend, TimeScale, Filler, CategoryScale } from 'chart.js';
 import 'chartjs-adapter-moment';
 import moment from 'moment';
 import { motion, AnimatePresence } from 'framer-motion';
 
-ChartJS.register(LineElement, PointElement, LinearScale, Title, Tooltip, Legend, TimeScale, Filler);
+ChartJS.register(LineElement, PointElement, LinearScale, Title, Tooltip, Legend, TimeScale, Filler, CategoryScale);
 
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -90,11 +90,6 @@ const StatWidget = ({ icon, title, value, percentage, color }) => {
 const WeeklyActivity = ({ weeklyData, chartOptions }) => {
   const [chartType, setChartType] = useState("calories");
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
-  };
-
   const chartConfigs = {
     calories: {
       title: "Calories Burned",
@@ -159,7 +154,7 @@ const WeeklyActivity = ({ weeklyData, chartOptions }) => {
           <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
           <path
             fillRule="evenodd"
-            d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z"
+            d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2 2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z"
             clipRule="evenodd"
           />
         </svg>
@@ -185,7 +180,9 @@ const WeeklyActivity = ({ weeklyData, chartOptions }) => {
 
   return (
     <motion.div
-      variants={itemVariants}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
     >
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">
@@ -204,14 +201,22 @@ const WeeklyActivity = ({ weeklyData, chartOptions }) => {
       </div>
       <motion.div
         className="p-4 bg-gray-50 rounded-lg border border-gray-100 h-64"
-        variants={itemVariants}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
       >
         <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center">
           {chartConfigs[chartType].icon}
           {chartConfigs[chartType].title}
         </h3>
         <div className="h-48">
-          <Line data={chartConfigs[chartType].data} options={chartOptions} />
+          {weeklyData.labels.length > 0 ? (
+            <Line data={chartConfigs[chartType].data} options={chartOptions} />
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-gray-600">No exercise data available</p>
+            </div>
+          )}
         </div>
       </motion.div>
     </motion.div>
@@ -231,7 +236,7 @@ const Dashboard = () => {
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
   const [exerciseStats, setExerciseStats] = useState({ totalDuration: 0 });
   const [exercises, setExercises] = useState([]);
-  const [weeklyExerciseData, setWeeklyExerciseData] = useState({
+  const [weeklyData, setWeeklyData] = useState({
     calories: [],
     duration: [],
     sessions: [],
@@ -307,7 +312,7 @@ const Dashboard = () => {
     setAdherenceData(adherenceByDay);
   };
 
-  const computeWeeklyExerciseData = () => {
+  const computeWeeklyData = () => {
     const today = new Date();
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = new Date(today);
@@ -336,7 +341,7 @@ const Dashboard = () => {
       return dailyExercises.length;
     });
 
-    setWeeklyExerciseData({
+    setWeeklyData({
       calories: caloriesData,
       duration: durationData,
       sessions: sessionsData,
@@ -345,66 +350,79 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
+    let isMounted = true;
+  
     const fetchData = async () => {
-      if (!user) return;
-
+      if (!user || !isMounted) return;
+  
       setIsLoading(true);
       setFetchError(null);
-
+  
       try {
         const token = await auth.currentUser.getIdToken(true);
         const userMedications = await getUserMedications(token);
+        if (!isMounted) return;
         setMedications(userMedications);
-
+  
         const history = await getTakenMedicationHistory(5);
         const userExercises = await getUserExercises(token);
+        console.log("Fetched Exercises:", userExercises);
+        if (!isMounted) return;
         setExercises(userExercises.sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged)));
-
-        // Combine medication and exercise activities
+  
         const medicationActivities = history.map((entry) => ({
           type: 'medication',
           description: `Logged ${entry.medication_name} on ${moment(entry.date).format('MMM D, YYYY')} at ${moment(entry.takenAt).format('h:mm A')}`,
           timestamp: entry.takenAt,
         }));
-
-        // Get the most recent exercise
+  
         const recentExercise = userExercises[0];
         const exerciseActivity = recentExercise ? [{
           type: 'exercise',
           description: `Logged ${recentExercise.activity} (${recentExercise.duration} min) on ${moment(recentExercise.date_logged).format('MMM D, YYYY')}`,
           timestamp: recentExercise.date_logged,
         }] : [];
-
-        // Combine and sort activities by timestamp, limit to 5
+  
         const combinedActivities = [...medicationActivities, ...exerciseActivity]
           .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
           .slice(0, 5);
+        if (!isMounted) return;
         setRecentActivities(combinedActivities);
-
+  
         const fullHistory = await getTakenMedicationHistory();
+        if (!isMounted) return;
         calculateAdherenceData(userMedications, fullHistory);
-
+  
         const userStreak = await calculateMedicationStreak();
+        if (!isMounted) return;
         setStreak(userStreak);
-
+  
         const exerciseStats = await getExerciseStats(token);
+        if (!isMounted) return;
         setExerciseStats({
           totalDuration: exerciseStats.totalDuration || 0,
         });
-
-        computeWeeklyExerciseData();
+  
+        computeWeeklyData();
       } catch (err) {
         console.error("Error fetching data:", err);
+        if (!isMounted) return;
         setFetchError("Failed to load dashboard data");
         if (err.message && err.message.includes("Unauthorized")) {
           logout();
         }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
-
+  
     if (user) fetchData();
+  
+    return () => {
+      isMounted = false;
+    };
   }, [user, logout]);
 
   useEffect(() => {
@@ -425,7 +443,6 @@ const Dashboard = () => {
           timestamp: entry.takenAt,
         }));
 
-        // Get the most recent exercise
         const recentExercise = exercises[0];
         const exerciseActivity = recentExercise ? [{
           type: 'exercise',
@@ -453,9 +470,8 @@ const Dashboard = () => {
 
     const handleExerciseAdded = async (newExercise) => {
       setExercises((prev) => [newExercise, ...prev].sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged)));
-      computeWeeklyExerciseData();
+      computeWeeklyData();
 
-      // Update recent activities
       const history = await getTakenMedicationHistory(5);
       const medicationActivities = history.map((entry) => ({
         type: 'medication',
@@ -487,9 +503,8 @@ const Dashboard = () => {
 
     const handleExerciseDeleted = async (id) => {
       setExercises((prev) => prev.filter((exercise) => exercise.id !== id));
-      computeWeeklyExerciseData();
+      computeWeeklyData();
 
-      // Update recent activities
       const history = await getTakenMedicationHistory(5);
       const medicationActivities = history.map((entry) => ({
         type: 'medication',
@@ -525,9 +540,8 @@ const Dashboard = () => {
         prev.map((exercise) => (exercise.id === updatedExercise.id ? updatedExercise : exercise))
           .sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged))
       );
-      computeWeeklyExerciseData();
+      computeWeeklyData();
 
-      // Update recent activities
       const history = await getTakenMedicationHistory(5);
       const medicationActivities = history.map((entry) => ({
         type: 'medication',
@@ -574,10 +588,65 @@ const Dashboard = () => {
     };
   }, [socket, medications, exercises]);
 
-  // Ensure weekly data is recomputed whenever exercises change
-  useEffect(() => {
-    computeWeeklyExerciseData();
-  }, [exercises]);
+  // Chart options copied directly from ExerciseTracker
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: "top",
+        labels: {
+          boxWidth: 12,
+          usePointStyle: true,
+          font: {
+            size: 10,
+            family: "'Inter', sans-serif",
+          },
+        },
+      },
+      tooltip: {
+        backgroundColor: "rgba(31, 41, 55, 0.9)",
+        padding: 12,
+        titleFont: {
+          size: 14,
+          weight: "bold",
+          family: "'Inter', sans-serif",
+        },
+        bodyFont: {
+          size: 14,
+          family: "'Inter', sans-serif",
+        },
+        cornerRadius: 8,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          font: {
+            size: 14,
+            family: "'Inter', sans-serif",
+          },
+          color: "#6B7280",
+        },
+        grid: {
+          color: "rgba(209, 213, 219, 0.3)",
+        },
+      },
+      x: {
+        ticks: {
+          font: {
+            size: 14,
+            family: "'Inter', sans-serif",
+          },
+          color: "#6B7280",
+        },
+        grid: {
+          display: false,
+        },
+      },
+    },
+  };
 
   const chartData = {
     datasets: [
@@ -595,7 +664,7 @@ const Dashboard = () => {
     ],
   };
 
-  const chartOptions = {
+  const medicationChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     scales: {
@@ -681,7 +750,7 @@ const Dashboard = () => {
     return <ErrorMessage message={fetchError} onRetry={() => window.location.reload()} />;
   }
 
-  const exerciseGoal = 150; // Weekly goal of 150 minutes
+  const exerciseGoal = 150;
   const exercisePercentage = Math.min((exerciseStats.totalDuration / exerciseGoal) * 100, 100);
 
   return (
@@ -763,7 +832,7 @@ const Dashboard = () => {
                     </h2>
                     <div className="h-64 md:h-80">
                       {adherenceData.length > 0 ? (
-                        <Line data={chartData} options={chartOptions} />
+                        <Line data={chartData} options={medicationChartOptions} />
                       ) : (
                         <div className="flex items-center justify-center h-full">
                           <p className="text-gray-600">No adherence data available</p>
@@ -796,7 +865,7 @@ const Dashboard = () => {
                     exit="exit"
                     variants={chartVariants}
                   >
-                    <WeeklyActivity weeklyData={weeklyExerciseData} chartOptions={chartOptions} />
+                    <WeeklyActivity weeklyData={weeklyData} chartOptions={chartOptions} />
                   </motion.div>
                 )}
               </AnimatePresence>

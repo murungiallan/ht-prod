@@ -331,7 +331,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await retryWithBackoff(() => signOut(auth));
       setUser(null);
@@ -341,7 +341,7 @@ export const AuthProvider = ({ children }) => {
       toast.error("Logout failed: " + error.message);
       throw error;
     }
-  };
+  }, []);
 
   return (
     <AuthContext.Provider
