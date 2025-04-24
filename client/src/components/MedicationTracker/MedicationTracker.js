@@ -418,7 +418,7 @@ const MedicationTracker = () => {
         doseIndex,
         reminderTime,
         date: moment(selectedDate).format("YYYY-MM-DD"),
-        type: isRecurringReminder ? "recurring" : "single",
+        type: isRecurringReminder ? "daily" : "single",
       };
       const createdReminder = await createReminder(reminderData, token);
       setReminders((prev) => [createdReminder, ...prev]);

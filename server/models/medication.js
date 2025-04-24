@@ -14,6 +14,30 @@ class Medication {
     }
   }
 
+  static validateDoses(doses, times_per_day) {
+    if (typeof doses !== "object" || Array.isArray(doses) || !doses) {
+      return false;
+    }
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    for (const date in doses) {
+      if (!dateRegex.test(date)) return false;
+      if (!Array.isArray(doses[date]) || doses[date].length !== times_per_day) return false;
+      if (
+        !doses[date].every(
+          (dose) =>
+            typeof dose.time === "string" &&
+            /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/.test(dose.time) &&
+            typeof dose.taken === "boolean" &&
+            typeof dose.missed === "boolean" &&
+            (dose.takenAt === null || typeof dose.takenAt === "string")
+        )
+      ) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   static async add(medicationData) {
     const { userId, medication_name, dosage, frequency, times_per_day, times, start_date, end_date, notes } = medicationData;
     if (!times || !Array.isArray(times) || times.length !== times_per_day) {
@@ -28,6 +52,10 @@ class Medication {
         takenAt: null,
       })),
     };
+
+    if (!this.validateDoses(initialDoses, times_per_day)) {
+      throw new Error("Invalid initial doses structure");
+    }
 
     const query = `
       INSERT INTO medications (user_id, medication_name, dosage, frequency, times_per_day, times, doses, start_date, end_date, notes)
@@ -63,19 +91,23 @@ class Medication {
       `;
       const [rows] = await db.query(query, [userId]);
 
-      const today = new Date().toISOString().split("T")[0];
       const updatedRows = [];
 
       for (const row of rows) {
         let doses = this.safeParseJSON(row.doses, {});
         const times = this.safeParseJSON(row.times, []);
 
+        if (!this.validateDoses(doses, row.times_per_day)) {
+          console.warn(`Invalid doses for medication ${row.id}, resetting to default`);
+          doses = {};
+        }
+
         // Initialize doses for all dates between start_date and end_date
         const startDate = new Date(row.start_date);
-        const endDate = new Date(row.end_date);
+        const endDate = new Date(row.end_date || new Date());
         const currentDate = new Date(startDate);
-
         let dosesUpdated = false;
+
         while (currentDate <= endDate) {
           const dateStr = currentDate.toISOString().split("T")[0];
           if (!doses[dateStr] && new Date(dateStr) >= startDate && new Date(dateStr) <= endDate) {
@@ -90,7 +122,6 @@ class Medication {
           currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        // Update the database if doses were modified
         if (dosesUpdated) {
           await db.query("UPDATE medications SET doses = ? WHERE id = ?", [JSON.stringify(doses), row.id]);
         }
@@ -106,6 +137,41 @@ class Medication {
     } catch (error) {
       console.error("Database error in Medication.getByUser:", error.message, error.sqlMessage);
       throw new Error(`Failed to fetch medications for user: ${error.message}`);
+    }
+  }
+
+  static async update(id, updatedData) {
+    try {
+      const { medication_name, dosage, frequency, times_per_day, times, doses, start_date, end_date, notes } = updatedData;
+      if (times && (!Array.isArray(times) || times.length !== times_per_day)) {
+        throw new Error("Invalid times array or times_per_day mismatch");
+      }
+      if (doses && !this.validateDoses(doses, times_per_day)) {
+        throw new Error("Invalid doses structure");
+      }
+
+      const query = `
+        UPDATE medications
+        SET medication_name = ?, dosage = ?, frequency = ?, times_per_day = ?, times = ?, doses = ?, start_date = ?, end_date = ?, notes = ?
+        WHERE id = ?
+      `;
+      const values = [
+        medication_name,
+        dosage,
+        frequency,
+        times_per_day,
+        times ? JSON.stringify(times) : null,
+        doses ? JSON.stringify(doses) : null,
+        start_date,
+        end_date,
+        notes || null,
+        id,
+      ];
+      await db.query(query, values);
+      return this.getById(id);
+    } catch (error) {
+      console.error("Database error in Medication.update:", error.message, error.sqlMessage);
+      throw new Error(`Failed to update medication: ${error.message}`);
     }
   }
 

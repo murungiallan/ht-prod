@@ -779,11 +779,17 @@ export const updateReminderStatus = async (reminderId, status, token) => {
 };
 
 export const updateReminder = async (reminderId, reminderData, token) => {
-  const response = await authFetch(`/reminders/update/${reminderId}`, {}, token)
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || "Failed to update reminder");
-  }
+  // Send the reminderData in the request body
+  const response = await api.put(
+    `/reminders/update/${reminderId}`, 
+    {
+      reminderTime: reminderData.reminderTime,
+      date: reminderData.date,
+      type: reminderData.type,
+      status: reminderData.status
+    }, 
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
 
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
@@ -797,7 +803,7 @@ export const updateReminder = async (reminderId, reminderData, token) => {
     }
   }));
 
-  return response.json();
+  return response.data;
 };
 
 export const saveFcmToken = async (token, fcmToken) => {

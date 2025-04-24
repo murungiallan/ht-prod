@@ -16,7 +16,7 @@ class MedicationController {
       const { medication_name, dosage, frequency, times_per_day, times, start_date, end_date, notes } = req.body;
 
       // Validate required fields
-      if (!medication_name || !dosage || !frequency || !times_per_day || !times || !start_date || !end_date) {
+      if (!medication_name || !dosage || !frequency || !times_per_day || !times || !start_date) {
         return res.status(400).json({ error: "All required fields must be provided" });
       }
 
@@ -32,17 +32,6 @@ class MedicationController {
       }
 
       // Validate times array
-      const normalizedTimes = times.map((time) => {
-        if (/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time)) {
-          return `${time}:00`;
-        }
-        return time;
-      });
-
-      if (!normalizedTimes.every((time) => timeRegex.test(time))) {
-        return res.status(400).json({ error: "Each time must be in HH:mm:ss format (e.g., 08:00:00)" });
-      }
-
       if (!Array.isArray(times) || times.length !== times_per_day) {
         return res.status(400).json({ error: "times must be an array with length equal to times_per_day" });
       }
@@ -51,9 +40,9 @@ class MedicationController {
         return res.status(400).json({ error: "Each time must be in HH:mm:ss format (e.g., 08:00:00)" });
       }
 
-      // Validate date format (YYYY-MM-DD)
+      // Validate dates
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(start_date) || !dateRegex.test(end_date)) {
+      if (!dateRegex.test(start_date) || (end_date && !dateRegex.test(end_date))) {
         return res.status(400).json({ error: "Dates must be in YYYY-MM-DD format (e.g., 2025-04-09)" });
       }
 
@@ -79,7 +68,7 @@ class MedicationController {
         frequency,
         times_per_day,
         times,
-        doses: newMedication.doses,
+        doses: newMedication.doses || {}, // Ensure doses is an object
         start_date,
         end_date,
         notes,
@@ -89,6 +78,72 @@ class MedicationController {
     } catch (error) {
       console.error("Error adding medication:", error.message, error.stack);
       res.status(500).json({ error: "Failed to add medication", details: error.message });
+    }
+  }
+
+  static async updateTakenStatus(req, res) {
+    try {
+      const firebaseUid = req.user.uid;
+      const [userRows] = await db.query("SELECT id FROM users WHERE uid = ?", [firebaseUid]);
+      if (!userRows || userRows.length === 0) {
+        return res.status(404).json({ error: "User not found in the database" });
+      }
+      const userId = userRows[0].id;
+
+      const { id } = req.params;
+      const { doseIndex, taken, date } = req.body;
+
+      if (!Number.isInteger(doseIndex) || doseIndex < 0) {
+        return res.status(400).json({ error: "doseIndex must be a non-negative integer" });
+      }
+      if (typeof taken !== "boolean") {
+        return res.status(400).json({ error: "taken must be a boolean value" });
+      }
+      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: "date must be in YYYY-MM-DD format" });
+      }
+
+      const medications = await Medication.getByUser(userId);
+      const medication = medications.find((med) => med.id === parseInt(id));
+      if (!medication) {
+        return res.status(404).json({ error: "Medication not found" });
+      }
+
+      // Validate dose exists
+      if (!medication.doses[date] || doseIndex >= medication.doses[date].length) {
+        return res.status(400).json({ error: "Invalid doseIndex or date" });
+      }
+
+      // Validate 2-hour window
+      const doseTime = medication.doses[date][doseIndex].time;
+      const doseDateTime = moment(`${date} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
+      const now = moment();
+      const windowStart = doseDateTime.clone().subtract(1, "hour");
+      const windowEnd = doseDateTime.clone().add(1, "hour");
+      if (taken && !now.isBetween(windowStart, windowEnd, null, "[]")) {
+        return res.status(400).json({ error: "Can only mark medication as taken within 1 hour of the scheduled time" });
+      }
+
+      const updatedMedication = await Medication.updateTakenStatus(id, doseIndex, taken, date);
+
+      await firebaseDb.ref(`medications/${firebaseUid}/${id}`).set({
+        id: updatedMedication.id,
+        userId: updatedMedication.userId,
+        medication_name: updatedMedication.medication_name,
+        dosage: updatedMedication.dosage,
+        frequency: updatedMedication.frequency,
+        times_per_day: updatedMedication.times_per_day,
+        times: updatedMedication.times,
+        doses: updatedMedication.doses || {}, // Ensure doses is an object
+        start_date: updatedMedication.start_date,
+        end_date: updatedMedication.end_date,
+        notes: updatedMedication.notes,
+      });
+
+      res.status(200).json(updatedMedication);
+    } catch (error) {
+      console.error("Error updating medication status:", error.message, error.stack);
+      res.status(500).json({ error: "Failed to update medication status", details: error.message });
     }
   }
 
@@ -264,80 +319,6 @@ class MedicationController {
       res.status(500).json({ error: "Failed to delete medication", details: error.message });
     }
   }
-
-  static async updateTakenStatus(req, res) {
-    try {
-      const firebaseUid = req.user.uid;
-      const [userRows] = await db.query("SELECT id FROM users WHERE uid = ?", [firebaseUid]);
-      if (!userRows || userRows.length === 0) {
-        return res.status(404).json({ error: "User not found in the database" });
-      }
-      const userId = userRows[0].id;
-  
-      const { id } = req.params;
-      const { doseIndex, taken, date } = req.body;
-  
-      if (!Number.isInteger(doseIndex) || doseIndex < 0) {
-        return res.status(400).json({ error: "doseIndex must be a non-negative integer" });
-      }
-      if (typeof taken !== "boolean") {
-        return res.status(400).json({ error: "taken must be a boolean value" });
-      }
-      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-        return res.status(400).json({ error: "date must be in YYYY-MM-DD format" });
-      }
-  
-      const medications = await Medication.getByUser(userId);
-      const medication = medications.find((med) => med.id === parseInt(id));
-      if (!medication) {
-        return res.status(404).json({ error: "Medication not found" });
-      }
-  
-      // Validate 2-hour window
-      const doseTime = medication.doses[date]?.[doseIndex]?.time;
-      const windowStart = doseDateTime.clone().subtract(1, "hour");
-      const windowEnd = doseDateTime.clone().add(1, "hour");
-      if (taken && !now.isBetween(windowStart, windowEnd, null, "[]")) {
-        return res.status(400).json({ error: "Can only mark medication as taken within 1 hour of the scheduled time" });
-      }
-      if (!doseTime) {
-        return res.status(400).json({ error: "Dose time not found for the specified date and index" });
-      }
-  
-      // Extract hours and minutes from doseTime (format: HH:mm:ss)
-      const [hours, minutes] = doseTime.split(":").map(Number);
-      const doseDateTime = moment(medication.start_date)
-        .set({ hour: hours, minute: minutes, second: 0, millisecond: 0 });
-  
-      const now = moment();
-      const hoursDiff = Math.abs(doseDateTime.diff(now, "hours", true));
-      if (taken && hoursDiff > 1) {
-        return res.status(400).json({ error: "Can only mark medication as taken within 1 hour of the scheduled time" });
-      }
-  
-      const updatedMedication = await Medication.updateTakenStatus(id, doseIndex, taken, date);
-  
-      await firebaseDb.ref(`medications/${firebaseUid}/${id}`).set({
-        id: updatedMedication.id,
-        userId: updatedMedication.userId,
-        medication_name: updatedMedication.medication_name,
-        dosage: updatedMedication.dosage,
-        frequency: updatedMedication.frequency,
-        times_per_day: updatedMedication.times_per_day,
-        times: updatedMedication.times,
-        doses: updatedMedication.doses,
-        start_date: updatedMedication.start_date,
-        end_date: updatedMedication.end_date,
-        notes: updatedMedication.notes,
-      });
-  
-      res.status(200).json(updatedMedication);
-    } catch (error) {
-      console.error("Error updating medication status:", error.message, error.stack);
-      res.status(500).json({ error: "Failed to update medication status", details: error.message });
-    }
-  }
-
   static async markAsMissed(req, res) {
     try {
       const firebaseUid = req.user.uid;
