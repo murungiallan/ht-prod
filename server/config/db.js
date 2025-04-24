@@ -5,7 +5,7 @@ const ensureDatabaseExists = async () => {
   const connection = await createConnection({
     host: 'localhost',
     user: 'root',
-    password: 'root', // 'Cinnamomo80854', MySQL root password
+    password: 'Cinnamomo80854',
   });
 
   try {
@@ -29,7 +29,7 @@ const ensureDatabaseExists = async () => {
 const db = createPool({
   host: 'localhost',
   user: 'root',
-  password: 'root', // 'Cinnamomo80854', MySQL root password
+  password: 'Cinnamomo80854', 
   database: 'healthtrack_db',
   waitForConnections: true,
   connectionLimit: 10,
