@@ -15,7 +15,6 @@ const Login = () => {
 
   useEffect(() => {
     if (user) {
-      toast.success("Successfully logged in!");
       navigate("/dashboard");
     }
   }, [user, navigate]);
@@ -27,6 +26,7 @@ const Login = () => {
 
     try {
       await login(email, password);
+      toast.success("Successfully logged in!");
     } catch (err) {
       setError(err.message || "Failed to login");
       toast.error(err.message || "Failed to login");

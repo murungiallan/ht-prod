@@ -10,11 +10,11 @@ const TimeOfDaySection = React.memo(
     if (!meds || meds.length === 0) {
       return (
         <section className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-3 flex items-center gap-2 font-mono">
+          <h2 className="text-xl font-semibold text-gray-800 mb-3 flex items-center gap-2">
             {icon}
             {title}
           </h2>
-          <p className="text-sm text-gray-500 font-mono">
+          <p className="text-sm text-gray-500">
             No medications for this time
           </p>
         </section>
@@ -23,7 +23,7 @@ const TimeOfDaySection = React.memo(
 
     return (
       <section className="bg-white rounded-lg shadow-sm p-4 mb-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-3 flex items-center gap-2 font-mono">
+        <h2 className="text-xl font-semibold text-gray-800 mb-3 flex items-center gap-2">
           {icon}
           {title}
         </h2>
@@ -41,7 +41,7 @@ const TimeOfDaySection = React.memo(
                 className="py-2"
               >
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 w-full">
-                  <div className="font-medium text-sm text-gray-800 font-mono">
+                  <div className="font-medium text-sm text-gray-800">
                     {med.medication_name} ({med.dosage}) - {med.times_per_day}{" "}
                     time(s) {med.frequency}
                   </div>
@@ -68,7 +68,7 @@ const TimeOfDaySection = React.memo(
                       </button>
                     </Tippy>
 
-                    <span className="text-sm text-gray-500 font-mono mr-2">
+                    <span className="text-sm text-gray-500 mr-2">
                       Time: {formatTimeForDisplay(med.doseTime)}
                     </span>
 

@@ -41,7 +41,6 @@ const AllRemindersModal = ({
             fontWeight: 600,
             color: "#333333",
             marginBottom: "16px",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           All Reminders
@@ -51,7 +50,6 @@ const AllRemindersModal = ({
             style={{
               fontSize: "0.875rem",
               color: "#666666",
-              fontFamily: "'Inter', sans-serif",
             }}
           >
             No reminders set.
@@ -78,7 +76,6 @@ const AllRemindersModal = ({
                           fontSize: "0.875rem",
                           fontWeight: 500,
                           color: "#333333",
-                          fontFamily: "'Inter', sans-serif",
                         }}
                       >
                         {med?.medication_name || "Unknown"}
@@ -87,7 +84,6 @@ const AllRemindersModal = ({
                         style={{
                           fontSize: "0.875rem",
                           color: "#666666",
-                          fontFamily: "'Inter', sans-serif",
                         }}
                       >
                         {formatTimeForDisplay(reminder.reminderTime)} on {reminder.date}
@@ -103,7 +99,6 @@ const AllRemindersModal = ({
                             border: "none",
                             cursor: "pointer",
                             fontSize: "0.875rem",
-                            fontFamily: "'Inter', sans-serif",
                             transition: "color 0.2s ease",
                           }}
                           disabled={actionLoading}

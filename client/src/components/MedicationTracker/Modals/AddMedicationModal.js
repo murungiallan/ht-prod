@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Modal from "react-modal";
 import { ModalContentWrapper, CloseButton, Button, ModalOverlay, ModalContent, Input } from "../styles";
 import { searchDrugsByName, getDrugDetails } from "../../../services/api";
+import { toast } from "react-toastify";
 
 const AddMedicationModal = ({
   isOpen,
@@ -65,6 +66,24 @@ const AddMedicationModal = ({
       })
     );
   }, [timesPerDay]);
+
+  const validateTimes = (times, timesPerDay) => {
+    if (times.length !== parseInt(timesPerDay)) {
+      toast.error("Number of dose times must match times per day");
+      return false;
+    }
+    const uniqueTimes = new Set(times.map((t) => t.time));
+    if (uniqueTimes.size !== times.length) {
+      toast.error("Dose times must be unique");
+      return false;
+    }
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
+    if (!times.every((t) => timeRegex.test(t.time))) {
+      toast.error("Dose times must be in HH:mm or HH:mm:ss format");
+      return false;
+    }
+    return true;
+  };
   
   // Set up debounced search
   useEffect(() => {
@@ -302,7 +321,6 @@ const AddMedicationModal = ({
             fontWeight: 600,
             color: "#333333",
             marginBottom: "16px",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           Add New Medication
@@ -316,7 +334,6 @@ const AddMedicationModal = ({
                 color: "#333333",
                 display: "block",
                 marginBottom: "4px",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               Medication Name
@@ -333,7 +350,6 @@ const AddMedicationModal = ({
                 width: "100%",
                 padding: "8px",
                 fontSize: "0.875rem",
-                fontFamily: "'Inter', sans-serif",
               }}
             />
             {showDropdown && (
@@ -368,7 +384,6 @@ const AddMedicationModal = ({
                 color: "#333333",
                 display: "block",
                 marginBottom: "4px",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               Dosage
@@ -383,7 +398,6 @@ const AddMedicationModal = ({
                 width: "100%",
                 padding: "8px",
                 fontSize: "0.875rem",
-                fontFamily: "'Inter', sans-serif",
               }}
             />
             {selectedDrugInfo && selectedDrugInfo.dosages && selectedDrugInfo.dosages.length > 1 && (
@@ -416,7 +430,6 @@ const AddMedicationModal = ({
                 color: "#333333",
                 display: "block",
                 marginBottom: "4px",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               Frequency
@@ -429,7 +442,6 @@ const AddMedicationModal = ({
                 width: "100%",
                 padding: "8px",
                 fontSize: "0.875rem",
-                fontFamily: "'Inter', sans-serif",
                 border: "1px solid #e0e0e0",
                 borderRadius: "4px",
               }}
@@ -448,7 +460,6 @@ const AddMedicationModal = ({
                 color: "#333333",
                 display: "block",
                 marginBottom: "4px",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               Times Per Day
@@ -463,7 +474,6 @@ const AddMedicationModal = ({
                 width: "100%",
                 padding: "8px",
                 fontSize: "0.875rem",
-                fontFamily: "'Inter', sans-serif",
               }}
             />
           </div>
@@ -477,7 +487,6 @@ const AddMedicationModal = ({
                   color: "#333333",
                   display: "block",
                   marginBottom: "4px",
-                  fontFamily: "'Inter', sans-serif",
                 }}
               >
                 Dose {index + 1} Time
@@ -491,7 +500,6 @@ const AddMedicationModal = ({
                   width: "100%",
                   padding: "8px",
                   fontSize: "0.875rem",
-                  fontFamily: "'Inter', sans-serif",
                 }}
               />
               <p
@@ -499,7 +507,6 @@ const AddMedicationModal = ({
                   fontSize: "0.75rem",
                   color: "#666",
                   marginTop: "4px",
-                  fontFamily: "'Inter', sans-serif",
                 }}
               >
                 This dose is scheduled for: {dose.period}
@@ -515,7 +522,6 @@ const AddMedicationModal = ({
                 color: "#333333",
                 display: "block",
                 marginBottom: "4px",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               Start Date
@@ -529,7 +535,6 @@ const AddMedicationModal = ({
                 width: "100%",
                 padding: "8px",
                 fontSize: "0.875rem",
-                fontFamily: "'Inter', sans-serif",
               }}
             />
           </div>
@@ -542,7 +547,6 @@ const AddMedicationModal = ({
                 color: "#333333",
                 display: "block",
                 marginBottom: "4px",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               End Date
@@ -555,7 +559,6 @@ const AddMedicationModal = ({
                 width: "100%",
                 padding: "8px",
                 fontSize: "0.875rem",
-                fontFamily: "'Inter', sans-serif",
               }}
             />
             <p
@@ -563,7 +566,6 @@ const AddMedicationModal = ({
                 fontSize: "0.75rem",
                 color: "#666",
                 marginTop: "4px",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               Leave blank for ongoing medications
@@ -578,7 +580,6 @@ const AddMedicationModal = ({
                 color: "#333333",
                 display: "block",
                 marginBottom: "4px",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               Notes
@@ -591,7 +592,6 @@ const AddMedicationModal = ({
                 width: "100%",
                 padding: "8px",
                 fontSize: "0.875rem",
-                fontFamily: "'Inter', sans-serif",
                 border: "1px solid #e0e0e0",
                 borderRadius: "4px",
                 minHeight: "80px",

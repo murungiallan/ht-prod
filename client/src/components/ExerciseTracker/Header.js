@@ -7,23 +7,23 @@ const Header = ({ onOpenModal }) => {
   };
 
   return (
-    <motion.header className="mb-4" variants={itemVariants}>
-      <div className="flex justify-between items-center gap-4 mb-4 w-full">
+    // <motion.header className="mb-0" variants={itemVariants}>
+      <div className="flex justify-between items-center gap-4 mb-0 w-full">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 font-mono">
+          <h1 className="text-2xl font-bold text-gray-800">
             Your Exercises
           </h1>
           <p className="text-base text-gray-600">Track your fitness journey with precision</p>
         </div>
         <button
           onClick={onOpenModal}
-          className="mx-2 px-4 py-2 text-sm font-medium text-black bg-transparent hover:bg-yellow-500 hover:text-white border border-gray-200 rounded-lg transition-colors duration-200 focus:outline-none"
+          className="mb-0 mx-2 px-4 py-2 text-sm font-medium text-black bg-transparent hover:bg-yellow-500 hover:text-white border border-gray-200 rounded-lg transition-colors duration-200 focus:outline-none"
           aria-label="Log new exercise"
         >
           Log Exercise
         </button>
       </div>
-    </motion.header>
+    // </motion.header>
   );
 };
 

@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import Modal from "react-modal";
 import moment from "moment-timezone";
 import { ModalContentWrapper, CloseButton, Button, ModalOverlay, ModalContent } from "../styles";
+import { formatInTimeZone } from "date-fns-tz";
 
 const formatTimeForDisplay = (time) => {
   if (!time || typeof time !== "string") return "Unknown time";
@@ -28,8 +29,8 @@ const MedicationDetailModal = ({
   selectedDate,
 }) => {
   const formattedDate = selectedDate
-    ? moment(selectedDate).tz("Asia/Kuala_Lumpur").format("YYYY-MM-DD")
-    : moment().tz("Asia/Kuala_Lumpur").format("YYYY-MM-DD");
+  ? formatInTimeZone(selectedDate, Intl.DateTimeFormat().resolvedOptions().timeZone, "yyyy-MM-dd")
+  : formatInTimeZone(new Date(), Intl.DateTimeFormat().resolvedOptions().timeZone, "yyyy-MM-dd");
   const dosesForDate = selectedMedication?.doses?.[formattedDate] || [];
   const timesArray = Array.isArray(selectedMedication?.times)
     ? selectedMedication.times
@@ -60,7 +61,6 @@ const MedicationDetailModal = ({
             fontWeight: 600,
             color: "#333333",
             marginBottom: "16px",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           {selectedMedication?.medication_name || "Unknown Medication"}{" "}
@@ -71,7 +71,6 @@ const MedicationDetailModal = ({
             fontSize: "0.875rem",
             color: "#666666",
             marginBottom: "16px",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           {drugInfo?.description ||
@@ -85,7 +84,6 @@ const MedicationDetailModal = ({
               justifyContent: "space-between",
               fontSize: "0.875rem",
               color: "#666666",
-              fontFamily: "'Inter', sans-serif",
             }}
           >
             <span>{safeProgress}% complete</span>
@@ -117,7 +115,6 @@ const MedicationDetailModal = ({
               fontWeight: 500,
               color: "#333333",
               marginBottom: "8px",
-              fontFamily: "'Inter', sans-serif",
             }}
           >
             Schedule
@@ -126,7 +123,6 @@ const MedicationDetailModal = ({
             style={{
               fontSize: "0.875rem",
               color: "#666666",
-              fontFamily: "'Inter', sans-serif",
             }}
           >
             {timesArray.length > 0
@@ -147,7 +143,6 @@ const MedicationDetailModal = ({
               fontWeight: 500,
               color: "#333333",
               marginBottom: "8px",
-              fontFamily: "'Inter', sans-serif",
             }}
           >
             Doses
@@ -172,7 +167,6 @@ const MedicationDetailModal = ({
                     style={{
                       fontSize: "0.875rem",
                       color: "#666666",
-                      fontFamily: "'Inter', sans-serif",
                     }}
                   >
                     {formatTimeForDisplay(dose?.time || "Unknown time")}
@@ -209,7 +203,6 @@ const MedicationDetailModal = ({
               style={{
                 fontSize: "0.875rem",
                 color: "#666666",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               No doses scheduled for this date.
@@ -223,7 +216,6 @@ const MedicationDetailModal = ({
               fontWeight: 500,
               color: "#333333",
               marginBottom: "8px",
-              fontFamily: "'Inter', sans-serif",
             }}
           >
             Available Forms
@@ -233,7 +225,6 @@ const MedicationDetailModal = ({
               style={{
                 fontSize: "0.875rem",
                 color: "#666666",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               Loading forms...
@@ -243,7 +234,6 @@ const MedicationDetailModal = ({
               style={{
                 fontSize: "0.875rem",
                 color: "#d32f2f",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               Failed to load dosage forms.
@@ -256,7 +246,6 @@ const MedicationDetailModal = ({
                   style={{
                     fontSize: "0.875rem",
                     color: "#666666",
-                    fontFamily: "'Inter', sans-serif",
                     marginBottom: "4px",
                   }}
                 >
@@ -269,7 +258,6 @@ const MedicationDetailModal = ({
               style={{
                 fontSize: "0.875rem",
                 color: "#666666",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               No dosage forms available.
@@ -283,7 +271,6 @@ const MedicationDetailModal = ({
               fontWeight: 500,
               color: "#333333",
               marginBottom: "8px",
-              fontFamily: "'Inter', sans-serif",
             }}
           >
             Interactions
@@ -293,7 +280,6 @@ const MedicationDetailModal = ({
               style={{
                 fontSize: "0.875rem",
                 color: "#666666",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               Loading interactions...
@@ -303,7 +289,6 @@ const MedicationDetailModal = ({
               style={{
                 fontSize: "0.875rem",
                 color: "#d32f2f",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               Failed to load interactions.
@@ -316,7 +301,6 @@ const MedicationDetailModal = ({
                   style={{
                     fontSize: "0.875rem",
                     color: "#666666",
-                    fontFamily: "'Inter', sans-serif",
                     marginBottom: "4px",
                   }}
                 >
@@ -329,7 +313,6 @@ const MedicationDetailModal = ({
               style={{
                 fontSize: "0.875rem",
                 color: "#666666",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               No interactions found.
@@ -343,7 +326,6 @@ const MedicationDetailModal = ({
               fontWeight: 500,
               color: "#333333",
               marginBottom: "8px",
-              fontFamily: "'Inter', sans-serif",
             }}
           >
             Usage Instructions
@@ -353,7 +335,6 @@ const MedicationDetailModal = ({
               style={{
                 fontSize: "0.875rem",
                 color: "#666666",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               Loading usage instructions...
@@ -363,7 +344,6 @@ const MedicationDetailModal = ({
               style={{
                 fontSize: "0.875rem",
                 color: "#d32f2f",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               Failed to load usage instructions.
@@ -373,7 +353,6 @@ const MedicationDetailModal = ({
               style={{
                 fontSize: "0.875rem",
                 color: "#666666",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               {drugInfo.usage}
@@ -383,7 +362,6 @@ const MedicationDetailModal = ({
               style={{
                 fontSize: "0.875rem",
                 color: "#666666",
-                fontFamily: "'Inter', sans-serif",
               }}
             >
               No usage instructions available.

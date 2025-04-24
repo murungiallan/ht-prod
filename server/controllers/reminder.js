@@ -47,7 +47,7 @@ class ReminderController {
             return res.status(400).json({ error: "Invalid doseIndex" });
           }
           const doseTime = doses[doseIndex].time;
-          const doseDateTime = moment(`${date} ${doseTime}`, "YYYY-MM-DD HH:mm:ss").utcOffset("+08:00");
+          const doseDateTime = moment(`${date} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
           const reminderDateTime = moment(`${date} ${reminderTime}`, "YYYY-MM-DD HH:mm:ss");
       
           // Check if the reminder time is in the past
@@ -144,7 +144,7 @@ class ReminderController {
             return res.status(400).json({ error: "Invalid doseIndex" });
           }
           const doseTime = doses[reminder.dose_index].time;
-          const doseDateTime = moment(`${finalDate} ${doseTime}`, "YYYY-MM-DD HH:mm:ss").utcOffset("+08:00");
+          const doseDateTime = moment(`${finalDate} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
           const reminderDateTime = moment(`${finalDate} ${finalReminderTime}`, "YYYY-MM-DD HH:mm:ss");
     
           const now = moment();

@@ -23,7 +23,7 @@ const LogExercise = ({ handleLogExercise, loading, isOpen, onClose }) => {
 
   return (
     <motion.div 
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 mb-0"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -35,7 +35,6 @@ const LogExercise = ({ handleLogExercise, loading, isOpen, onClose }) => {
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
         transition={{ duration: 0.3 }}
-        style={{ fontFamily: "'Inter', sans-serif" }}
       >
         <button
           onClick={handleCancel}

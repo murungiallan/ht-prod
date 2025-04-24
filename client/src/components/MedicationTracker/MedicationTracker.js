@@ -24,6 +24,7 @@ import Modal from "react-modal";
 import React from "react";
 import { debounce } from "lodash";
 import { Input } from "./styles";
+import { isBefore, isAfter, format } from "date-fns";
 
 // Import Components
 import Header from "./Header";
@@ -44,6 +45,8 @@ import EditReminderModal from "./Modals/EditReminderModal";
 import TakeMedicationModal from "./Modals/TakeMedicationModal";
 import UndoTakenMedicationModal from "./Modals/UndoTakenMedicationModal";
 import { moment } from "./utils/utils";
+import LoadingSpinner from "../common/LoadingSpinner";
+import { motion, AnimatePresence } from "framer-motion";
 
 Modal.setAppElement("#root");
 
@@ -115,8 +118,8 @@ const MedicationTracker = () => {
   }, [logout, navigate]);
 
   // Utility Functions
-  const isPastDate = (date) => moment(date).isBefore(moment(), "day");
-  const isFutureDate = (date) => moment(date).isAfter(moment(), "day");
+  const isPastDate = (date) => isBefore(new Date(date), new Date(), { granularity: "day" });
+  const isFutureDate = (date) => isAfter(new Date(date), new Date(), { granularity: "day" });
 
   const getDoseStatus = useCallback((med, doseIndex) => {
     const dateKey = moment(selectedDate).format("YYYY-MM-DD");
@@ -131,22 +134,21 @@ const MedicationTracker = () => {
       return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false };
     }
   
-    const isTaken = dose.taken;
-    const isMissed = dose.missed;
-    const [hours, minutes] = dose.time.split(":").map(Number);
-    const doseDateTime = moment(med.selectedDate)
-      .utcOffset("+08:00")
-      .set({ hour: hours, minute: minutes, second: 0, millisecond: 0 });
+    const timeParts = dose.time.split(":");
+    const hours = parseInt(timeParts[0], 10);
+    const minutes = parseInt(timeParts[1], 10);
+    const seconds = timeParts[2] ? parseInt(timeParts[2], 10) : 0;
+  
+    const doseDateTime = moment(selectedDate)
+      .set({ hour: hours, minute: minutes, second: seconds, millisecond: 0 });
   
     const now = moment();
-  
-    // Defining the 1-hour window
     const windowStart = moment(doseDateTime).subtract(1, "hour");
     const windowEnd = moment(doseDateTime).add(1, "hour");
-    const isWithinWindow = now.isBetween(windowStart, windowEnd, undefined, "[]"); // Inclusive
+    const isWithinWindow = now.isBetween(windowStart, windowEnd, undefined, "[]");
     const isTimeToTake = now.isSameOrAfter(doseDateTime);
   
-    return { isTaken, isMissed, isTimeToTake, isWithinWindow };
+    return { isTaken: dose.taken, isMissed: dose.missed, isTimeToTake, isWithinWindow };
   }, [selectedDate]);
 
   const confirmTakenStatus = (medicationId, doseIndex, taken) => {
@@ -276,16 +278,33 @@ const MedicationTracker = () => {
       toast.error("Please fill in all required fields");
       return;
     }
-
+  
+    // Validate dose times
+    if (doseTimes.length !== parseInt(timesPerDay)) {
+      toast.error("Number of dose times must match times per day");
+      return;
+    }
+    const uniqueTimes = new Set(doseTimes.map((dose) => dose.time));
+    if (uniqueTimes.size !== doseTimes.length) {
+      toast.error("Dose times must be unique");
+      return;
+    }
+  
     setActionLoading(true);
     try {
       const token = await getUserToken();
-      // Convert doseTimes to the required format (HH:mm:ss)
+      // Format times to HH:mm:ss
       const formattedTimes = doseTimes.map((dose) => {
-        const [hours, minutes] = dose.time.split(":");
-        return `${hours}:${minutes}:00`;
+        let time = dose.time;
+        if (time.split(":").length === 2) {
+          time += ":00"; // Append seconds if missing
+        }
+        if (!/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/.test(time)) {
+          throw new Error(`Invalid time format: ${time}`);
+        }
+        return time;
       });
-
+  
       const medicationData = {
         medication_name: name,
         frequency,
@@ -294,7 +313,7 @@ const MedicationTracker = () => {
         start_date: startDate,
         end_date: endDate,
         notes,
-        times: formattedTimes.length === parseInt(timesPerDay) ? formattedTimes : Array.from({ length: parseInt(timesPerDay) }, () => "08:00:00"),
+        times: formattedTimes,
         doses: {},
       };
       const createdMedication = await createMedication(medicationData, token);
@@ -314,7 +333,7 @@ const MedicationTracker = () => {
       if (err.code === "auth/id-token-expired") {
         handleSessionExpired();
       } else {
-        toast.error("Failed to add medication");
+        toast.error(err.response?.data?.error || "Failed to add medication");
       }
       throw err;
     } finally {
@@ -564,7 +583,6 @@ const MedicationTracker = () => {
         const dose = doses[doseIndex];
         const [hours, minutes] = dose.time.split(":").map(Number);
         const doseDateTime = moment(med.selectedDate)
-          .utcOffset("+08:00")
           .set({ hour: hours, minute: minutes, second: 0, millisecond: 0 });
         const windowEnd = moment(doseDateTime).add(1, "hour");
   
@@ -824,6 +842,10 @@ const MedicationTracker = () => {
     updateMedicationHistory();
   }, [medications]);
 
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
   return (
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       <Header
@@ -870,7 +892,7 @@ const MedicationTracker = () => {
             isFutureDate={isFutureDate}
           />
         </div>
-        <div className="flex flex-col lg:space-x-6 space-y-6 lg:space-y-0 w-full lg:max-w-3/4">
+        <div className="flex flex-col lg:space-x-6 space-y-6 lg:space-y-0 w-full gap-4 mt-4">
           <MedicationList
             medications={medications}
             loading={loading}
@@ -910,138 +932,247 @@ const MedicationTracker = () => {
         </div>
       </div>
 
-      {showAddModal && name !== undefined && dosage !== undefined && (
-        <AddMedicationModal
-          isOpen={showAddModal}
-          onRequestClose={() => setShowAddModal(false)}
-          name={name}
-          setName={setName}
-          frequency={frequency}
-          setFrequency={setFrequency}
-          dosage={dosage}
-          setDosage={setDosage}
-          timesPerDay={timesPerDay}
-          setTimesPerDay={setTimesPerDay}
-          startDate={startDate}
-          setStartDate={setStartDate}
-          endDate={endDate}
-          setEndDate={setEndDate}
-          notes={notes}
-          setNotes={setNotes}
-          handleAddMedication={handleAddMedication}
-          actionLoading={actionLoading}
-          filteredDrugs={filteredDrugs}
-          showDropdown={showDropdown}
-          handleDrugSearch={handleDrugSearch}
-          setShowDropdown={setShowDropdown}
-          handleDrugSelect={handleDrugSelect}
-          onMedicationAdded={onMedicationAdded}
-        />
-      )}
-      <MedicationDetailModal
-        isOpen={showDetailModal}
-        onRequestClose={() => setShowDetailModal(false)}
-        selectedMedication={selectedMedication}
-        drugInfo={drugInfo}
-        drugInfoLoading={drugInfoLoading}
-        calculateProgress={calculateProgress}
-        calculateDaysRemaining={calculateDaysRemaining}
-        getDoseStatus={getDoseStatus}
-        confirmTakenStatus={confirmTakenStatus}
-        actionLoading={actionLoading}
-        isPastDate={isPastDate}
-        isFutureDate={isFutureDate}
-        selectedDate={selectedDate}
-      />
-      <DailyChecklistModal
-        isOpen={showChecklistModal}
-        onRequestClose={() => setShowChecklistModal(false)}
-        dailyDoses={dailyDoses}
-        selectedDate={selectedDate}
-        getDoseStatus={getDoseStatus}
-        confirmTakenStatus={confirmTakenStatus}
-        actionLoading={actionLoading}
-        isPastDate={isPastDate}
-        isFutureDate={isFutureDate}
-      />
-      <ConfirmModal
-        isOpen={showConfirmModal}
-        onRequestClose={() => setShowConfirmModal(false)}
-        message={confirmMessage}
-        onConfirm={confirmAction}
-        actionLoading={actionLoading}
-      />
-      <DeleteConfirmModal
-        isOpen={showDeleteConfirmModal}
-        onRequestClose={() => setShowDeleteConfirmModal(false)}
-        onConfirm={handleDeleteMedication}
-        actionLoading={actionLoading}
-      />
-      <AllRemindersModal
-        isOpen={showAllRemindersModal}
-        onRequestClose={() => setShowAllRemindersModal(false)}
-        reminders={reminders}
-        medications={medications}
-        currentPage={currentPage}
-        setCurrentPage={setCurrentPage}
-        itemsPerPage={ITEMS_PER_PAGE}
-        handleMarkReminderAsSent={handleMarkReminderAsSent}
-        handleDeleteReminder={handleDeleteReminder}
-        setEditReminderModal={setEditReminderModal}
-        setReminderTime={setReminderTime}
-        actionLoading={actionLoading}
-      />
-      <SetReminderModal
-        isOpen={!!showReminderModal}
-        onRequestClose={() => setShowReminderModal(null)}
-        reminderTime={reminderTime}
-        setReminderTime={setReminderTime}
-        isRecurringReminder={isRecurringReminder}
-        setIsRecurringReminder={setIsRecurringReminder}
-        handleSetReminder={(e) => handleSetReminder(e, showReminderModal?.medicationId, showReminderModal?.doseIndex)}
-        actionLoading={actionLoading}
-      />
-      <AddReminderPromptModal
-        isOpen={!!showAddReminderPrompt}
-        onRequestClose={() => setShowAddReminderPrompt(null)}
-        showAddReminderPrompt={showAddReminderPrompt}
-        setShowReminderModal={setShowReminderModal}
-        selectedDate={selectedDate}
-      />
-      <EditReminderModal
-        isOpen={!!editReminderModal}
-        onRequestClose={() => setEditReminderModal(null)}
-        reminderTime={reminderTime}
-        setReminderTime={setReminderTime}
-        isRecurringReminder={isRecurringReminder}
-        setIsRecurringReminder={setIsRecurringReminder}
-        handleUpdateReminder={handleUpdateReminder}
-        actionLoading={actionLoading}
-      />
-      <TakeMedicationModal
-        isOpen={!!showTakeModal}
-        onRequestClose={() => setShowTakeModal(null)}
-        showTakeModal={showTakeModal}
-        medications={medications}
-        selectedDate={selectedDate}
-        getDoseStatus={getDoseStatus}
-        confirmTakenStatus={confirmTakenStatus}
-        actionLoading={actionLoading}
-        isPastDate={isPastDate}
-        isFutureDate={isFutureDate}
-      />
-      <UndoTakenMedicationModal
-        isOpen={!!showUndoModal}
-        onRequestClose={() => setShowUndoModal(null)}
-        showUndoModal={showUndoModal}
-        medications={medications}
-        selectedDate={selectedDate}
-        getDoseStatus={getDoseStatus}
-        confirmTakenStatus={confirmTakenStatus}
-        actionLoading={actionLoading}
-        isPastDate={isPastDate}
-        isFutureDate={isFutureDate}
-      />
+      <AnimatePresence>
+        {showAddModal && name !== undefined && dosage !== undefined && (
+          <motion.div
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            transition={{ duration: 0.3 }}
+          >
+            <AddMedicationModal
+              isOpen={showAddModal}
+              onRequestClose={() => setShowAddModal(false)}
+              name={name}
+              setName={setName}
+              frequency={frequency}
+              setFrequency={setFrequency}
+              dosage={dosage}
+              setDosage={setDosage}
+              timesPerDay={timesPerDay}
+              setTimesPerDay={setTimesPerDay}
+              startDate={startDate}
+              setStartDate={setStartDate}
+              endDate={endDate}
+              setEndDate={setEndDate}
+              notes={notes}
+              setNotes={setNotes}
+              handleAddMedication={handleAddMedication}
+              actionLoading={actionLoading}
+              filteredDrugs={filteredDrugs}
+              showDropdown={showDropdown}
+              handleDrugSearch={handleDrugSearch}
+              setShowDropdown={setShowDropdown}
+              handleDrugSelect={handleDrugSelect}
+              onMedicationAdded={onMedicationAdded}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -50 }}
+          transition={{ duration: 0.3 }}
+        >
+          <MedicationDetailModal
+            isOpen={showDetailModal}
+            onRequestClose={() => setShowDetailModal(false)}
+            selectedMedication={selectedMedication}
+            drugInfo={drugInfo}
+            drugInfoLoading={drugInfoLoading}
+            calculateProgress={calculateProgress}
+            calculateDaysRemaining={calculateDaysRemaining}
+            getDoseStatus={getDoseStatus}
+            confirmTakenStatus={confirmTakenStatus}
+            actionLoading={actionLoading}
+            isPastDate={isPastDate}
+            isFutureDate={isFutureDate}
+            selectedDate={selectedDate}
+          /> 
+        </motion.div>
+      </AnimatePresence>
+
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -50 }}
+          transition={{ duration: 0.3 }}
+        >
+          <DailyChecklistModal
+            isOpen={showChecklistModal}
+            onRequestClose={() => setShowChecklistModal(false)}
+            dailyDoses={dailyDoses}
+            selectedDate={selectedDate}
+            getDoseStatus={getDoseStatus}
+            confirmTakenStatus={confirmTakenStatus}
+            actionLoading={actionLoading}
+            isPastDate={isPastDate}
+            isFutureDate={isFutureDate}
+          />
+        </motion.div>
+      </AnimatePresence>
+
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -50 }}
+          transition={{ duration: 0.3 }}
+        >
+          <ConfirmModal
+            isOpen={showConfirmModal}
+            onRequestClose={() => setShowConfirmModal(false)}
+            message={confirmMessage}
+            onConfirm={confirmAction}
+            actionLoading={actionLoading}
+          />
+        </motion.div>
+      </AnimatePresence>
+
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -50 }}
+          transition={{ duration: 0.3 }}
+        >
+          <DeleteConfirmModal
+            isOpen={showDeleteConfirmModal}
+            onRequestClose={() => setShowDeleteConfirmModal(false)}
+            onConfirm={handleDeleteMedication}
+            actionLoading={actionLoading}
+          />
+        </motion.div>
+      </AnimatePresence>
+
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -50 }}
+          transition={{ duration: 0.3 }}
+        >
+          <AllRemindersModal
+            isOpen={showAllRemindersModal}
+            onRequestClose={() => setShowAllRemindersModal(false)}
+            reminders={reminders}
+            medications={medications}
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            itemsPerPage={ITEMS_PER_PAGE}
+            handleMarkReminderAsSent={handleMarkReminderAsSent}
+            handleDeleteReminder={handleDeleteReminder}
+            setEditReminderModal={setEditReminderModal}
+            setReminderTime={setReminderTime}
+            actionLoading={actionLoading}
+          />
+        </motion.div>
+      </AnimatePresence>
+
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -50 }}
+          transition={{ duration: 0.3 }}
+        >
+          <SetReminderModal
+            isOpen={!!showReminderModal}
+            onRequestClose={() => setShowReminderModal(null)}
+            reminderTime={reminderTime}
+            setReminderTime={setReminderTime}
+            isRecurringReminder={isRecurringReminder}
+            setIsRecurringReminder={setIsRecurringReminder}
+            handleSetReminder={(e) => handleSetReminder(e, showReminderModal?.medicationId, showReminderModal?.doseIndex)}
+            actionLoading={actionLoading}
+          />
+        </motion.div>
+      </AnimatePresence>
+
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -50 }}
+          transition={{ duration: 0.3 }}
+        >
+          <AddReminderPromptModal
+            isOpen={!!showAddReminderPrompt}
+            onRequestClose={() => setShowAddReminderPrompt(null)}
+            showAddReminderPrompt={showAddReminderPrompt}
+            setShowReminderModal={setShowReminderModal}
+            selectedDate={selectedDate}
+          />
+        </motion.div>
+      </AnimatePresence>
+
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -50 }}
+          transition={{ duration: 0.3 }}
+        >
+          <EditReminderModal
+            isOpen={!!editReminderModal}
+            onRequestClose={() => setEditReminderModal(null)}
+            reminderTime={reminderTime}
+            setReminderTime={setReminderTime}
+            isRecurringReminder={isRecurringReminder}
+            setIsRecurringReminder={setIsRecurringReminder}
+            handleUpdateReminder={handleUpdateReminder}
+            actionLoading={actionLoading}
+          />
+        </motion.div>
+      </AnimatePresence>
+
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -50 }}
+          transition={{ duration: 0.3 }}
+        >
+          <TakeMedicationModal
+            isOpen={!!showTakeModal}
+            onRequestClose={() => setShowTakeModal(null)}
+            showTakeModal={showTakeModal}
+            medications={medications}
+            selectedDate={selectedDate}
+            getDoseStatus={getDoseStatus}
+            confirmTakenStatus={confirmTakenStatus}
+            actionLoading={actionLoading}
+            isPastDate={isPastDate}
+            isFutureDate={isFutureDate}
+          />
+        </motion.div>
+      </AnimatePresence>
+
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -50 }}
+          transition={{ duration: 0.3 }}
+        >
+          <UndoTakenMedicationModal
+            isOpen={!!showUndoModal}
+            onRequestClose={() => setShowUndoModal(null)}
+            showUndoModal={showUndoModal}
+            medications={medications}
+            selectedDate={selectedDate}
+            getDoseStatus={getDoseStatus}
+            confirmTakenStatus={confirmTakenStatus}
+            actionLoading={actionLoading}
+            isPastDate={isPastDate}
+            isFutureDate={isFutureDate}
+          />
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 };

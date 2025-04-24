@@ -21,7 +21,7 @@ const CalendarSection = ({ selectedDate, setSelectedDate, isFutureDate }) => {
           value={selectedDate}
           showNeighboringMonth={true}
           tileDisabled={tileDisabled}
-          className="border-0 font-mono text-gray-800 w-full"
+          className="border-0 text-gray-800 w-full"
           tileClassName={({ date, view }) => {
             const isToday = today.toDateString() === date.toDateString();
             const isSelected = selectedDate && selectedDate.toDateString() === date.toDateString();

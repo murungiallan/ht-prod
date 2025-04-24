@@ -20,7 +20,6 @@ const DeleteConfirmModal = ({ isOpen, onRequestClose, onConfirm, actionLoading }
             fontWeight: 600,
             color: "#333333",
             marginBottom: "16px",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           Confirm Delete
@@ -30,7 +29,6 @@ const DeleteConfirmModal = ({ isOpen, onRequestClose, onConfirm, actionLoading }
             fontSize: "0.875rem",
             color: "#666666",
             marginBottom: "16px",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           Are you sure you want to delete this medication? This action cannot be undone.

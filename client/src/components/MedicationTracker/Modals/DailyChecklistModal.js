@@ -44,7 +44,6 @@ const DailyChecklistModal = ({
             fontWeight: 600,
             color: "#333333",
             marginBottom: "8px",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           Daily Medication Checklist
@@ -54,7 +53,6 @@ const DailyChecklistModal = ({
             fontSize: ".9rem",
             color: "#333",
             marginBottom: "16px",
-            fontFamily: "'Inter', sans-serif",
           }}
         >
           Current Time: {currentTime}
@@ -64,7 +62,6 @@ const DailyChecklistModal = ({
             style={{
               fontSize: "0.875rem",
               color: "#666666",
-              fontFamily: "'Inter', sans-serif",
             }}
           >
             No medications scheduled for {moment(selectedDate).format("MMMM D, YYYY")}.
@@ -90,7 +87,6 @@ const DailyChecklistModal = ({
                         fontSize: "0.875rem",
                         fontWeight: 500,
                         color: "#333333",
-                        fontFamily: "'Inter', sans-serif",
                       }}
                     >
                       {med.medication_name} ({med.dosage})
@@ -99,7 +95,6 @@ const DailyChecklistModal = ({
                       style={{
                         fontSize: "0.875rem",
                         color: "#666666",
-                        fontFamily: "'Inter', sans-serif",
                       }}
                     >
                       {med.timeOfDay} - {formatTimeForDisplay(med.doseTime)}

@@ -161,7 +161,7 @@ const Calendar = ({ exercises, setSelectedDate, selectedDate }) => {
                 {hasExercises && (
                   <span
                     className={`absolute top-2 right-2 w-2 h-2 rounded-full ${
-                      isSelected ? "bg-yellow-400" : "bg-white"
+                      isSelected ? "bg-yellow-600" : "bg-white"
                     }`}
                   ></span>
                 )}

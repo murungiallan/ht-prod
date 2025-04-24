@@ -6,13 +6,14 @@ import { toast } from "react-toastify";
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from "chart.js";
 import { auth } from "../../firebase/config";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Header from "./Header";
 import Calendar from "./Calendar";
 import Stats from "./Stats";
 import LogExercise from "./LogExercise";
 import RecentExercises from "./RecentExercises";
 import WeeklyActivity from "./WeeklyActivity";
+import LoadingSpinner from "../common/LoadingSpinner";
 
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
@@ -399,9 +400,13 @@ const ExerciseTracker = () => {
     },
   };
 
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
   return (
     <motion.div
-      className="min-h-screen p-6 sm:p-8 lg:p-10 max-w-7xl mx-auto font-mono"
+      className="min-h-screen p-6 mb-0 sm:p-8 lg:p-10 max-w-7xl mx-auto"
       initial="hidden"
       animate="visible"
       variants={containerVariants}
