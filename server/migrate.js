@@ -56,7 +56,7 @@ const createTables = [
     user_id INT NOT NULL,
     medication_id INT NOT NULL,
     dose_index INT NOT NULL,
-    reminder_time DATETIME NOT NULL,
+    reminder_time TIME NOT NULL,
     date DATE NOT NULL,
     type ENUM('single', 'daily') NOT NULL,
     status ENUM('pending', 'sent') DEFAULT 'pending',

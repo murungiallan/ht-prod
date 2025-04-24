@@ -26,7 +26,7 @@ const TakeMedicationModal = ({
 
   const handleTakeClick = (medicationId, doseIndex, isWithinWindow) => {
     if (!isWithinWindow) {
-      toast.error("You can only take this dose within a 1-hour window of the scheduled time.");
+      toast.error("You can only take this dose within a 2-hour window of the scheduled time.");
       return;
     }
     confirmTakenStatus(medicationId, doseIndex, true);
@@ -73,7 +73,7 @@ const TakeMedicationModal = ({
           </p>
         ) : (
           doses.map((dose, index) => {
-            const { isTaken, isMissed, isTimeToTake, isWithinWindow } = getDoseStatus(medication, index);
+            const { isTaken, isMissed, isWithinWindow } = getDoseStatus(medication, index);
             return (
               <div
                 key={index}
@@ -95,7 +95,7 @@ const TakeMedicationModal = ({
                 </span>
                 <Button
                   onClick={() => handleTakeClick(showTakeModal, index, isWithinWindow)}
-                  disabled={isTaken || isMissed || !isTimeToTake || actionLoading || isPastDate(selectedDate) || isFutureDate(selectedDate)}
+                  disabled={isTaken || isMissed || actionLoading || isPastDate(selectedDate) || isFutureDate(selectedDate)}
                   style={{ backgroundColor: "#84cc16" }}
                   aria-label="Mark dose as taken"
                 >

@@ -2,7 +2,6 @@ import axios from "axios";
 import { auth, database } from "../firebase/config.js";
 import { ref, update, get, push, query, orderByChild, limitToLast } from "firebase/database";
 import { debounce } from "lodash";
-import moment from "moment";
 
 const api = axios.create({ baseURL: "http://127.0.0.1:5000/api" });
 
@@ -709,8 +708,10 @@ export const getUserReminders = async (token) => {
 
   let remindersFromMySQL;
   try {
-    const response = await authFetch("/reminders/get-reminders", {}, token);
-    remindersFromMySQL = response;
+    const response = await api.get("/reminders/get-reminders", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    remindersFromMySQL = response.data;
   } catch (error) {
     console.error("Error fetching reminders from MySQL:", error);
     throw new Error("Failed to fetch reminders from server");
@@ -719,6 +720,12 @@ export const getUserReminders = async (token) => {
   try {
     const updates = {};
     remindersFromMySQL.forEach((reminder) => {
+      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/;
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!timeRegex.test(reminder.reminder_time) || !dateRegex.test(reminder.date)) {
+        console.warn(`Invalid reminder format for ID ${reminder.id}`);
+        return;
+      }
       const reminderPath = `reminders/${user.uid}/${reminder.id}`;
       updates[reminderPath] = {
         id: reminder.id.toString(),
@@ -737,7 +744,7 @@ export const getUserReminders = async (token) => {
     console.error("Error updating Firebase with reminders:", error);
   }
 
-  return remindersFromMySQL.map(reminder => ({
+  return remindersFromMySQL.map((reminder) => ({
     id: reminder.id.toString(),
     userId: reminder.user_id,
     medicationId: reminder.medication_id,
@@ -754,68 +761,108 @@ export const deleteReminder = async (reminderId, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  await api.delete(`/reminders/delete/${reminderId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  try {
+    await api.delete(`/reminders/delete/${reminderId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-  const reminderPath = `reminders/${user.uid}/${reminderId}`;
-  await retryWithBackoff(() => update(ref(database), { [reminderPath]: null }));
+    const reminderPath = `reminders/${user.uid}/${reminderId}`;
+    await retryWithBackoff(() => update(ref(database), { [reminderPath]: null }));
 
-  return { success: true };
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting reminder:", error);
+    throw new Error("Failed to delete reminder");
+  }
 };
 
 export const updateReminderStatus = async (reminderId, status, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  const response = await api.put(`/reminders/update/${reminderId}`, { status }, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  if (!["pending", "sent"].includes(status)) {
+    throw new Error("Status must be 'pending' or 'sent'");
+  }
 
-  const reminderPath = `reminders/${user.uid}/${reminderId}`;
-  await retryWithBackoff(() => update(ref(database), { [reminderPath + "/status"]: status }));
+  try {
+    const response = await api.put(`/reminders/update/${reminderId}/status`, { status }, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-  return response.data;
+    const reminderPath = `reminders/${user.uid}/${reminderId}`;
+    await retryWithBackoff(() => update(ref(database), { [reminderPath + "/status"]: status }));
+
+    return response.data;
+  } catch (error) {
+    console.error("Error updating reminder status:", error);
+    throw new Error("Failed to update reminder status");
+  }
 };
 
 export const updateReminder = async (reminderId, reminderData, token) => {
-  // Send the reminderData in the request body
-  const response = await api.put(
-    `/reminders/update/${reminderId}`, 
-    {
-      reminderTime: reminderData.reminderTime,
-      date: reminderData.date,
-      type: reminderData.type,
-      status: reminderData.status
-    }, 
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  const reminderPath = `reminders/${user.uid}/${reminderId}`;
-  await retryWithBackoff(() => update(ref(database), { 
-    [reminderPath]: {
-      ...reminderData,
-      id: reminderId,
-      userId: user.uid,
-    }
-  }));
+  const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/;
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (
+    !timeRegex.test(reminderData.reminderTime) ||
+    !dateRegex.test(reminderData.date) ||
+    !["single", "daily"].includes(reminderData.type)
+  ) {
+    throw new Error("Invalid reminder data format");
+  }
 
-  return response.data;
+  try {
+    const response = await api.put(
+      `/reminders/update/${reminderId}`,
+      {
+        reminderTime: reminderData.reminderTime,
+        date: reminderData.date,
+        type: reminderData.type,
+        status: reminderData.status || "pending",
+      },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    const reminderPath = `reminders/${user.uid}/${reminderId}`;
+    await retryWithBackoff(() =>
+      update(ref(database), {
+        [reminderPath]: {
+          id: reminderId,
+          userId: user.uid,
+          medicationId: reminderData.medicationId,
+          doseIndex: reminderData.doseIndex,
+          reminderTime: reminderData.reminderTime,
+          date: reminderData.date,
+          type: reminderData.type,
+          status: reminderData.status || "pending",
+          createdAt: reminderData.createdAt || new Date().toISOString(),
+        },
+      })
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error("Error updating reminder:", error);
+    throw new Error("Failed to update reminder");
+  }
 };
 
 export const saveFcmToken = async (token, fcmToken) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  const response = await api.post(
-    "/users/save-fcm-token",
-    { uid: user.uid, fcmToken },
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-  return response.data;
+  try {
+    // Update Firebase
+    await update(ref(database), {
+      [`users/${user.uid}/fcm_token`]: fcmToken,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error saving FCM token:", error);
+    throw new Error("Failed to save FCM token");
+  }
 };
 
 

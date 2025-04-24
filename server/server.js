@@ -10,10 +10,7 @@ import { initializeApp, cert } from "firebase-admin/app";
 import { getDatabase } from "firebase-admin/database";
 import { getAuth } from "firebase-admin/auth";
 import dotenv from "dotenv";
-import cron from "node-cron";
-import moment from "moment";
 import serviceAccount from "./service-account-key.json" with { type: "json" };
-import scheduleReminders from "./utils/ReminderScheduler.js";
 
 dotenv.config();
 
@@ -119,42 +116,6 @@ io.on("connection", (socket) => {
     socket.emit("disconnection_reason", reason);
   });
 });
-
-// Schedule reminders every minute
-cron.schedule("* * * * *", async () => {
-  const now = moment();
-  const twoHoursFromNow = moment().add(2, "hours");
-
-  const remindersRef = db.ref("reminders");
-  const snapshot = await remindersRef
-    .orderByChild("reminder_time")
-    .startAt(now.format("YYYY-MM-DD HH:mm:ss"))
-    .endAt(twoHoursFromNow.format("YYYY-MM-DD HH:mm:ss"))
-    .once("value");
-
-  const reminders = [];
-  snapshot.forEach((childSnapshot) => {
-    const reminder = childSnapshot.val();
-    if (reminder.status === "pending") {
-      reminders.push({ id: childSnapshot.key, ...reminder });
-    }
-  });
-
-  for (const reminder of reminders) {
-    try {
-      io.to(reminder.user_id).emit("reminderSent", {
-        message: `Time to take your medication!`,
-        reminder,
-      });
-  
-      await db.ref(`reminders/${reminder.id}`).update({ status: "sent" });
-    } catch (error) {
-      console.error(`Failed to process reminder ${reminder.id}:`, error);
-    }
-  }
-});
-
-scheduleReminders();
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {

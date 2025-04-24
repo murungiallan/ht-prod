@@ -41,7 +41,7 @@ const TimeOfDaySection = React.memo(
                 className="py-2"
               >
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 w-full">
-                  <div className="font-medium text-sm text-gray-800">
+                  <div className="font-medium text-sm text-gray-800" style={{ maxWidth: "400px" }}>
                     {med.medication_name} ({med.dosage}) - {med.times_per_day}{" "}
                     time(s) {med.frequency}
                   </div>

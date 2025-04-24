@@ -48,6 +48,7 @@ export const Section = styled.div`
 export const Button = styled.button`
   padding: ${theme.spacing.small} ${theme.spacing.medium};
   border-radius: 8px;
+  font-size: .875rem;
   font-weight: 500;
   cursor: pointer;
   transition: background-color 0.5s ease-in-out, transform 0.2s ease;

@@ -66,24 +66,6 @@ const AddMedicationModal = ({
       })
     );
   }, [timesPerDay]);
-
-  const validateTimes = (times, timesPerDay) => {
-    if (times.length !== parseInt(timesPerDay)) {
-      toast.error("Number of dose times must match times per day");
-      return false;
-    }
-    const uniqueTimes = new Set(times.map((t) => t.time));
-    if (uniqueTimes.size !== times.length) {
-      toast.error("Dose times must be unique");
-      return false;
-    }
-    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
-    if (!times.every((t) => timeRegex.test(t.time))) {
-      toast.error("Dose times must be in HH:mm or HH:mm:ss format");
-      return false;
-    }
-    return true;
-  };
   
   // Set up debounced search
   useEffect(() => {

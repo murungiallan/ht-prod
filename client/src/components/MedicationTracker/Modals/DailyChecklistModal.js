@@ -14,16 +14,13 @@ const DailyChecklistModal = ({
   isPastDate,
   isFutureDate,
 }) => {
-  // State to store the current time
-  const [currentTime, setCurrentTime] = useState(moment().format("h:mm A"));
+  const [currentTime, setCurrentTime] = useState(moment().format("h:mm:ss A"));
 
-  // Update the current time every second
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentTime(moment().format("h:mm:ss A"));
+      const now = moment();
+      setCurrentTime(now.format("h:mm:ss A"));
     }, 1000);
-
-    // Cleanup the interval on component unmount
     return () => clearInterval(interval);
   }, []);
 
@@ -34,14 +31,15 @@ const DailyChecklistModal = ({
       contentLabel="Daily Medication Checklist"
       style={{ overlay: ModalOverlay, content: ModalContent }}
     >
-      <ModalContentWrapper minWidth="60vw" borderColor="#6f42c1">
+      <ModalContentWrapper 
+        style={{minWidth:"60vw", borderColor:"#6f42c1"}}>
         <CloseButton onClick={onRequestClose} accentColor="#6f42c1" aria-label="Close modal">
           ✕
         </CloseButton>
         <h2
           style={{
             fontSize: "1.25rem",
-            fontWeight: 600,
+            fontWeight: 500,
             color: "#333333",
             marginBottom: "8px",
           }}
@@ -69,7 +67,7 @@ const DailyChecklistModal = ({
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
             {dailyDoses.map((med, index) => {
-              const { isTaken, isMissed, isTimeToTake } = getDoseStatus(med, med.doseIndex);
+              const { isTaken, isMissed, isWithinWindow } = getDoseStatus(med, med.doseIndex);
               return (
                 <div
                   key={`${med.id}-${med.doseIndex}-${index}`}
@@ -103,7 +101,7 @@ const DailyChecklistModal = ({
                   <div style={{ display: "flex", gap: "8px" }}>
                     <Button
                       onClick={() => confirmTakenStatus(med.id, med.doseIndex, !isTaken)}
-                      disabled={isTaken || isMissed || !isTimeToTake || actionLoading || isPastDate(selectedDate) || isFutureDate(selectedDate)}
+                      disabled={isTaken || isMissed || !isWithinWindow || actionLoading || isPastDate(selectedDate) || isFutureDate(selectedDate)}
                       style={{
                         backgroundColor: isTaken ? "#e8e8e8" : "#1a73e8",
                         color: isTaken ? "#333333" : "white",

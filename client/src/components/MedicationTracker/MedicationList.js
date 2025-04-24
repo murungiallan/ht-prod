@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Section, Button, SecondaryButton } from "./styles";
 import { MdDelete } from "react-icons/md";
-import { formatTimeForDisplay } from "./utils/utils";
+import { formatTimeForDisplay, moment } from "./utils/utils";
 import Pagination from "./Pagination";
 
 const MedicationList = ({
@@ -18,6 +18,8 @@ const MedicationList = ({
   confirmDeleteMedication,
   actionLoading,
   searchQuery,
+  getDoseStatus,
+  selectedDate,
 }) => {
   const [sortConfig, setSortConfig] = useState({ key: "medication_name", direction: "asc" });
 
@@ -51,6 +53,20 @@ const MedicationList = ({
     }));
   };
 
+  const canTakeAnyDose = (med) => {
+    const dateKey = moment(selectedDate).format("YYYY-MM-DD");
+    const doses = med.doses?.[dateKey] || med.times.map((time) => ({
+      time,
+      taken: false,
+      missed: false,
+      takenAt: null,
+    }));
+    return doses.some((_, index) => {
+      const { isTaken, isMissed, isWithinWindow } = getDoseStatus(med, index);
+      return !isTaken && !isMissed && isWithinWindow;
+    });
+  };
+
   const filteredMedications = medications.filter(
     (med) =>
       med.medication_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -77,7 +93,7 @@ const MedicationList = ({
       >
         <h2
           style={{
-            fontSize :"1.25rem",
+            fontSize: "1.25rem",
             fontWeight: 600,
             color: "#333333",
           }}
@@ -135,33 +151,33 @@ const MedicationList = ({
                   }}
                 >
                   <th
-                    style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
+                    style={{ padding: "10px", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer" }}
                     onClick={() => handleSort("medication_name")}
                   >
                     Name {sortConfig.key === "medication_name" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </th>
                   <th
-                    style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
+                    style={{ padding: "10px", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer" }}
                     onClick={() => handleSort("times_per_day")}
                   >
                     Times {sortConfig.key === "times_per_day" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </th>
                   <th
-                    style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
+                    style={{ padding: "10px", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer" }}
                     onClick={() => handleSort("dosage")}
                   >
                     Dosage {sortConfig.key === "dosage" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </th>
                   <th
-                    style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
+                    style={{ padding: "10px", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer" }}
                     onClick={() => handleSort("status")}
                   >
                     Status {sortConfig.key === "status" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </th>
                   <th
                     style={{
-                      padding: "12px",
-                      fontWeight: 600,
+                      padding: "10px",
+                      fontWeight: 600, fontSize: "0.875rem",
                       textAlign: "right",
                     }}
                   ></th>
@@ -170,6 +186,7 @@ const MedicationList = ({
               <tbody>
                 {paginate(sortedMedications, currentPage.medications).map((med) => {
                   const { totalDoses, takenDoses, missedDoses } = calculateDoseStatus(med);
+                  const canTake = canTakeAnyDose(med);
                   return (
                     <tr
                       key={med.id}
@@ -185,33 +202,33 @@ const MedicationList = ({
                       tabIndex={0}
                       onKeyPress={(e) => e.key === "Enter" && openMedicationDetail(med)}
                     >
-                      <td style={{ padding: "12px" }}>
+                      <td style={{ padding: "10px" }}>
                         <div style={{ display: "flex", flexDirection: "column" }}>
-                          <div style={{ fontWeight: 500, color: "#333333" }}>{med.medication_name}</div>
+                          <div style={{ fontWeight: 500, fontSize: "0.875rem", color: "#333333" }}>{med.medication_name}</div>
                           <div style={{ color: "#666666", textTransform: "capitalize" }}>
                             {med.frequency}
                           </div>
                         </div>
                       </td>
-                      <td style={{ padding: "12px" }}>
+                      <td style={{ padding: "10px", fontSize: "0.875rem" }}>
                         {(Array.isArray(med.times) ? med.times : []).map((time) => formatTimeForDisplay(time)).join(", ")} (
                         {med.times_per_day} times/day)
                       </td>
-                      <td style={{ padding: "12px" }}>{med.dosage}</td>
-                      <td style={{ padding: "12px" }}>
+                      <td style={{ padding: "10px", fontSize: "0.875rem" }}>{med.dosage}</td>
+                      <td style={{ padding: "10px", fontSize: "0.875rem" }}>
                         <span style={{ color: "#666666" }}>
                           Taken: {takenDoses}/{totalDoses}, Missed: {missedDoses}
                         </span>
                       </td>
                       <td
-                        style={{ padding: "12px", textAlign: "right" }}
+                        style={{ padding: "10px", textAlign: "right" }}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", flexWrap: "nowrap" }}>
                           <Button
                             onClick={() => setShowTakeModal(med.id)}
                             style={{ backgroundColor: "#28a745" }}
-                            disabled={actionLoading}
+                            disabled={actionLoading || !canTake}
                             aria-label="Take medication"
                           >
                             Take

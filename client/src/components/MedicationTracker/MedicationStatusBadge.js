@@ -47,6 +47,8 @@ const MedicationStatusBadge = React.memo(({ med, getDoseStatus }) => {
     return null;
   }
 
+  console.log(getDoseStatus);
+
   // Fetching the dose status using the provided getDoseStatus function
   const { isTaken, isMissed, isTimeToTake, isWithinWindow } = getDoseStatus(med, med.doseIndex);
 
@@ -67,7 +69,7 @@ const MedicationStatusBadge = React.memo(({ med, getDoseStatus }) => {
   }
 
   // Check if the dose is overdue (time has passed but within the 1-hour window)
-  const isOverdue = isTimeToTake && isWithinWindow && !isTaken && !isMissed;
+  const isOverdue = isWithinWindow && !isTaken;
 
   return (
     <StatusBadge className={isOverdue ? "overdue" : "pending"}>

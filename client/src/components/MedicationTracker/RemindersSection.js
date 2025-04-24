@@ -29,6 +29,9 @@ const RemindersSection = ({
         const medB = medications.find((m) => m.id === b.medicationId);
         aValue = medA?.medication_name || "Unknown";
         bValue = medB?.medication_name || "Unknown";
+      } else if (key === "effectiveDate") {
+        aValue = a.effectiveDate;
+        bValue = b.effectiveDate;
       } else {
         aValue = a[key];
         bValue = b[key];
@@ -52,17 +55,17 @@ const RemindersSection = ({
     }));
   };
 
-  const filteredReminders = reminders
-    .filter((reminder) => reminder.date === moment(selectedDate).format("YYYY-MM-DD"))
-    .filter((reminder) => {
-      const med = medications.find((m) => m.id === reminder.medicationId);
-      return (
-        med?.medication_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        reminder.reminderTime.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        reminder.date.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (reminder.status || "pending").toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    });
+  // Filter reminders based on search query
+  const filteredReminders = reminders.filter((reminder) => {
+    const med = medications.find((m) => m.id === reminder.medicationId);
+    return (
+      (med?.medication_name || "Unknown").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      reminder.reminderTime.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      reminder.effectiveDate.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (reminder.status || "pending").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      reminder.type.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
 
   const sortedReminders = sortData(filteredReminders, sortConfig.key, sortConfig.direction);
 
@@ -79,10 +82,9 @@ const RemindersSection = ({
           fontWeight: 600,
           color: "#333333",
           marginBottom: "16px",
-         
         }}
       >
-        Reminders
+        Reminders for {moment(selectedDate).format("MMMM D, YYYY")}
       </h2>
       {filteredReminders.length === 0 ? (
         <p
@@ -91,7 +93,7 @@ const RemindersSection = ({
             color: "#666666",
           }}
         >
-          No reminders set.
+          No reminders set for this date.
         </p>
       ) : (
         <>
@@ -119,9 +121,15 @@ const RemindersSection = ({
                   </th>
                   <th
                     style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
-                    onClick={() => handleSort("date")}
+                    onClick={() => handleSort("effectiveDate")}
                   >
-                    Date {sortConfig.key === "date" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                    Date {sortConfig.key === "effectiveDate" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
+                    onClick={() => handleSort("type")}
+                  >
+                    Type {sortConfig.key === "type" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </th>
                   <th
                     style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
@@ -133,7 +141,6 @@ const RemindersSection = ({
                     style={{
                       padding: "12px",
                       fontWeight: 600,
-                     
                       textAlign: "right",
                     }}
                   >
@@ -157,7 +164,8 @@ const RemindersSection = ({
                       <td style={{ padding: "12px" }}>
                         {formatTimeForDisplay(reminder.reminderTime)}
                       </td>
-                      <td style={{ padding: "12px" }}>{reminder.date}</td>
+                      <td style={{ padding: "12px" }}>{reminder.effectiveDate}</td>
+                      <td style={{ padding: "12px" }}>{reminder.type}</td>
                       <td style={{ padding: "12px" }}>
                         <span
                           style={{
@@ -179,7 +187,6 @@ const RemindersSection = ({
                                 border: "none",
                                 cursor: "pointer",
                                 fontSize: "0.875rem",
-                               
                                 transition: "color 0.2s ease",
                               }}
                               disabled={actionLoading}
@@ -207,7 +214,7 @@ const RemindersSection = ({
                             onMouseEnter={(e) => (e.currentTarget.style.color = "#e0a800")}
                             onMouseLeave={(e) => (e.currentTarget.style.color = "#ffc107")}
                           >
-                            <MdEdit/>
+                            <MdEdit />
                             <span style={{ display: "none" }}>Edit</span>
                           </button>
                           <button
@@ -224,7 +231,7 @@ const RemindersSection = ({
                             onMouseEnter={(e) => (e.currentTarget.style.color = "#c82333")}
                             onMouseLeave={(e) => (e.currentTarget.style.color = "#dc3545")}
                           >
-                            <MdDelete/>
+                            <MdDelete />
                             <span style={{ display: "none" }}>Delete</span>
                           </button>
                         </div>

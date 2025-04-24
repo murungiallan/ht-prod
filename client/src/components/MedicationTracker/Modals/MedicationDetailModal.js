@@ -1,16 +1,7 @@
 import React, { useEffect } from "react";
 import Modal from "react-modal";
-import moment from "moment-timezone";
 import { ModalContentWrapper, CloseButton, Button, ModalOverlay, ModalContent } from "../styles";
-import { formatInTimeZone } from "date-fns-tz";
-
-const formatTimeForDisplay = (time) => {
-  if (!time || typeof time !== "string") return "Unknown time";
-  const [hours, minutes] = time.split(":").map(Number);
-  const period = hours >= 12 ? "PM" : "AM";
-  const displayHours = hours % 12 || 12;
-  return `${displayHours}:${minutes.toString().padStart(2, "0")} ${period}`;
-};
+import { moment, formatTimeForDisplay } from "../utils/utils";
 
 const MedicationDetailModal = ({
   isOpen,
@@ -28,15 +19,21 @@ const MedicationDetailModal = ({
   isFutureDate,
   selectedDate,
 }) => {
-  const formattedDate = selectedDate
-  ? formatInTimeZone(selectedDate, Intl.DateTimeFormat().resolvedOptions().timeZone, "yyyy-MM-dd")
-  : formatInTimeZone(new Date(), Intl.DateTimeFormat().resolvedOptions().timeZone, "yyyy-MM-dd");
-  const dosesForDate = selectedMedication?.doses?.[formattedDate] || [];
+  const dateKey = moment(selectedDate).format("YYYY-MM-DD");
+  const displayDate = moment(selectedDate).format("MMMM D, YYYY");
+
+  const startDateFormatted = selectedMedication?.start_date
+    ? moment(selectedMedication.start_date).format("MMMM D, YYYY")
+    : "N/A";
+  const endDateFormatted = selectedMedication?.end_date
+    ? moment(selectedMedication.end_date).format("MMMM D, YYYY")
+    : "N/A";
+
+  const dosesForDate = selectedMedication?.doses?.[dateKey] || [];
   const timesArray = Array.isArray(selectedMedication?.times)
     ? selectedMedication.times
     : [];
 
-  // Calculate progress
   const progress = calculateProgress() || 0;
   const safeProgress = isNaN(progress) || progress < 0 ? 0 : progress > 100 ? 100 : progress;
 
@@ -117,7 +114,7 @@ const MedicationDetailModal = ({
               marginBottom: "8px",
             }}
           >
-            Schedule
+            Schedule for {displayDate}
           </h3>
           <p
             style={{
@@ -132,8 +129,7 @@ const MedicationDetailModal = ({
               : "No schedule provided."}{" "}
             ({selectedMedication?.frequency || "N/A"},{" "}
             {selectedMedication?.times_per_day || 0} times/day, from{" "}
-            {selectedMedication?.start_date || "N/A"} to{" "}
-            {selectedMedication?.end_date || "N/A"})
+            {startDateFormatted} to {endDateFormatted})
           </p>
         </section>
         <section style={{ marginBottom: "16px" }}>
@@ -149,7 +145,7 @@ const MedicationDetailModal = ({
           </h3>
           {dosesForDate.length > 0 ? (
             dosesForDate.map((dose, index) => {
-              const { isTaken, isMissed, isTimeToTake } = getDoseStatus(
+              const { isTaken, isMissed, isWithinWindow } = getDoseStatus(
                 selectedMedication,
                 index
               );
@@ -179,7 +175,7 @@ const MedicationDetailModal = ({
                       disabled={
                         isTaken ||
                         isMissed ||
-                        !isTimeToTake ||
+                        !isWithinWindow ||
                         actionLoading ||
                         isPastDate(selectedDate) ||
                         isFutureDate(selectedDate)

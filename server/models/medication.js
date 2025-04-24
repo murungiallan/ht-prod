@@ -3,25 +3,35 @@ import moment from "moment";
 
 class Medication {
   static safeParseJSON(jsonString, defaultValue = {}) {
+    if (jsonString && typeof jsonString === "object") {
+      return jsonString;
+    }
     if (!jsonString || jsonString === "") {
       return defaultValue;
     }
     try {
       return JSON.parse(jsonString);
     } catch (error) {
+      if (typeof jsonString === "string" && jsonString.includes(",")) {
+        const times = jsonString.split(",").map(time => time.trim());
+        const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/;
+        if (times.every(time => timeRegex.test(time))) {
+          return times;
+        }
+      }
       console.error(`Error parsing JSON: ${jsonString}`, error.message);
       return defaultValue;
     }
   }
 
-  static validateDoses(doses, times_per_day) {
+  static validateDoses(doses, times_per_day, times) {
     if (typeof doses !== "object" || Array.isArray(doses) || !doses) {
       return false;
     }
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     for (const date in doses) {
       if (!dateRegex.test(date)) return false;
-      if (!Array.isArray(doses[date]) || doses[date].length !== times_per_day) return false;
+      if (!Array.isArray(doses[date])) return false;
       if (
         !doses[date].every(
           (dose) =>
@@ -52,10 +62,6 @@ class Medication {
         takenAt: null,
       })),
     };
-
-    if (!this.validateDoses(initialDoses, times_per_day)) {
-      throw new Error("Invalid initial doses structure");
-    }
 
     const query = `
       INSERT INTO medications (user_id, medication_name, dosage, frequency, times_per_day, times, doses, start_date, end_date, notes)
@@ -94,19 +100,50 @@ class Medication {
       const updatedRows = [];
 
       for (const row of rows) {
-        let doses = this.safeParseJSON(row.doses, {});
-        const times = this.safeParseJSON(row.times, []);
+        let times = this.safeParseJSON(row.times, []);
+        if (typeof times === "string") {
+          times = this.safeParseJSON(times, []);
+        }
+        if (!Array.isArray(times)) {
+          console.warn(`Invalid times for medication ${row.id}, resetting to empty array`);
+          times = [];
+        }
 
-        if (!this.validateDoses(doses, row.times_per_day)) {
-          console.warn(`Invalid doses for medication ${row.id}, resetting to default`);
-          doses = {};
+        let doses = this.safeParseJSON(row.doses, {});
+        let dosesUpdated = false;
+
+        // Validate and fix doses
+        if (!this.validateDoses(doses, row.times_per_day, times)) {
+          console.warn(`Invalid doses for medication ${row.id}, attempting to repair`);
+          const newDoses = {};
+          for (const date in doses) {
+            if (!Array.isArray(doses[date])) {
+              newDoses[date] = times.map((time) => ({
+                time,
+                taken: false,
+                missed: false,
+                takenAt: null,
+              }));
+              dosesUpdated = true;
+            } else if (doses[date].length !== row.times_per_day) {
+              newDoses[date] = times.map((time) => ({
+                time,
+                taken: false,
+                missed: false,
+                takenAt: null,
+              }));
+              dosesUpdated = true;
+            } else {
+              newDoses[date] = doses[date];
+            }
+          }
+          doses = newDoses;
         }
 
         // Initialize doses for all dates between start_date and end_date
         const startDate = new Date(row.start_date);
         const endDate = new Date(row.end_date || new Date());
         const currentDate = new Date(startDate);
-        let dosesUpdated = false;
 
         while (currentDate <= endDate) {
           const dateStr = currentDate.toISOString().split("T")[0];
@@ -122,8 +159,12 @@ class Medication {
           currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        if (dosesUpdated) {
-          await db.query("UPDATE medications SET doses = ? WHERE id = ?", [JSON.stringify(doses), row.id]);
+        if (dosesUpdated || !Array.isArray(row.times)) {
+          await db.query("UPDATE medications SET times = ?, doses = ? WHERE id = ?", [
+            JSON.stringify(times),
+            JSON.stringify(doses),
+            row.id,
+          ]);
         }
 
         updatedRows.push({
@@ -143,11 +184,24 @@ class Medication {
   static async update(id, updatedData) {
     try {
       const { medication_name, dosage, frequency, times_per_day, times, doses, start_date, end_date, notes } = updatedData;
-      if (times && (!Array.isArray(times) || times.length !== times_per_day)) {
+      if (times && (!Array.isArray(times) || (times_per_day && times.length !== times_per_day))) {
         throw new Error("Invalid times array or times_per_day mismatch");
       }
-      if (doses && !this.validateDoses(doses, times_per_day)) {
-        throw new Error("Invalid doses structure");
+
+      const existing = await this.getById(id);
+      const updatedTimes = times || existing.times;
+      const updatedDoses = doses || existing.doses;
+      const updatedTimesPerDay = times_per_day || existing.times_per_day;
+
+      for (const date in updatedDoses) {
+        if (updatedDoses[date].length !== updatedTimesPerDay) {
+          updatedDoses[date] = updatedTimes.map((time) => ({
+            time,
+            taken: false,
+            missed: false,
+            takenAt: null,
+          }));
+        }
       }
 
       const query = `
@@ -156,15 +210,15 @@ class Medication {
         WHERE id = ?
       `;
       const values = [
-        medication_name,
-        dosage,
-        frequency,
-        times_per_day,
-        times ? JSON.stringify(times) : null,
-        doses ? JSON.stringify(doses) : null,
-        start_date,
-        end_date,
-        notes || null,
+        medication_name || existing.medication_name,
+        dosage || existing.dosage,
+        frequency || existing.frequency,
+        updatedTimesPerDay,
+        JSON.stringify(updatedTimes),
+        JSON.stringify(updatedDoses),
+        start_date || existing.start_date,
+        end_date || existing.end_date,
+        notes || existing.notes,
         id,
       ];
       await db.query(query, values);
@@ -205,41 +259,6 @@ class Medication {
     }
   }
 
-  static async update(id, updatedData) {
-    try {
-      const { medication_name, dosage, frequency, times_per_day, times, doses, start_date, end_date, notes } = updatedData;
-      if (times && (!Array.isArray(times) || times.length !== times_per_day)) {
-        throw new Error("Invalid times array or times_per_day mismatch");
-      }
-      if (doses && (typeof doses !== "object" || Array.isArray(doses))) {
-        throw new Error("Doses must be an object with date keys");
-      }
-
-      const query = `
-        UPDATE medications
-        SET medication_name = ?, dosage = ?, frequency = ?, times_per_day = ?, times = ?, doses = ?, start_date = ?, end_date = ?, notes = ?
-        WHERE id = ?
-      `;
-      const values = [
-        medication_name,
-        dosage,
-        frequency,
-        times_per_day,
-        JSON.stringify(times || []),
-        JSON.stringify(doses || {}),
-        start_date,
-        end_date,
-        notes || null,
-        id,
-      ];
-      await db.query(query, values);
-      return this.getById(id);
-    } catch (error) {
-      console.error("Database error in Medication.update:", error.message, error.sqlMessage);
-      throw new Error(`Failed to update medication: ${error.message}`);
-    }
-  }
-
   static async delete(id) {
     try {
       const query = `
@@ -259,12 +278,13 @@ class Medication {
 
   static async updateTakenStatus(id, doseIndex, taken, date) {
     try {
-      const [rows] = await db.query("SELECT doses, times FROM medications WHERE id = ?", [id]);
+      const [rows] = await db.query("SELECT doses, times, times_per_day FROM medications WHERE id = ?", [id]);
       if (rows.length === 0) {
         throw new Error("Medication not found");
       }
-      const doses = this.safeParseJSON(rows[0].doses, {});
+      let doses = this.safeParseJSON(rows[0].doses, {});
       const times = this.safeParseJSON(rows[0].times, []);
+      const times_per_day = rows[0].times_per_day;
 
       if (!doses[date]) {
         doses[date] = times.map((time) => ({
@@ -274,15 +294,18 @@ class Medication {
           takenAt: null,
         }));
       }
-      if (doseIndex >= doses[date].length || doseIndex < 0) {
-        throw new Error(`Invalid doseIndex: ${doseIndex}. Must be between 0 and ${doses[date].length - 1}`);
+      if (!doses[date] || doses[date].length !== times_per_day) {
+        throw new Error(`Doses for date ${date} are invalid or do not match times_per_day (${times_per_day})`);
+      }
+      if (doseIndex >= times_per_day || doseIndex < 0) {
+        throw new Error(`Invalid doseIndex: ${doseIndex}. Must be between 0 and ${times_per_day - 1}`);
       }
 
-      // Validate 2-hour window
       if (taken) {
         const doseTime = doses[date][doseIndex].time;
         const doseDateTime = moment(`${date} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
-        const now = moment.tz.setDefault();
+        const now = moment();
+        console.log(`Time now according to updateTakenStatus in medication model: ${now}`);
         const hoursDiff = Math.abs(doseDateTime.diff(now, "hours", true));
         if (hoursDiff > 2) {
           throw new Error("Can only mark medication as taken within 2 hours of the scheduled time");
@@ -311,12 +334,13 @@ class Medication {
 
   static async markAsMissed(id, doseIndex, missed, date) {
     try {
-      const [rows] = await db.query("SELECT doses, times FROM medications WHERE id = ?", [id]);
+      const [rows] = await db.query("SELECT doses, times, times_per_day FROM medications WHERE id = ?", [id]);
       if (rows.length === 0) {
         throw new Error("Medication not found");
       }
-      const doses = this.safeParseJSON(rows[0].doses, {});
+      let doses = this.safeParseJSON(rows[0].doses, {});
       const times = this.safeParseJSON(rows[0].times, []);
+      const times_per_day = rows[0].times_per_day;
 
       if (!doses[date]) {
         doses[date] = times.map((time) => ({
@@ -326,8 +350,11 @@ class Medication {
           takenAt: null,
         }));
       }
-      if (doseIndex >= doses[date].length || doseIndex < 0) {
-        throw new Error(`Invalid doseIndex: ${doseIndex}. Must be between 0 and ${doses[date].length - 1}`);
+      if (!doses[date] || doses[date].length !== times_per_day) {
+        throw new Error(`Doses for date ${date} are invalid or do not match times_per_day (${times_per_day})`);
+      }
+      if (doseIndex >= times_per_day || doseIndex < 0) {
+        throw new Error(`Invalid doseIndex: ${doseIndex}. Must be between 0 and ${times_per_day - 1}`);
       }
 
       doses[date][doseIndex] = {

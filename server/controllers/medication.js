@@ -1,7 +1,6 @@
 import Medication from "../models/medication.js";
 import { db as firebaseDb } from "../server.js"; // Firebase Realtime Database
 import db from "../config/db.js"; // MySQL connection pool
-import moment from "moment";
 
 class MedicationController {
   static async addMedication(req, res) {
@@ -68,7 +67,7 @@ class MedicationController {
         frequency,
         times_per_day,
         times,
-        doses: newMedication.doses || {}, // Ensure doses is an object
+        doses: newMedication.doses || {},
         start_date,
         end_date,
         notes,
@@ -109,21 +108,6 @@ class MedicationController {
         return res.status(404).json({ error: "Medication not found" });
       }
 
-      // Validate dose exists
-      if (!medication.doses[date] || doseIndex >= medication.doses[date].length) {
-        return res.status(400).json({ error: "Invalid doseIndex or date" });
-      }
-
-      // Validate 2-hour window
-      const doseTime = medication.doses[date][doseIndex].time;
-      const doseDateTime = moment(`${date} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
-      const now = moment();
-      const windowStart = doseDateTime.clone().subtract(1, "hour");
-      const windowEnd = doseDateTime.clone().add(1, "hour");
-      if (taken && !now.isBetween(windowStart, windowEnd, null, "[]")) {
-        return res.status(400).json({ error: "Can only mark medication as taken within 1 hour of the scheduled time" });
-      }
-
       const updatedMedication = await Medication.updateTakenStatus(id, doseIndex, taken, date);
 
       await firebaseDb.ref(`medications/${firebaseUid}/${id}`).set({
@@ -134,7 +118,7 @@ class MedicationController {
         frequency: updatedMedication.frequency,
         times_per_day: updatedMedication.times_per_day,
         times: updatedMedication.times,
-        doses: updatedMedication.doses || {}, // Ensure doses is an object
+        doses: updatedMedication.doses || {},
         start_date: updatedMedication.start_date,
         end_date: updatedMedication.end_date,
         notes: updatedMedication.notes,
@@ -232,8 +216,9 @@ class MedicationController {
           if (!Array.isArray(doses[date])) {
             return res.status(400).json({ error: `doses[${date}] must be an array` });
           }
-          if (doses[date].length !== (times_per_day || medications.find((med) => med.id === parseInt(id)).times_per_day)) {
-            return res.status(400).json({ error: `doses[${date}] length must equal times_per_day` });
+          const expectedLength = times_per_day || medications.find((med) => med.id === parseInt(id)).times_per_day;
+          if (doses[date].length !== expectedLength) {
+            return res.status(400).json({ error: `doses[${date}] length must equal times_per_day (${expectedLength})` });
           }
           if (
             !doses[date].every(
@@ -319,6 +304,7 @@ class MedicationController {
       res.status(500).json({ error: "Failed to delete medication", details: error.message });
     }
   }
+
   static async markAsMissed(req, res) {
     try {
       const firebaseUid = req.user.uid;

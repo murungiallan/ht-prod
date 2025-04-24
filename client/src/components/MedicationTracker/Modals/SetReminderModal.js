@@ -13,6 +13,16 @@ const SetReminderModal = ({
   setIsRecurringReminder,
   actionLoading,
 }) => {
+  // Normalize time format to HH:mm:ss
+  const handleTimeChange = (e) => {
+    let time = e.target.value;
+    // If time is in HH:mm format, append :00
+    if (time && time.split(":").length === 2) {
+      time += ":00";
+    }
+    setReminderTime(time);
+  };
+
   return (
     <Modal
       isOpen={isOpen}
@@ -54,8 +64,8 @@ const SetReminderModal = ({
             <Input
               id="reminder-time"
               type="time"
-              value={reminderTime}
-              onChange={(e) => setReminderTime(e.target.value)}
+              value={reminderTime.split(":").slice(0, 2).join(":")} // Display only HH:mm in the input
+              onChange={handleTimeChange}
               required
             />
           </div>

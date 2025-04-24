@@ -10,6 +10,11 @@ const AddReminderPromptModal = ({
   setShowReminderModal,
   selectedDate,
 }) => {
+  // Format the date for display
+  const displayDate = showAddReminderPrompt?.suggestedDate
+    ? moment(showAddReminderPrompt.suggestedDate).format("MMMM D, YYYY")
+    : moment(selectedDate).format("MMMM D, YYYY");
+
   return (
     <Modal
       isOpen={isOpen}
@@ -39,7 +44,7 @@ const AddReminderPromptModal = ({
           }}
         >
           Would you like to set a reminder for {showAddReminderPrompt?.medication.medication_name} on{" "}
-          {showAddReminderPrompt?.suggestedDate || moment(selectedDate).format("YYYY-MM-DD")}?
+          {displayDate}?
         </p>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px" }}>
           <SecondaryButton onClick={onRequestClose} aria-label="Skip setting reminder">

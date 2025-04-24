@@ -24,7 +24,20 @@ const UndoTakenMedicationModal = ({
     takenAt: null,
   })) || [];
 
-  const handleUndoClick = (medicationId, doseIndex, isWithinWindow) => {
+  const handleUndoClick = (medicationId, doseIndex, dose) => {
+    const dateKey = moment(selectedDate).format("YYYY-MM-DD");
+    const timeParts = dose.time.split(":");
+    const hours = parseInt(timeParts[0], 10);
+    const minutes = parseInt(timeParts[1], 10);
+    const seconds = timeParts[2] ? parseInt(timeParts[2], 10) : 0;
+
+    const doseDateTime = moment(dateKey, "YYYY-MM-DD")
+      .set({ hour: hours, minute: minutes, second: seconds, millisecond: 0 });
+    const now = moment();
+    const windowStart = moment(doseDateTime);
+    const windowEnd = moment(doseDateTime).add(1, "hour");
+    const isWithinWindow = now.isBetween(windowStart, windowEnd, undefined, "[]");
+
     if (!isWithinWindow) {
       toast.error("You can only undo this dose within a 1-hour window of the scheduled time.");
       return;
@@ -64,7 +77,7 @@ const UndoTakenMedicationModal = ({
           Select the dose you want to undo the taken status for.
         </p>
         {doses.map((dose, index) => {
-          const { isTaken, isMissed, isTimeToTake, isWithinWindow } = getDoseStatus(medication, index);
+          const { isTaken, isMissed, isWithinWindow } = getDoseStatus(medication, index);
           return (
             <div
               key={index}
@@ -82,11 +95,11 @@ const UndoTakenMedicationModal = ({
                   color: "#666666",
                 }}
               >
-                {formatTimeForDisplay(dose?.time || "Unknown time")}
+                {formatTimeForDisplay(dose?.time || "Unknown time")} 
               </span>
               <Button
-                onClick={() => handleUndoClick(showUndoModal, index, isWithinWindow)}
-                disabled={!isTaken || isMissed || !isTimeToTake || actionLoading || isPastDate(selectedDate) || isFutureDate(selectedDate)}
+                onClick={() => handleUndoClick(showUndoModal, index, dose)}
+                disabled={!isTaken || isMissed || !isWithinWindow || actionLoading || isPastDate(selectedDate) || isFutureDate(selectedDate)}
                 style={{ backgroundColor: "#0dcaf0" }}
                 aria-label="Undo dose taken status"
               >
