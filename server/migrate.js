@@ -4,15 +4,17 @@ import db from './config/db.js';
 const createTables = [
   `
   CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    uid VARCHAR(255) NOT NULL,
-    username VARCHAR(100) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    display_name VARCHAR(255),
-    password VARCHAR(255) NOT NULL,
-    role ENUM('user', 'admin') DEFAULT 'user',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_login TIMESTAMP NULL DEFAULT NULL
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      uid VARCHAR(255) NOT NULL,
+      username VARCHAR(100) NOT NULL,
+      email VARCHAR(255) UNIQUE NOT NULL,
+      display_name VARCHAR(255),
+      password VARCHAR(255) NOT NULL,
+      role ENUM('user', 'admin') DEFAULT 'user',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      last_login TIMESTAMP NULL DEFAULT NULL,
+      weekly_food_calorie_goal FLOAT DEFAULT NULL,
+      weekly_exercise_calorie_goal FLOAT DEFAULT NULL
   )`,
   `
   CREATE TABLE IF NOT EXISTS exercises (

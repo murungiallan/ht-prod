@@ -47,6 +47,26 @@ class User {
     await db.query(query, [username, email, displayName, role, userId]);
     return { uid: userId, username, email, displayName, role };
   }
+
+  static async saveWeeklyGoals(userId, { weeklyFoodCalorieGoal, weeklyExerciseCalorieGoal }) {
+    const query = `
+      UPDATE users
+      SET weekly_food_calorie_goal = ?, weekly_exercise_calorie_goal = ?
+      WHERE uid = ?
+    `;
+    await db.query(query, [weeklyFoodCalorieGoal, weeklyExerciseCalorieGoal, userId]);
+    return { weeklyFoodCalorieGoal, weeklyExerciseCalorieGoal };
+  }
+
+  static async getWeeklyGoals(userId) {
+    const query = `
+      SELECT weekly_food_calorie_goal, weekly_exercise_calorie_goal
+      FROM users
+      WHERE uid = ?
+    `;
+    const [rows] = await db.query(query, [userId]);
+    return rows[0] || { weekly_food_calorie_goal: null, weekly_exercise_calorie_goal: null };
+  }
 }
 
 export default User;

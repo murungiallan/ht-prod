@@ -10,5 +10,7 @@ router.post("/reset-password", AuthController.resetPassword);
 router.get("/", authMiddleware, AuthController.getUser);
 router.put("/profile", authMiddleware, AuthController.updateProfile);
 router.post("/save-fcm-token", authMiddleware, AuthController.saveFcmToken);
+router.post("/weekly-goals", authMiddleware, AuthController.saveWeeklyGoals);
+router.get("/weekly-goals", authMiddleware, AuthController.getWeeklyGoals);
 
 export default router;
