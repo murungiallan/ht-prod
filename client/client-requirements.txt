@@ -25,3 +25,4 @@ chartjs-adapter-moment
 @tippyjs/react
 moment-timezone
 date-fns-tz
+chartjs-plugin-annotation
