@@ -142,6 +142,31 @@ export const resetPassword = async (email, token) => {
   );
 };
 
+export const saveWeeklyGoals = async (weeklyFoodCalorieGoal, weeklyExerciseCalorieGoal, token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const userPath = `users/${user.uid}/weeklyGoals`;
+  const goalsData = {
+    weeklyFoodCalorieGoal,
+    weeklyExerciseCalorieGoal,
+  };
+  await retryWithBackoff(() => update(ref(database), { [userPath]: goalsData }));
+
+  return authFetch(
+    "/users/weekly-goals",
+    {
+      method: "POST",
+      body: JSON.stringify({ weeklyFoodCalorieGoal, weeklyExerciseCalorieGoal }),
+    },
+    token
+  );
+};
+
+export const getWeeklyGoals = async (token) => {
+  return authFetch("/users/weekly-goals", {}, token);
+};
+
 // Medication API
 export const createMedication = async (medicationData, token) => {
   const user = auth.currentUser;

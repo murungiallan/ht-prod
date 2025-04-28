@@ -162,6 +162,40 @@ class AuthController {
       res.status(500).json({ error: "Failed to save FCM token", details: error.message });
     }
   }
+
+  static async saveWeeklyGoals(req, res) {
+    try {
+      const { weeklyFoodCalorieGoal, weeklyExerciseCalorieGoal } = req.body;
+      const uid = req.user.uid;
+
+      if (weeklyFoodCalorieGoal == null || weeklyExerciseCalorieGoal == null) {
+        return res.status(400).json({ error: "Both weekly food and exercise calorie goals are required" });
+      }
+
+      const goals = await User.saveWeeklyGoals(uid, { weeklyFoodCalorieGoal, weeklyExerciseCalorieGoal });
+
+      await firebaseDb.ref(`users/${uid}/weeklyGoals`).set({
+        weeklyFoodCalorieGoal,
+        weeklyExerciseCalorieGoal,
+      });
+
+      res.status(200).json({ message: "Weekly goals saved successfully", goals });
+    } catch (error) {
+      console.error("Error saving weekly goals:", error);
+      res.status(500).json({ error: "Failed to save weekly goals" });
+    }
+  }
+
+  static async getWeeklyGoals(req, res) {
+    try {
+      const uid = req.user.uid;
+      const goals = await User.getWeeklyGoals(uid);
+      res.status(200).json(goals);
+    } catch (error) {
+      console.error("Error fetching weekly goals:", error);
+      res.status(500).json({ error: "Failed to fetch weekly goals" });
+    }
+  }
 }
 
 export default AuthController;
