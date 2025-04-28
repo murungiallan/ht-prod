@@ -139,23 +139,13 @@ const MedicationTracker = () => {
     const seconds = timeParts[2] ? parseInt(timeParts[2], 10) : 0;
   
     const doseDateTime = moment(dateKey, "YYYY-MM-DD")
-      .set({ hour: hours, minute: minutes, second: seconds, millisecond: 0 });
-    console.log(`Dose/DateTime now according to getDoseStatus in MedicationTracker: ${doseDateTime.format("YYYY-MM-DD HH:mm:ss")}`);
-  
+      .set({ hour: hours, minute: minutes, second: seconds, millisecond: 0 });  
     const now = moment();
-    console.log(`Time now according to getDoseStatus in MedicationTracker: ${now.format("YYYY-MM-DD HH:mm:ss")}`);
     
     const windowStart = moment(doseDateTime).subtract(2, "hours");
     const windowEnd = moment(doseDateTime).add(2, "hours");
     const isWithinWindow = now.isBetween(windowStart, windowEnd, undefined, "[]");
-    const isTimeToTake = now.isSameOrAfter(doseDateTime);
-  
-    console.log(`Medication ${med.id}, Dose ${doseIndex}:`);
-    console.log(`Dose Time: ${doseDateTime.format("YYYY-MM-DD HH:mm:ss")}`);
-    console.log(`Current Time: ${now.format("YYYY-MM-DD HH:mm:ss")}`);
-    console.log(`Window: ${windowStart.format("HH:mm:ss")} - ${windowEnd.format("HH:mm:ss")}`);
-    console.log(`isWithinWindow: ${isWithinWindow}, isTaken: ${dose.taken}`);
-  
+    const isTimeToTake = now.isSameOrAfter(doseDateTime);  
     return { isTaken: dose.taken, isMissed: dose.missed, isTimeToTake, isWithinWindow };
   }, [selectedDate]);
 

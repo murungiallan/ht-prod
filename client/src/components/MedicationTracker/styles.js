@@ -175,6 +175,10 @@ export const ModalOverlay = {
   backgroundColor: theme.colors.overlay,
   zIndex: 1000,
   transition: "opacity 0.3s ease-in-out",
+  cursor: "pointer",
+  ":hover": {
+    opacity: 0.8,
+  },
 };
 
 export const ModalContent = {
@@ -214,8 +218,8 @@ export const ModalContentWrapper = styled.div`
   }
   
   box-shadow: 0 8px 24px ${theme.colors.shadow};
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   position: relative;
   transition: all 0.3s ease;
 
