@@ -1,11 +1,13 @@
 import { createPool, createConnection } from 'mysql2/promise';
+import dotenv from 'dotenv';
+dotenv.config();
 
 // Function to create the database if it doesn't exist
 const ensureDatabaseExists = async () => {
   const connection = await createConnection({
     host: 'localhost',
     user: 'root',
-    password: 'Cinnamomo80854',
+    password: process.env.DATABASE_PASSWORD,
   });
 
   try {
@@ -29,7 +31,7 @@ const ensureDatabaseExists = async () => {
 const db = createPool({
   host: 'localhost',
   user: 'root',
-  password: 'Cinnamomo80854', 
+  password: process.env.DATABASE_PASSWORD, 
   database: 'healthtrack_db',
   waitForConnections: true,
   connectionLimit: 10,

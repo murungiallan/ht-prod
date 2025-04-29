@@ -5,13 +5,26 @@ import Stats from "./Stats";
 const Calendar = ({ exercises, setSelectedDate, selectedDate }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const scrollContainerRef = useRef(null);
+  
+  // Create a normalized today date by setting it to midnight
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-  // Set default selected date
+  // Helper function to normalize any date to midnight
+  const normalizeDate = (date) => {
+    const normalized = new Date(date);
+    normalized.setHours(0, 0, 0, 0);
+    return normalized;
+  };
+
+  // Set default selected date and normalize it
   useEffect(() => {
     if (!selectedDate) {
-      setSelectedDate(new Date());
+      setSelectedDate(normalizeDate(today));
+    } else {
+      setSelectedDate(normalizeDate(selectedDate));
     }
-  }, [selectedDate, setSelectedDate]);
+  }, []);
 
   // Generate calendar dates for the current month view
   const generateCalendarDates = () => {
@@ -25,7 +38,7 @@ const Calendar = ({ exercises, setSelectedDate, selectedDate }) => {
     endDate.setDate(endDate.getDate() + 3);
 
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      dates.push(new Date(d));
+      dates.push(normalizeDate(d));
     }
     return dates;
   };
@@ -39,7 +52,6 @@ const Calendar = ({ exercises, setSelectedDate, selectedDate }) => {
   };
 
   const isToday = (date) => {
-    const today = new Date();
     return (
       date.getDate() === today.getDate() &&
       date.getMonth() === today.getMonth() &&
@@ -48,13 +60,14 @@ const Calendar = ({ exercises, setSelectedDate, selectedDate }) => {
   };
 
   const hasExercisesOnDate = (date) => {
-    return exercises.some(
-      (ex) => new Date(ex.date_logged).toISOString().split("T")[0] === date.toISOString().split("T")[0]
-    );
+    return exercises.some(ex => {
+      const exDate = normalizeDate(new Date(ex.date_logged));
+      return exDate.getTime() === date.getTime();
+    });
   };
 
   const handleDateSelect = (date) => {
-    setSelectedDate(date);
+    setSelectedDate(normalizeDate(date));
   };
 
   // Center today's date in the scroll container
@@ -70,23 +83,14 @@ const Calendar = ({ exercises, setSelectedDate, selectedDate }) => {
     }
   }, [currentMonth]);
 
-  // Filter exercises for the selected date
+  // Filter exercises for the selected date using normalized comparison
   const selectedDateExercises = selectedDate
-    ? exercises.filter(
-        (ex) =>
-          new Date(ex.date_logged).toISOString().split("T")[0] ===
-          new Date(selectedDate).toISOString().split("T")[0]
-      )
+    ? exercises.filter(ex => {
+        const exDate = normalizeDate(new Date(ex.date_logged));
+        const selDate = normalizeDate(new Date(selectedDate));
+        return exDate.getTime() === selDate.getTime();
+      })
     : [];
-
-  // Calculate workout stats for the selected date
-  const workoutStats = selectedDate
-    ? {
-        completed: selectedDateExercises.filter((ex) => ex.status === "completed").length,
-        canceled: selectedDateExercises.filter((ex) => ex.status === "canceled").length,
-        notDone: selectedDateExercises.filter((ex) => ex.status === "not_done").length,
-      }
-    : { completed: 0, canceled: 0, notDone: 0 };
 
   // Calculate stats for the Stats component
   const exerciseStats = selectedDate
@@ -134,9 +138,7 @@ const Calendar = ({ exercises, setSelectedDate, selectedDate }) => {
       >
         {generateCalendarDates().map((date, index) => {
           const isDateToday = isToday(date);
-          const isSelected =
-            selectedDate &&
-            selectedDate.toISOString().split("T")[0] === date.toISOString().split("T")[0];
+          const isSelected = selectedDate && normalizeDate(selectedDate).getTime() === date.getTime();
           const hasExercises = hasExercisesOnDate(date);
           const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
 
