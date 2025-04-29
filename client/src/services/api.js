@@ -167,6 +167,15 @@ export const getWeeklyGoals = async (token) => {
   return authFetch("/users/weekly-goals", {}, token);
 };
 
+//Food Diary API
+
+export const createFoodLog = async (foodData, token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+
+}
+
 // Medication API
 export const createMedication = async (medicationData, token) => {
   const user = auth.currentUser;

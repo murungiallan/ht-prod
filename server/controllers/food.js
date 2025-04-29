@@ -2,7 +2,7 @@ import Food from "../models/food.js";
 import { db } from "../server.js";  
 
 class FoodController {
-  static async addExercise(req, res) {
+  static async addFood(req, res) {
     try {
       const userId = req.user.uid;
       const { food_name, portion_size, calories, date_logged } = req.body;
@@ -22,100 +22,100 @@ class FoodController {
       const food = await Food.add(foodData);
 
       await db.ref(`food_diary/${userId}/${food.id}`).set({
-        ...exerciseData,
-        id: exercise.id,
+        ...foodData,
+        id: food.id,
       });
 
-      req.io.emit("exerciseAdded", exercise);
+      req.io.emit("foodAdded", food);
 
-      return res.status(201).json(exercise);
+      return res.status(201).json(food);
     } catch (error) {
       console.error("Error adding exercise:", error);
       return res.status(500).json({ error: "Failed to add exercise" });
     }
   }
 
-  static async getUserExercises(req, res) {
+  static async getUserFood(req, res) {
     try {
       const userId = req.user.uid;
-      const exercises = await Exercise.getByUser(userId);
-      return res.status(200).json(exercises);
+      const foods = await Exercise.getByUser(userId);
+      return res.status(200).json(foods);
     } catch (error) {
-      console.error("Error getting exercises:", error);
-      return res.status(500).json({ error: "Failed to get exercises" });
+      console.error("Error getting food log:", error);
+      return res.status(500).json({ error: "Failed to get food log" });
     }
   }
 
-  static async updateExercise(req, res) {
+  static async updateFood(req, res) {
     try {
       const userId = req.user.uid;
       const { id } = req.params;
       const { food_name, portion_size, calories, date_logged } = req.body;
-      const foods = await Exercise.getByUser(userId);
+      const foods = await Food.getByUser(userId);
       const food = foods.find((ex) => ex.id === parseInt(id));
 
       if (!food) {
-        return res.status(404).json({ error: "Exercise not found or unauthorized" });
+        return res.status(404).json({ error: "Food log not found or unauthorized" });
       }
 
       const updatedData = {
-        activity: activity || exercise.activity,
-        duration: duration ? parseInt(duration) : exercise.duration,
-        calories_burned: calories_burned ? parseInt(calories_burned) : exercise.calories_burned,
-        date_logged: date_logged ? new Date(date_logged) : exercise.date_logged,
+        food_name: food_name|| food.activity,
+        portion_size: portion_size ? parseInt(portion_size) : food.portion_size,
+        calories: calories ? parseInt(calories) : food.calories,
+        date_logged: date_logged ? new Date(date_logged) : food.date_logged,
       };
 
-      const updatedExercise = await Exercise.update(id, updatedData);
+      const updatedFood = await Food.update(id, updatedData);
 
-      await db.ref(`exercises/${userId}/${id}`).set({
+      await db.ref(`food_diary/${userId}/${id}`).set({
         ...updatedData,
         id: parseInt(id),
         userId,
       });
 
-      req.io.emit("exerciseUpdated", updatedExercise);
+      req.io.emit("foodUpdated", updatedFood);
 
-      return res.status(200).json(updatedExercise);
+      return res.status(200).json(updatedFood);
     } catch (error) {
-      console.error("Error updating exercise:", error);
-      return res.status(500).json({ error: "Failed to update exercise" });
+      console.error("Error updating food log:", error);
+      return res.status(500).json({ error: "Failed to update food log" });
     }
   }
 
-  static async deleteExercise(req, res) {
+  static async deleteFood(req, res) {
     try {
       const userId = req.user.uid;
       const { id } = req.params;
-      const exercises = await Exercise.getByUser(userId);
-      const exercise = exercises.find((ex) => ex.id === parseInt(id));
+      const foods = await Food.getByUser(userId);
+      const food = foods.find((ex) => ex.id === parseInt(id));
 
-      if (!exercise) {
-        return res.status(404).json({ error: "Exercise not found or unauthorized" });
+      if (!food) {
+        return res.status(404).json({ error: "Food log not found or unauthorized" });
       }
 
-      await Exercise.delete(id);
+      await Food.delete(id);
 
-      await db.ref(`exercises/${userId}/${id}`).remove();
+      await db.ref(`food_diary/${userId}/${id}`).remove();
 
-      req.io.emit("exerciseDeleted", id);
+      req.io.emit("foodDeleted", id);
 
-      return res.status(200).json({ message: "Exercise deleted successfully" });
+      return res.status(200).json({ message: "Food log deleted successfully" });
     } catch (error) {
-      console.error("Error deleting exercise:", error);
-      return res.status(500).json({ error: "Failed to delete exercise" });
+      console.error("Error deleting food log:", error);
+      return res.status(500).json({ error: "Failed to delete food log" });
     }
   }
 
-  static async getExerciseStats(req, res) {
+  static async getFoodStats(req, res) {
     try {
       const userId = req.user.uid;
-      const stats = await Exercise.getStats(userId);
+      const stats = await Food.getStats(userId);
       return res.status(200).json(stats);
     } catch (error) {
-      console.error("Error getting exercise stats:", error);
-      return res.status(500).json({ error: "Failed to get exercise statistics" });
+      console.error("Error getting food log stats:", error);
+      return res.status(500).json({ error: "Failed to get food log statistics" });
     }
   }
 }
 
-export default ExerciseController;
+export default FoodController;
