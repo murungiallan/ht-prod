@@ -14,6 +14,7 @@ import Profile from "../pages/Profile";
 import UserInfo from "../pages/UserInfo";
 import Dashboard from "../components/Dashboard/Dashboard";
 import MedicationTracker from "../components/MedicationTracker/MedicationTracker";
+import AdminDashboard from "../components/AdminDash/AdminDashboard";
 import FoodDiary from "../components/FoodDiary/FoodDiary";
 import ExerciseTracker from "../components/ExerciseTracker/ExerciseTracker";
 import MainLayout from "../layouts/MainLayout";
@@ -65,6 +66,7 @@ const AppRoutes = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/admin" element={<AdminDashboard />} />
 
           {/* Authenticated Routes */}
           <Route
