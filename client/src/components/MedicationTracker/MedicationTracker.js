@@ -31,7 +31,7 @@ import Header from "./Header";
 import CalendarSection from "./CalendarSection";
 import TimeOfDaySection from "./TimeOfDaySection";
 import MedicationList from "./MedicationList";
-// import RemindersSection from "./RemindersSection";
+import RemindersSection from "./RemindersSection";
 import HistorySection from "./HistorySection";
 import AddMedicationModal from "./Modals/AddMedicationModal";
 import MedicationDetailModal from "./Modals/MedicationDetailModal";
@@ -998,7 +998,7 @@ const MedicationTracker = () => {
             getDoseStatus={getDoseStatus}
             selectedDate={selectedDate}
           />
-          {/* <RemindersSection
+          <RemindersSection
             reminders={effectiveReminders}
             medications={medications}
             selectedDate={selectedDate}
@@ -1011,7 +1011,7 @@ const MedicationTracker = () => {
             setReminderTime={setReminderTime}
             actionLoading={actionLoading}
             searchQuery={searchQuery}
-          /> */}
+          />
           <HistorySection
             medicationHistory={medicationHistory}
             currentPage={currentPage}
