@@ -167,14 +167,7 @@ export const getWeeklyGoals = async (token) => {
   return authFetch("/users/weekly-goals", {}, token);
 };
 
-//Food Diary API
 
-export const createFoodLog = async (foodData, token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
-
-
-}
 
 // Medication API
 export const createMedication = async (medicationData, token) => {
@@ -898,6 +891,122 @@ export const saveFcmToken = async (token, fcmToken) => {
     throw new Error("Failed to save FCM token");
   }
 };
+
+//Food Diary API
+export const createFoodLog = async (foodData, token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const foodEntry = {
+      
+      userId: user.uid,
+      food_name: foodData.food_name,
+      calories: foodData.calories,
+      date_logged: foodData.date_logged,
+      meal_type: foodData.meal_type,
+  };
+
+  const response = await api.post("/food-logs/add", foodEntry, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const foodId = response.data.id.toString();
+  const foodPath = `food_logs/${user.uid}/${foodId}`;
+  const firebaseEntry = {
+    ...foodEntry,
+    id: foodId
+  };
+
+  await retryWithBackoff(() => update(ref(database), { [foodPath]: firebaseEntry }));
+
+  return response.data;
+}
+
+export const getUserFoodLogs = async (token) => {
+  
+    const user = auth.currentUser;
+    if (!user) throw new Error("User not authenticated");
+  
+    // Fetch from MySQL
+    const response = await authFetch("/food-logs/get-food-logs", {}, token);
+    const foodLogsFromMySQL = response;
+  
+    // Update Firebase with the latest data from MySQL
+    const updates = {};
+    foodLogsFromMySQL.forEach((foodLog) => {
+      const foodPath = `food_logs/${user.uid}/${foodLog.id}`;
+      updates[foodPath] = {
+        id: foodLog.id.toString(),
+        userId: user.uid,
+        food_name: foodLog.food_name,
+        calories: foodLog.calories,
+        date_logged: foodLog.date_logged,
+        meal_type: foodLog.meal_type
+      };
+    });
+    await retryWithBackoff(() => update(ref(database), updates));
+  
+    return foodLogsFromMySQL;
+};
+
+const updateFoodLogDebounced = debounce((userId, id, foodData) => {
+  
+  const foodPath = `food_logs/${userId}/${id}`;
+  update(ref(database), {
+    [foodPath]: {
+      id,
+      userId,
+      food_name: foodData.food_name,
+      calories: foodData.calories,
+      date_logged: foodData.date_logged,
+      meal_type: foodData.meal_type,
+    },
+  });
+
+  
+
+}, 500);
+
+export const updateFoodLog = async (id, foodData, token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+  const response = await api.put(`/food-logs/update/${id}`, foodData, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  updateFoodLogDebounced(user.uid, id, foodData);
+  return response.data;
+};
+
+export const deleteFoodLog = async (id, token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  // Sync with MySQL
+  const response = await api.delete(`/food-logs/delete/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  // Delete in Firebase with a single request
+  const foodPath = `food_logs/${user.uid}/${id}`;
+  await retryWithBackoff(() => update(ref(database), { [foodPath]: null }));
+
+  return response.data;
+};
+
+export const getFoodStats = async (token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  // Fetch from MySQL
+  const response = await authFetch("/food-logs/food-stats", {}, token);
+  const stats = response;
+
+  // Update Firebase
+  const statsPath = `food_stats/${user.uid}`;
+  await retryWithBackoff(() => update(ref(database), { [statsPath]: stats }));
+
+  return stats;
+}
 
 
 // Exercise API
