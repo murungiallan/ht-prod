@@ -1,46 +1,55 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { getUser, updateProfile } from '../services/api';
 import { toast } from 'react-toastify';
+import { auth } from '../firebase/config';
+import { AuthContext } from "../contexts/AuthContext";
 
 const Settings = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
-  
+  const [error, setError] = useState(null);
   const [profile, setProfile] = useState({
     name: '',
     email: '',
     phone: ''
   });
-  
   const [resetEmail, setResetEmail] = useState('');
+  const logout = useContext(AuthContext);
 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         setIsLoading(true);
-        const token = localStorage.getItem('token');
-        
-        if (!token) {
-          throw new Error('Not authenticated');
+        setError(null);
+
+        // Check if user is authenticated
+        if (!auth.currentUser) {
+          throw new Error('Not authenticated. Please log in to view your settings.');
         }
-        
+
+        // Fetch the ID token
+        const token = await auth.currentUser.getIdToken(true);
+
+        // Fetch user data
         const userData = await getUser(token);
-        
+
         setProfile({
-          name: userData.displayName || '',
-          email: userData.email || '',
-          phone: userData.phone || ''
+          name: userData?.displayName || '',
+          email: userData?.email || '',
+          phone: userData?.phone || ''
         });
-        
-        setResetEmail(userData.email || '');
-        setIsLoading(false);
+
+        setResetEmail(userData?.email || '');
       } catch (err) {
-        toast.error('Failed to load user data. Please try again.');
+        console.error('Error fetching user data:', err);
+        setError(err.message || 'Failed to load user data. Please try again.');
+        toast.error(err.message || 'Failed to load user data. Please try again.');
+      } finally {
         setIsLoading(false);
       }
     };
-    
+
     fetchUserData();
   }, []);
 
@@ -48,16 +57,22 @@ const Settings = () => {
     e.preventDefault();
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
+      setError(null);
+
+      // Fetch the ID token
+      const token = await auth.currentUser.getIdToken(true);
+
       await updateProfile(token, {
         displayName: profile.name,
         email: profile.email,
         phone: profile.phone
       });
       toast.success('Profile updated successfully');
-      setIsLoading(false);
     } catch (err) {
-      toast.error('Failed to update profile. Please try again.');
+      console.error('Error updating profile:', err);
+      setError(err.message || 'Failed to update profile. Please try again.');
+      toast.error(err.message || 'Failed to update profile. Please try again.');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -69,22 +84,24 @@ const Settings = () => {
       return;
     }
     try {
-      setIsLoading(true);
-      const response = await fetch('http://127.0.0.1:5000/api/auth/reset-password', {
-        method: 'POST',
+      const response = await fetch("http://127.0.0.1:5000/api/users/reset-password", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email: resetEmail })
+        body: JSON.stringify({ email: resetEmail }),
       });
+  
+      const result = await response.json();
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to reset password');
+        throw new Error(result.error || "Failed to reset password");
       }
-      toast.success('Password reset link sent to your email');
-      setIsLoading(false);
-    } catch (err) {
-      toast.error('Failed to send password reset link. Please try again.');
+  
+      toast.info(result.message);
+    } catch (error) {
+      toast.error(error.message || "Password reset failed");
+      throw error;
+    } finally {
       setIsLoading(false);
     }
   };
@@ -92,10 +109,11 @@ const Settings = () => {
   const handleLogoutAllDevices = async () => {
     setIsLoggingOut(true);
     try {
-      // Placeholder: API call to log out from all devices
+      logout();
       await new Promise(resolve => setTimeout(resolve, 1000));
       toast.success('Logged out from all other devices');
     } catch (err) {
+      console.error('Error logging out from other devices:', err);
       toast.error('Failed to log out from other devices. Please try again.');
     } finally {
       setIsLoggingOut(false);
@@ -107,12 +125,28 @@ const Settings = () => {
     setProfile(prev => ({ ...prev, [name]: value }));
   };
 
-  if (isLoading && !profile.name) {
+  // Show loading state
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-t-blue-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading user data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="max-w-5xl mx-auto p-6">
+        <h1 className="text-3xl font-bold text-gray-800 mb-8">Account Settings</h1>
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <p className="text-red-600">{error}</p>
+          <p className="text-gray-600 mt-2">
+            You may need to <a href="/login" className="text-blue-600 hover:underline">log in</a> or refresh the page.
+          </p>
         </div>
       </div>
     );
