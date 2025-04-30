@@ -18,7 +18,7 @@ const DailyChecklistModal = ({
 
   useEffect(() => {
     const interval = setInterval(() => {
-      const now = moment();
+      const now = moment().local();
       setCurrentTime(now.format("h:mm:ss A"));
     }, 1000);
     return () => clearInterval(interval);

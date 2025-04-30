@@ -18,7 +18,7 @@ const scheduleReminders = async () => {
 
       for (const reminder of reminders) {
         const reminderDateTime = moment(`${reminder.date} ${reminder.reminder_time}`, "YYYY-MM-DD HH:mm:ss");
-        const now = moment();
+        const now = moment().local();
 
         // Check if the reminder time is within the current minute
         if (now.isSame(reminderDateTime, "minute")) {

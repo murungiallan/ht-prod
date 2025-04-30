@@ -33,7 +33,7 @@ const UndoTakenMedicationModal = ({
 
     const doseDateTime = moment(dateKey, "YYYY-MM-DD")
       .set({ hour: hours, minute: minutes, second: seconds, millisecond: 0 });
-    const now = moment();
+    const now = moment().local();
     const windowStart = moment(doseDateTime);
     const windowEnd = moment(doseDateTime).add(1, "hour");
     const isWithinWindow = now.isBetween(windowStart, windowEnd, undefined, "[]");

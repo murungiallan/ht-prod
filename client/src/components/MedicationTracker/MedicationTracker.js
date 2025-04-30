@@ -44,6 +44,7 @@ import AddReminderPromptModal from "./Modals/AddReminderPromptModal";
 import EditReminderModal from "./Modals/EditReminderModal";
 import TakeMedicationModal from "./Modals/TakeMedicationModal";
 import UndoTakenMedicationModal from "./Modals/UndoTakenMedicationModal";
+import DeleteMedicationModal from "./Modals/DeleteMedicationModal";
 import { moment } from "./utils/utils";
 import LoadingSpinner from "../common/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -125,7 +126,6 @@ const MedicationTracker = () => {
     const dateKey = moment(selectedDate).format("YYYY-MM-DD");
     const doses = med.doses?.[dateKey];
     
-    // Return early if no doses exist for this date
     if (!doses || !doses[doseIndex]) {
       console.log(`Dose not found for medication ${med.id}, doseIndex ${doseIndex}`);
       return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false };
@@ -138,14 +138,21 @@ const MedicationTracker = () => {
     const minutes = parseInt(timeParts[1], 10);
     const seconds = timeParts[2] ? parseInt(timeParts[2], 10) : 0;
   
-    const doseDateTime = moment(dateKey, "YYYY-MM-DD")
-      .set({ hour: hours, minute: minutes, second: seconds, millisecond: 0 });  
-    const now = moment();
+    const now = moment().local();
     
-    const windowStart = moment(doseDateTime).subtract(2, "hours");
-    const windowEnd = moment(doseDateTime).add(2, "hours");
+    // Normalize dose time to today's date and compare the window to current time
+    const normalizedDoseTime = moment(now)
+      .set({ hour: hours, minute: minutes, second: seconds, millisecond: 0 });
+    const windowStart = moment(normalizedDoseTime).subtract(2, "hours");
+    const windowEnd = moment(normalizedDoseTime).add(2, "hours");
     const isWithinWindow = now.isBetween(windowStart, windowEnd, undefined, "[]");
-    const isTimeToTake = now.isSameOrAfter(doseDateTime);  
+    console.log(`${normalizedDoseTime}\n${isWithinWindow}\n`);
+  
+    // Using the actual dose date for isTimeToTake
+    const doseDateTime = moment(dateKey, "YYYY-MM-DD")
+      .set({ hour: hours, minute: minutes, second: seconds, millisecond: 0 });
+    const isTimeToTake = now.isSameOrAfter(doseDateTime);
+    
     return { isTaken: dose.taken, isMissed: dose.missed, isTimeToTake, isWithinWindow };
   }, [selectedDate]);
 
@@ -369,9 +376,6 @@ const MedicationTracker = () => {
       const token = await getUserToken();
       const dateKey = moment(selectedDate).format("YYYY-MM-DD");
       const updatedMedication = await updateMedicationTakenStatus(medicationId, doseIndex, taken, token, dateKey);
-      if (!taken) {
-        await markMedicationAsMissed(medicationId, doseIndex, false, token, dateKey);
-      }
       setMedications((prev) =>
         prev.map((med) => (med.id === updatedMedication.id ? updatedMedication : med))
       );
@@ -580,12 +584,12 @@ const MedicationTracker = () => {
 
   const checkAndMarkMissedDoses = useCallback(async () => {
     if (!user) return;
-
-    const now = moment();
+  
+    const now = moment().local();
     console.log(`Time now according to checkAndMarkMissedDoses in MedicationTracker: ${now}`);
     const dateKey = moment(selectedDate).format("YYYY-MM-DD");
     const token = await getUserToken();
-
+  
     for (const med of medications) {
       const doses = med.doses?.[dateKey] || med.times.map((time) => ({
         time,
@@ -593,14 +597,14 @@ const MedicationTracker = () => {
         missed: false,
         takenAt: null,
       }));
-
+  
       for (let doseIndex = 0; doseIndex < doses.length; doseIndex++) {
         const dose = doses[doseIndex];
         const [hours, minutes] = dose.time.split(":").map(Number);
         const doseDateTime = moment(selectedDate)
           .set({ hour: hours, minute: minutes, second: 0, millisecond: 0 });
-        const windowEnd = moment(doseDateTime).add(1, "hour");
-
+        const windowEnd = moment(doseDateTime).add(2, "hours");
+  
         if (now.isAfter(windowEnd) && !dose.taken && !dose.missed) {
           try {
             await markMedicationAsMissed(med.id, doseIndex, true, token, dateKey);
@@ -633,7 +637,7 @@ const MedicationTracker = () => {
   }, [medications, selectedDate, user, handleSessionExpired]);
 
   const checkReminders = useCallback(() => {
-    const now = moment();
+    const now = moment().local();
     const currentDateKey = now.format("YYYY-MM-DD");
 
     reminders.forEach((reminder) => {
@@ -997,6 +1001,8 @@ const MedicationTracker = () => {
             searchQuery={searchQuery}
             getDoseStatus={getDoseStatus}
             selectedDate={selectedDate}
+            isPastDate={isPastDate}
+            isFutureDate={isFutureDate}
           />
           <RemindersSection
             reminders={effectiveReminders}
@@ -1261,6 +1267,23 @@ const MedicationTracker = () => {
             actionLoading={actionLoading}
             isPastDate={isPastDate}
             isFutureDate={isFutureDate}
+          />
+        </motion.div>
+      </AnimatePresence>
+
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -50 }}
+          transition={{ duration: 0.3 }}
+        >
+          <DeleteConfirmModal
+            isOpen={showDeleteConfirmModal}
+            onRequestClose={() => setShowDeleteConfirmModal(false)}
+            onConfirm={handleDeleteMedication}
+            actionLoading={actionLoading}
+            message="Are you sure you want to delete this medication? This action cannot be undone, and all associated reminders will also be deleted."
           />
         </motion.div>
       </AnimatePresence>

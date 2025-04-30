@@ -80,54 +80,59 @@ class MedicationController {
     }
   }
 
-  static async updateTakenStatus(req, res) {
+  static async updateTakenStatus(id, doseIndex, taken, date) {
     try {
-      const firebaseUid = req.user.uid;
-      const [userRows] = await db.query("SELECT id FROM users WHERE uid = ?", [firebaseUid]);
-      if (!userRows || userRows.length === 0) {
-        return res.status(404).json({ error: "User not found in the database" });
+      const [rows] = await db.query("SELECT doses, times, times_per_day FROM medications WHERE id = ?", [id]);
+      if (rows.length === 0) {
+        throw new Error("Medication not found");
       }
-      const userId = userRows[0].id;
-
-      const { id } = req.params;
-      const { doseIndex, taken, date } = req.body;
-
-      if (!Number.isInteger(doseIndex) || doseIndex < 0) {
-        return res.status(400).json({ error: "doseIndex must be a non-negative integer" });
+      let doses = this.safeParseJSON(rows[0].doses, {});
+      const times = this.safeParseJSON(rows[0].times, []);
+      const times_per_day = rows[0].times_per_day;
+  
+      if (!doses[date]) {
+        doses[date] = times.map((time) => ({
+          time,
+          taken: false,
+          missed: false,
+          takenAt: null,
+        }));
       }
-      if (typeof taken !== "boolean") {
-        return res.status(400).json({ error: "taken must be a boolean value" });
+      if (!doses[date] || doses[date].length !== times_per_day) {
+        throw new Error(`Doses for date ${date} are invalid or do not match times_per_day (${times_per_day})`);
       }
-      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-        return res.status(400).json({ error: "date must be in YYYY-MM-DD format" });
+      if (doseIndex >= times_per_day || doseIndex < 0) {
+        throw new Error(`Invalid doseIndex: ${doseIndex}. Must be between 0 and ${times_per_day - 1}`);
       }
-
-      const medications = await Medication.getByUser(userId);
-      const medication = medications.find((med) => med.id === parseInt(id));
-      if (!medication) {
-        return res.status(404).json({ error: "Medication not found" });
+  
+      if (taken) {
+        const doseTime = doses[date][doseIndex].time;
+        const doseDateTime = moment(`${date} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
+        const now = moment().local();
+        console.log(`Time now according to updateTakenStatus in medication model: ${now}`);
+        const hoursDiff = Math.abs(doseDateTime.diff(now, "hours", true));
+        if (hoursDiff > 2) {
+          throw new Error("Can only mark medication as taken within 2 hours of the scheduled time");
+        }
       }
-
-      const updatedMedication = await Medication.updateTakenStatus(id, doseIndex, taken, date);
-
-      await firebaseDb.ref(`medications/${firebaseUid}/${id}`).set({
-        id: updatedMedication.id,
-        userId: updatedMedication.userId,
-        medication_name: updatedMedication.medication_name,
-        dosage: updatedMedication.dosage,
-        frequency: updatedMedication.frequency,
-        times_per_day: updatedMedication.times_per_day,
-        times: updatedMedication.times,
-        doses: updatedMedication.doses || {},
-        start_date: updatedMedication.start_date,
-        end_date: updatedMedication.end_date,
-        notes: updatedMedication.notes,
-      });
-
-      res.status(200).json(updatedMedication);
+  
+      doses[date][doseIndex] = {
+        ...doses[date][doseIndex],
+        taken,
+        missed: taken ? false : false,
+        takenAt: taken ? new Date().toISOString() : null,
+      };
+  
+      const query = `
+        UPDATE medications
+        SET doses = ?
+        WHERE id = ?
+      `;
+      await db.query(query, [JSON.stringify(doses), id]);
+      return this.getById(id);
     } catch (error) {
-      console.error("Error updating medication status:", error.message, error.stack);
-      res.status(500).json({ error: "Failed to update medication status", details: error.message });
+      console.error("Database error in Medication.updateTakenStatus:", error.message, error.sqlMessage);
+      throw new Error(`Failed to update taken status: ${error.message}`);
     }
   }
 

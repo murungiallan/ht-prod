@@ -5,6 +5,8 @@ import db from "../config/db.js"; // MySQL connection pool
 import moment from "moment";
 import admin from "firebase-admin";
 import cron from "node-cron";
+import nodemailer from "nodemailer"; // Import nodemailer for email sending
+import { getAuth } from "firebase-admin/auth"; // For Firebase Auth utilities
 
 class ReminderController {
   static async addReminder(req, res) {
@@ -52,7 +54,7 @@ class ReminderController {
       const reminderDateTime = moment(`${date} ${reminderTime}`, "YYYY-MM-DD HH:mm:ss");
 
       // Check if the reminder time is in the past
-      const now = moment();
+      const now = moment().local();
       if (reminderDateTime.isBefore(now)) {
         return res.status(400).json({ error: "Cannot set a reminder for a past time" });
       }
@@ -147,7 +149,7 @@ class ReminderController {
       const doseDateTime = moment(`${finalDate} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
       const reminderDateTime = moment(`${finalDate} ${finalReminderTime}`, "YYYY-MM-DD HH:mm:ss");
 
-      const now = moment();
+      const now = moment().local();
       if (reminderDateTime.isBefore(now)) {
         return res.status(400).json({ error: "Cannot set a reminder for a past time" });
       }
@@ -278,7 +280,7 @@ class ReminderController {
       }
       const reminderId = reminderRows[0].id;
 
-      // Fetch FCM token and uid from Firebase
+      // Fetch FCM token, uid, and email from Firebase and MySQL
       const userSnapshot = await firebaseDb.ref(`users`).orderByChild('id').equalTo(userId).once('value');
       const userData = userSnapshot.val();
       if (!userData) {
@@ -294,6 +296,18 @@ class ReminderController {
         return;
       }
 
+      // Fetch user's email from MySQL
+      const [userRows] = await db.query("SELECT email FROM users WHERE id = ?", [userId]);
+      if (!userRows || userRows.length === 0) {
+        console.log("User email not found for userId:", userId);
+        return;
+      }
+      const userEmail = userRows[0].email;
+      if (!userEmail) {
+        console.log("No email found for user:", userId);
+        return;
+      }
+
       // Fetch medication name from MySQL
       const [medRows] = await db.query("SELECT medication_name FROM medications WHERE id = ?", [medicationId]);
       if (!medRows || medRows.length === 0) {
@@ -304,6 +318,8 @@ class ReminderController {
       const medicationName = medRows[0].medication_name;
       const reminderDateTime = moment(`${date} ${reminderTime}`, "YYYY-MM-DD HH:mm:ss");
       const doseTime = moment(reminderDateTime).add(2, "hours"); // Reminder is set 2 hours before the dose
+
+      // Send FCM notification (existing functionality)
       const message = {
         notification: {
           title: "Medication Reminder",
@@ -311,9 +327,32 @@ class ReminderController {
         },
         token: fcmToken,
       };
-
       await admin.messaging().send(message);
       console.log("Notification sent to:", fcmToken);
+
+      // Send email reminder (new functionality)
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: userEmail,
+        subject: "HealthTrack Medication Reminder",
+        html: `
+          <h2>Medication Reminder</h2>
+          <p>Don't forget to take your <strong>${medicationName}</strong> in 2 hours at ${doseTime.format("HH:mm")} on ${date}.</p>
+          <p>Stay on track with your health goals!</p>
+          <p>If you no longer wish to receive these reminders, you can update your settings in the HealthTrack app.</p>
+        `,
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log("Email reminder sent to:", userEmail);
 
       // Update reminder status in MySQL
       await db.query(
@@ -331,7 +370,7 @@ class ReminderController {
     // Schedule reminders every minute
     cron.schedule("* * * * *", async () => {
       try {
-        const now = moment();
+        const now = moment().local();
         const currentDateKey = now.format("YYYY-MM-DD");
 
         // Get all users to iterate through their reminders
@@ -339,7 +378,7 @@ class ReminderController {
         const users = usersSnapshot.val() || {};
 
         for (const firebaseUid in users) {
-          const userId = users[firebaseUid].id; // MySQL user ID
+          const userId = users[firebaseUid].id;
           const remindersRef = firebaseDb.ref(`reminders/${firebaseUid}`);
           const snapshot = await remindersRef.once("value");
           const reminders = [];
@@ -368,7 +407,7 @@ class ReminderController {
 
           for (const reminder of reminders) {
             try {
-              // Send FCM notification
+              // Send FCM notification and email
               await this.sendReminderNotification(
                 reminder.userId,
                 reminder.medicationId,

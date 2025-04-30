@@ -304,7 +304,7 @@ class Medication {
       if (taken) {
         const doseTime = doses[date][doseIndex].time;
         const doseDateTime = moment(`${date} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
-        const now = moment();
+        const now = moment().local();
         console.log(`Time now according to updateTakenStatus in medication model: ${now}`);
         const hoursDiff = Math.abs(doseDateTime.diff(now, "hours", true));
         if (hoursDiff > 2) {

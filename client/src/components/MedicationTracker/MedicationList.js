@@ -20,6 +20,8 @@ const MedicationList = ({
   searchQuery,
   getDoseStatus,
   selectedDate,
+  isPastDate,
+  isFutureDate,
 }) => {
   const [sortConfig, setSortConfig] = useState({ key: "medication_name", direction: "asc" });
 
@@ -62,8 +64,8 @@ const MedicationList = ({
       takenAt: null,
     }));
     return doses.some((_, index) => {
-      const { isTaken, isMissed, isWithinWindow } = getDoseStatus(med, index);
-      return !isTaken && !isMissed && isWithinWindow;
+      const { isTaken, isMissed, isWithinWindow } = getDoseStatus(med, index); // Remove incorrect destructuring
+      return !isTaken && !isMissed && isWithinWindow && !isPastDate(selectedDate) && !isFutureDate(selectedDate);
     });
   };
 
@@ -177,7 +179,8 @@ const MedicationList = ({
                   <th
                     style={{
                       padding: "10px",
-                      fontWeight: 600, fontSize: "0.875rem",
+                      fontWeight: 600,
+                      fontSize: "0.875rem",
                       textAlign: "right",
                     }}
                   ></th>
