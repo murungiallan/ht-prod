@@ -307,52 +307,40 @@ export const updateMedicationTakenStatus = async (id, doseIndex, taken, token, d
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  const response = await api.put(
-    `/medications/${id}/taken`,
-    { doseIndex, taken, date },
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-
-  const medicationPath = `medications/${user.uid}/${id}`;
-  let existingData = {};
   try {
-    const snapshot = await get(ref(database, medicationPath));
-    if (snapshot.exists()) existingData = snapshot.val();
+    const response = await api.put(
+      `/medications/${id}/taken`,
+      { doseIndex, taken, date },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    // Update Firebase
+    const medicationPath = `medications/${user.uid}/${id}`;
+    const updatedData = response.data;
+
+    // Update Firebase with the latest data from the server
+    await update(ref(database), {
+      [medicationPath]: updatedData
+    });
+
+    // Add to history if taken
+    if (taken) {
+      const historyPath = `medication_history/${user.uid}`;
+      const historyEntry = {
+        medicationId: id,
+        medication_name: updatedData.medication_name,
+        doseIndex,
+        takenAt: new Date().toISOString(),
+        date,
+      };
+      await push(ref(database, historyPath), historyEntry);
+    }
+
+    return updatedData;
   } catch (error) {
-    console.error("Error fetching existing medication data from Firebase:", error);
+    console.error("Error updating medication taken status:", error);
+    throw error;
   }
-
-  const doses = { ...(existingData.doses || {}) };
-  const dailyDoses = doses[date] || existingData.times.map((time) => ({
-    time,
-    taken: false,
-    missed: false,
-    takenAt: null,
-  }));
-  dailyDoses[doseIndex] = {
-    time: dailyDoses[doseIndex]?.time || existingData.times[doseIndex],
-    taken,
-    missed: taken ? false : dailyDoses[doseIndex]?.missed || false,
-    takenAt: taken ? new Date().toISOString() : null,
-  };
-  doses[date] = dailyDoses;
-
-  const updatedData = { ...existingData, doses };
-  updateMedicationDebounced(user.uid, id, updatedData);
-
-  if (taken) {
-    const historyPath = `medication_history/${user.uid}`;
-    const historyEntry = {
-      medicationId: id,
-      medication_name: existingData.medication_name || "Unknown",
-      doseIndex,
-      takenAt: new Date().toISOString(),
-      date,
-    };
-    await retryWithBackoff(() => push(ref(database, historyPath), historyEntry));
-  }
-
-  return response.data;
 };
 
 // Mark medication as missed
@@ -508,38 +496,48 @@ export const calculateMedicationStreak = async () => {
 
 // Cache to store recent drug search results
 const drugSearchCache = new Map();
-// Cache to store minimal drug details (name and dosage only)
+// Cache to store minimal drug details
 const drugDetailsCache = new Map();
 
 // Function to simplify drug names
 const simplifyDrugName = (name) => {
   let simplified = name;
-  
-  // Remove pack/kit labels
-  simplified = simplified.replace(/\b(Pack|Kit)\b/i, "").trim();
-  
-  // Extract components from parentheses if present
-  const match = simplified.match(/\((.*?)\)/g);
-  if (match) {
-    const components = match
+  let brandName = null;
+
+  const brandMatch = simplified.match(/\[([^\]]+)\]/);
+  if (brandMatch) {
+    brandName = brandMatch[1];
+    simplified = simplified.replace(/\[([^\]]+)\]/, "").trim();
+  }
+
+  simplified = simplified
+    .replace(/\b(24 HR|12 HR|Extended Release|Immediate Release|Oral|Tablet|Capsule|Solution|Effervescent)\b/gi, "")
+    .replace(/\b(Pack|Kit)\b/i, "")
+    .trim();
+
+  const dosageMatch = simplified.match(/\d+\s*(MG|G|ML)/gi);
+  simplified = simplified.replace(/\d+\s*(MG|G|ML)/gi, "").trim();
+
+  const componentsMatch = simplified.match(/\((.*?)\)/g);
+  if (componentsMatch) {
+    const components = componentsMatch
       .map((part) => {
         const inner = part.replace(/[\(\)]/g, "");
-        const parts = inner.split("/").map((comp) => {
-          const dosageMatch = comp.match(/\d+\s*(MG|G|ML)/i);
-          const drugName = comp
-            .replace(/\d+\s*(MG|G|ML)\b/i, "")
-            .replace(/\b(Oral Tablet|Capsule|Solution|Effervescent)\b/i, "")
-            .trim();
-          return dosageMatch ? `${drugName} ${dosageMatch[0]}` : drugName;
-        });
+        const parts = inner.split("/").map((comp) => comp.trim());
         return parts.join(" / ");
       })
       .join(" + ");
     simplified = components;
+  } else {
+    simplified = simplified.split("/").map((part) => part.trim()).join(" / ");
   }
 
   simplified = simplified.replace(/\s*\/\s*/g, " / ").replace(/\s+/g, " ").trim();
-  return simplified || name;
+  if (!simplified) {
+    simplified = name.replace(/\[([^\]]+)\]/, "").trim();
+  }
+
+  return { simplifiedName: simplified, brandName };
 };
 
 // Extract dosage from drug name (as a fallback)
@@ -548,7 +546,182 @@ const extractDosageFromName = (name) => {
   return dosageMatch ? dosageMatch.join(" / ") : null;
 };
 
-// Search drugs by name using RxNorm SCDs
+// Get detailed drug information for MedicationDetailModal
+export const getDrugDetails = async (rxcui, fallbackName = "Unknown Drug") => {
+  if (drugDetailsCache.has(rxcui)) {
+    return drugDetailsCache.get(rxcui);
+  }
+
+  try {
+    const drugInfo = {
+      name: fallbackName,
+      brandName: null,
+      dosages: [],
+      interactions: [],
+      usage: "",
+      description: "",
+      sideEffects: [],
+      storage: "",
+      missedDose: "",
+      foodInteractions: [],
+    };
+
+    // Step 1: Fetch basic properties from RxNorm
+    const propertiesResponse = await fetch(
+      `https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/allproperties.json`
+    );
+
+    if (propertiesResponse.ok) {
+      const propertiesData = await propertiesResponse.json();
+      if (propertiesData?.propConceptGroup?.propConcept) {
+        const props = propertiesData.propConceptGroup.propConcept;
+        const rxNormName = props.find((p) => p.propName === "RxNorm Name")?.propValue || fallbackName;
+        const { simplifiedName, brandName } = simplifyDrugName(rxNormName);
+        drugInfo.name = simplifiedName;
+        drugInfo.brandName = brandName;
+        drugInfo.description = props.find((p) => p.propName === "DESCRIPTION")?.propValue || "";
+      }
+    } else {
+      console.warn(`Properties not found for RxCUI ${rxcui}: ${propertiesResponse.status}`);
+      const { simplifiedName, brandName } = simplifyDrugName(fallbackName);
+      drugInfo.name = simplifiedName;
+      drugInfo.brandName = brandName;
+    }
+
+    // Step 2: Fetch related concepts from RxNorm
+    const relatedResponse = await fetch(
+      `https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/allrelated.json`
+    );
+
+    if (relatedResponse.ok) {
+      const relatedData = await relatedResponse.json();
+      if (relatedData?.allRelatedGroup?.conceptGroup) {
+        const relatedConcepts = relatedData.allRelatedGroup.conceptGroup
+          .filter((group) => group.conceptProperties)
+          .flatMap((group) => group.conceptProperties);
+
+        if (!drugInfo.brandName) {
+          const bnConcept = relatedConcepts.find((concept) => concept.tty === "BN");
+          if (bnConcept) {
+            drugInfo.brandName = bnConcept.name;
+          }
+        }
+
+        const dfDosages = relatedConcepts
+          .filter((concept) => concept.tty === "DF" || concept.tty === "DFG")
+          .map((concept) => concept.name)
+          .filter(Boolean);
+
+        const scdConcepts = relatedConcepts.filter((concept) => concept.tty === "SCD");
+        const scdDosages = scdConcepts
+          .map((concept) => {
+            const dosageMatch = concept.name.match(/\d+\s*(MG|G|ML)/gi);
+            return dosageMatch ? dosageMatch.join(" / ") : null;
+          })
+          .filter(Boolean);
+
+        drugInfo.dosages = [...new Set([...dfDosages, ...scdDosages])];
+      }
+    } else {
+      console.warn(`Related info not found for RxCUI ${rxcui}: ${relatedResponse.status}`);
+      drugInfo.dosages = [extractDosageFromName(fallbackName) || "Not specified"].filter(Boolean);
+    }
+
+    // Step 3: Fetch interactions from RxNorm
+    const interactionResponse = await fetch(
+      `https://rxnav.nlm.nih.gov/REST/interaction/interaction.json?rxcui=${rxcui}`
+    );
+
+    if (interactionResponse.ok) {
+      const interactionData = await interactionResponse.json();
+      if (interactionData?.interactionTypeGroup) {
+        drugInfo.interactions = interactionData.interactionTypeGroup
+          .flatMap((group) => group.interactionType)
+          .flatMap((type) => type.interactionPair)
+          .map((pair) => pair.description)
+          .filter(Boolean);
+      }
+    } else {
+      console.warn(`Interactions not found for RxCUI ${rxcui}: ${interactionResponse.status}`);
+    }
+
+    // Step 4: Fetch additional details from OpenFDA and map names
+    const apiKey = "WkMLQgXOeQev5LZ35i4bOoNgdtaOgtA4p6jHFvHN";
+    const genericNameForOpenFDA = drugInfo.name.toUpperCase(); // Format for OpenFDA
+    let openFDABrandName = drugInfo.brandName;
+    let openFDAGenericName = genericNameForOpenFDA;
+
+    const openFDAResponse = await fetch(
+      `https://api.fda.gov/drug/label.json?search=openfda.rxcui:${rxcui}&limit=1${apiKey ? `&api_key=${apiKey}` : ""}`
+    );
+
+    if (openFDAResponse.ok) {
+      const openFDAData = await openFDAResponse.json();
+      if (openFDAData.results?.[0]) {
+        const result = openFDAData.results[0];
+
+        // Map OpenFDA names
+        openFDABrandName = result.openfda?.brand_name?.[0] || drugInfo.brandName || "Unknown Brand";
+        openFDAGenericName = result.openfda?.generic_name?.[0] || genericNameForOpenFDA;
+
+        // Side Effects (adverse_reactions)
+        drugInfo.sideEffects = result.adverse_reactions?.[0]
+          ? result.adverse_reactions[0].split(/,\s*(?![^\(]*\))/).slice(0, 5)
+          : [];
+
+        // Storage Instructions (storage_and_handling)
+        drugInfo.storage = result.storage_and_handling?.[0] || "Store at room temperature.";
+
+        // Missed Dose Instructions (extract from dosage_and_administration)
+        drugInfo.missedDose = result.dosage_and_administration?.[0]
+          ? result.dosage_and_administration[0].match(/missed dose[^.]*\./i)?.[0] ||
+            "Consult your doctor for missed dose instructions."
+          : "Consult your doctor for missed dose instructions.";
+
+        // Food/Drink Interactions (food_effect or drug_interactions)
+        drugInfo.foodInteractions = result.food_effect?.[0]
+          ? result.food_effect[0].split(/,\s*(?![^\(]*\))/)
+          : result.drug_interactions?.[0]?.match(/food|alcohol|grapefruit/i)
+          ? [result.drug_interactions[0].match(/food|alcohol|grapefruit[^.]*\./i)[0]]
+          : [];
+
+        // Usage Instructions (dosage_and_administration)
+        drugInfo.usage = result.dosage_and_administration?.[0] || drugInfo.usage;
+      }
+    } else {
+      console.warn(`OpenFDA data not found for RxCUI ${rxcui}: ${openFDAResponse.status}`);
+    }
+
+    // Step 5: Prepare data for storage in OpenFDA-compatible format
+    const medicationDataForStorage = {
+      rxcui: rxcui,
+      rxnorm_name: drugInfo.name,
+      openfda_generic_name: openFDAGenericName,
+      openfda_brand_name: openFDABrandName,
+      sideEffects: drugInfo.sideEffects,
+      storage: drugInfo.storage,
+      missedDose: drugInfo.missedDose,
+      foodInteractions: drugInfo.foodInteractions,
+      usage: drugInfo.usage,
+      dosages: drugInfo.dosages,
+      interactions: drugInfo.interactions,
+      description: drugInfo.description,
+    };
+
+    // Cache the result
+    if (drugDetailsCache.size > 500) {
+      drugDetailsCache.clear();
+    }
+    drugDetailsCache.set(rxcui, medicationDataForStorage);
+
+    return medicationDataForStorage;
+  } catch (error) {
+    console.error("Error fetching drug details:", error);
+    throw new Error("Failed to fetch drug details");
+  }
+};
+
+// Search drugs by name using RxNorm API (prioritize SCD and BN)
 export const searchDrugsByName = async (query) => {
   if (!query || query.length < 2) return [];
 
@@ -574,26 +747,29 @@ export const searchDrugsByName = async (query) => {
         .filter(group => group.conceptProperties)
         .flatMap(group =>
           group.conceptProperties.map(drug => {
-            const displayName = simplifyDrugName(drug.name);
+            const { simplifiedName, brandName } = simplifyDrugName(drug.name);
             const dosage = extractDosageFromName(drug.name) || "Not specified";
 
             return {
               id: drug.rxcui,
-              name: drug.name,
-              displayName,
+              name: drug.name, // Raw RxNorm name
+              displayName: brandName || simplifiedName, // Prefer brand name, fall back to simplified generic
               type: group.tty || "Unknown",
-              dosage
+              dosage,
+              brandName // Include for reference
             };
           })
         )
-        .filter((drug, index, self) => 
+        .filter((drug, index, self) =>
           index === self.findIndex(d => d.id === drug.id)
         );
 
-      // Sort to prioritize SCDs and then by name
+      // Sort to prioritize SCDs, then BNs, then by displayName
       medications.sort((a, b) => {
         if (a.type === "SCD" && b.type !== "SCD") return -1;
         if (a.type !== "SCD" && b.type === "SCD") return 1;
+        if (a.type === "BN" && b.type !== "BN") return -1;
+        if (a.type !== "BN" && b.type === "BN") return 1;
         return a.displayName.localeCompare(b.displayName);
       });
 
@@ -602,7 +778,7 @@ export const searchDrugsByName = async (query) => {
     }
 
     // Update cache with a larger limit
-    if (drugSearchCache.size > 500) { 
+    if (drugSearchCache.size > 500) {
       drugSearchCache.clear();
     }
     drugSearchCache.set(cacheKey, medications);
@@ -610,90 +786,6 @@ export const searchDrugsByName = async (query) => {
   } catch (error) {
     console.error("Error searching drugs:", error);
     throw new Error("Failed to search medications");
-  }
-};
-
-// Get minimal drug information for AddMedicationModal (name and dosage only)
-export const getDrugDetails = async (rxcui, fallbackName = "Unknown Drug") => {
-  if (drugDetailsCache.has(rxcui)) {
-    return drugDetailsCache.get(rxcui);
-  }
-
-  try {
-    // Fetch only the properties endpoint (name and dosage)
-    const propertiesResponse = await fetch(
-      `https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/allproperties.json`
-    );
-
-    const drugInfo = {
-      name: fallbackName,
-      dosages: []
-    };
-
-    // Handle properties response
-    if (propertiesResponse.ok) {
-      const propertiesData = await propertiesResponse.json();
-      if (propertiesData?.propConceptGroup?.propConcept) {
-        const props = propertiesData.propConceptGroup.propConcept;
-        drugInfo.name = props.find(p => p.propName === "RxNorm Name")?.propValue || fallbackName;
-      }
-    } else {
-      console.warn(`Properties not found for RxCUI ${rxcui}: ${propertiesResponse.status}`);
-    }
-
-    // Fetch dosage information using the related endpoint
-    const relatedResponse = await fetch(
-      `https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/allrelated.json`
-    );
-
-    if (relatedResponse.ok) {
-      const relatedData = await relatedResponse.json();
-      if (relatedData?.allRelatedGroup?.conceptGroup) {
-        const relatedConcepts = relatedData.allRelatedGroup.conceptGroup
-          .filter(group => group.conceptProperties)
-          .flatMap(group => group.conceptProperties);
-
-        // Get standard dosage forms (DF/DFG)
-        const dfDosages = relatedConcepts
-          .filter(concept => concept.tty === "DF" || concept.tty === "DFG")
-          .map(concept => concept.name)
-          .filter(Boolean);
-
-        // Get specific dosages from SCDs
-        const scdConcepts = relatedConcepts.filter(concept => concept.tty === "SCD");
-        const scdDosages = scdConcepts
-          .map(concept => {
-            const dosageMatch = concept.name.match(/\d+\s*(MG|G|ML)/gi);
-            return dosageMatch ? dosageMatch.join(" / ") : null;
-          })
-          .filter(Boolean);
-
-        // Combine and deduplicate dosages
-        drugInfo.dosages = [...new Set([...dfDosages, ...scdDosages])];
-      }
-    } else {
-      console.warn(`Related info not found for RxCUI ${rxcui}: ${relatedResponse.status}`);
-      drugInfo.dosages = [extractDosageFromName(fallbackName) || "Not specified"].filter(Boolean);
-    }
-
-    // Add fallback dosage if none were found
-    if (drugInfo.dosages.length === 0) {
-      const fallbackDosage = extractDosageFromName(fallbackName);
-      if (fallbackDosage) {
-        drugInfo.dosages = [fallbackDosage];
-      }
-    }
-
-    // Update cache with a larger limit
-    if (drugDetailsCache.size > 500) {
-      drugDetailsCache.clear();
-    }
-    drugDetailsCache.set(rxcui, drugInfo);
-
-    return drugInfo;
-  } catch (error) {
-    console.error("Error fetching drug details:", error);
-    throw new Error("Failed to fetch drug details");
   }
 };
 
@@ -710,22 +802,34 @@ export const createReminder = async (reminderData, token) => {
     type: reminderData.type || "single",
   };
 
-  const response = await api.post("/reminders/add", reminderEntry, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  console.log("Sending reminder data to server:", reminderEntry);
 
-  const reminderId = response.data.id.toString();
-  const reminderPath = `reminders/${user.uid}/${reminderId}`;
-  const firebaseEntry = {
-    ...reminderEntry,
-    id: reminderId,
-    userId: user.uid,
-    status: "pending",
-    createdAt: new Date().toISOString(),
-  };
-  await retryWithBackoff(() => update(ref(database), { [reminderPath]: firebaseEntry }));
+  try {
+    const response = await api.post("/reminders/add", reminderEntry, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-  return { id: reminderId, ...firebaseEntry };
+    const reminderId = response.data.id.toString();
+    const reminderPath = `reminders/${user.uid}/${reminderId}`;
+    const firebaseEntry = {
+      ...reminderEntry,
+      id: reminderId,
+      userId: user.uid,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    };
+    await retryWithBackoff(() => update(ref(database), { [reminderPath]: firebaseEntry }));
+
+    return { id: reminderId, ...firebaseEntry };
+  } catch (error) {
+    if (error.response?.data?.error) {
+      if (error.response.data.hoursDiff !== undefined) {
+        throw new Error(error.response.data.error);
+      }
+      throw new Error(error.response.data.error);
+    }
+    throw error;
+  }
 };
 
 // Reminders API
