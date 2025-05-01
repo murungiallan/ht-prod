@@ -43,7 +43,7 @@ const MedicationDetailModal = ({
       contentLabel="Medication Details"
       style={{ overlay: ModalOverlay, content: ModalContent }}
     >
-      <ModalContentWrapper maxWidth="36rem" borderColor="#28a745">
+      <ModalContentWrapper borderColor="#28a745">
         <CloseButton
           onClick={onRequestClose}
           accentColor="#28a745"
@@ -57,6 +57,7 @@ const MedicationDetailModal = ({
             fontWeight: 600,
             color: "#333333",
             marginBottom: "16px",
+            marginRight: "2rem",
           }}
         >
           {selectedMedication?.medication_name || "Unknown Medication"}{" "}

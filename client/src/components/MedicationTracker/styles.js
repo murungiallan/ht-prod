@@ -165,7 +165,7 @@ export const CloseButton = styled.button`
 `;
 
 export const Input = styled.input`
-  width: 100%;
+  min-width: 400px;
   background-color: #fff;
   padding: ${({ theme }) => theme.spacing.small} ${({ theme }) => theme.spacing.medium};
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -282,18 +282,25 @@ export const ModalContent = {
   borderRadius: "16px",
   padding: 0,
   position: "relative",
-  minWidth: "30vw",
-  // maxWidth: "600px",
-  maxHeight: "95vh",
+  maxWidth: "70vw",
+  maxHeight: "70vh",
+  width: "fit-content",
+  height: "fit-content",
   marginBottom: "1rem",
   marginRight: "1rem",
-  overflow: "hidden",
+  overflowX: "scroll",
+  overflowY: "scroll",
   boxShadow: "0 10px 25px rgba(0, 0, 0, 0.2)",
-  "@media (max-width: 640px)": {
+  "@media screen and (max-width: 640px)": {
     width: "100%",
     margin: theme.spacing.small,
     maxHeight: "85vh",
   },
+  "@media screen and (minWidth: 1080px)": {
+    maxHeight: "70vh",
+    maxWidth: "50vw",
+  },
+  scrollbarWidth: "none",
 };
 
 export const ModalContentWrapper = styled.div`
