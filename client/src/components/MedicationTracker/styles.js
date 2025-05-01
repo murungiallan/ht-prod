@@ -282,6 +282,7 @@ export const ModalContent = {
   borderRadius: "16px",
   padding: 0,
   position: "relative",
+  minWidth: "30vw",
   // maxWidth: "600px",
   maxHeight: "95vh",
   marginBottom: "1rem",
