@@ -3,3 +3,14 @@
 // expect(element).toHaveTextContent(/react/i)
 // learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom';
+import { configure } from '@testing-library/react';
+
+// Mock Firebase
+jest.mock('firebase/app', () => ({
+  initializeApp: jest.fn(),
+  auth: jest.fn(),
+  database: jest.fn()
+}));
+
+// Configure testing library
+configure({ testIdAttribute: 'data-testid' });

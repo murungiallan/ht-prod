@@ -76,7 +76,7 @@ const GoalsModal = ({ isOpen, onClose, onSave }) => {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 mb-0">
-      <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-md m-4">
+      <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-md m-2">
         <h2 className="text-xl font-bold mb-4 text-gray-800">Set Your Weekly Goals</h2>
         <p className="text-gray-600 mb-4">Please set your weekly calorie goals for food intake and exercise.</p>
         <div className="mb-4">
@@ -130,7 +130,7 @@ const WeeklyActivity = ({ weeklyData, chartOptions, calorieChartRef, durationCha
         <svg className="w-4 h-4 mr-2 text-red-500" fill="currentColor" viewBox="0 0 20 20">
           <path
             fillRule="evenodd"
-            d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z"
+            d="M12.395 2.553a1 1 0 00-1.45-.385c危機.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z"
             clipRule="evenodd"
           />
         </svg>
@@ -721,7 +721,7 @@ const Dashboard = () => {
   const calculateAdherenceData = (meds, history) => {
     const days = 7;
     const adherenceByDay = [];
-    const today = moment();
+    const today = moment().local();
 
     for (let i = days - 1; i >= 0; i--) {
       const date = moment(today).subtract(i, 'days').startOf('day');
@@ -768,36 +768,52 @@ const Dashboard = () => {
       return;
     }
 
+    // Normalize today to midnight
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Create array of last 7 days
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = new Date(today);
       date.setDate(today.getDate() - i);
-      return date.toISOString().split("T")[0];
+      date.setHours(0, 0, 0, 0);
+      return date;
     }).reverse();
 
-    const caloriesData = last7Days.map((date) => {
-      const dailyExercises = exercisesToCompute.filter((ex) => {
+    // Format dates for comparison and labels
+    const formattedDates = last7Days.map(date => ({
+      dateObj: date,
+      dateString: date.toISOString().split('T')[0], // YYYY-MM-DD for reference
+      shortDay: date.toLocaleDateString("en-US", { weekday: "short" })
+    }));
+
+    // Calculate data for each day
+    const caloriesData = formattedDates.map(({ dateObj }) => {
+      const dailyExercises = exercisesToCompute.filter(ex => {
         if (!ex.date_logged) return false;
-        const exerciseDate = new Date(ex.date_logged).toISOString().split("T")[0];
-        return exerciseDate === date;
+        const exDate = new Date(ex.date_logged);
+        exDate.setHours(0, 0, 0, 0);
+        return exDate.getTime() === dateObj.getTime();
       });
-      return dailyExercises.reduce((sum, ex) => sum + (ex.calories_burned || 0), 0);
+      return dailyExercises.reduce((sum, ex) => sum + (Number(ex.calories_burned) || 0), 0);
     });
 
-    const durationData = last7Days.map((date) => {
-      const dailyExercises = exercisesToCompute.filter((ex) => {
+    const durationData = formattedDates.map(({ dateObj }) => {
+      const dailyExercises = exercisesToCompute.filter(ex => {
         if (!ex.date_logged) return false;
-        const exerciseDate = new Date(ex.date_logged).toISOString().split("T")[0];
-        return exerciseDate === date;
+        const exDate = new Date(ex.date_logged);
+        exDate.setHours(0, 0, 0, 0);
+        return exDate.getTime() === dateObj.getTime();
       });
-      return dailyExercises.reduce((sum, ex) => sum + (ex.duration || 0), 0);
+      return dailyExercises.reduce((sum, ex) => sum + (Number(ex.duration) || 0), 0);
     });
 
-    const sessionsData = last7Days.map((date) => {
-      const dailyExercises = exercisesToCompute.filter((ex) => {
+    const sessionsData = formattedDates.map(({ dateObj }) => {
+      const dailyExercises = exercisesToCompute.filter(ex => {
         if (!ex.date_logged) return false;
-        const exerciseDate = new Date(ex.date_logged).toISOString().split("T")[0];
-        return exerciseDate === date;
+        const exDate = new Date(ex.date_logged);
+        exDate.setHours(0, 0, 0, 0);
+        return exDate.getTime() === dateObj.getTime();
       });
       return dailyExercises.length;
     });
@@ -806,10 +822,9 @@ const Dashboard = () => {
       calories: caloriesData,
       duration: durationData,
       sessions: sessionsData,
-      labels: last7Days.map((date) => new Date(date).toLocaleDateString("en-US", { weekday: "short" })),
+      labels: formattedDates.map(date => date.shortDay),
     });
   };
-
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -826,7 +841,7 @@ const Dashboard = () => {
         },
       },
       tooltip: {
-        backgroundColor: "rgba(0, 0, 0, 0.9)",
+        backgroundColor: "rgba(31, 41, 55, 0.9)",
         padding: 12,
         titleFont: {
           size: 14,
@@ -1157,10 +1172,6 @@ const Dashboard = () => {
                       className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 z-10"
                     >
                       <div className="p-4">
-                        {/* <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
-                          <FaTrophy className="mr-2 text-yellow-500" /> Achievements
-                        </h3> */}
-                        {/* <h3 className="text-sm font-semibold text-gray-800 mb-3">Recent Activity</h3> */}
                         <ul className="space-y-3 max-h-64 overflow-y-auto mb-4">
                           {recentActivities.length > 0 ? (
                             recentActivities.map((activity, index) => (
@@ -1179,7 +1190,7 @@ const Dashboard = () => {
                           )}
                         </ul>
                         <p className="text-sm text-gray-600">
-                        <span className={`w-2 h-2 rounded-full mr-2 bg-red-700`}></span>
+                          <span className={`w-2 h-2 rounded-full mr-2 bg-red-700`}></span>
                           {streak > 0
                             ? `${streak}-day medication adherence streak! 🎉`
                             : "Start a medication adherence streak today!"}
@@ -1369,7 +1380,6 @@ const Dashboard = () => {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Goal: 80%</span>
                     <span className={adherencePercentage >= 80 ? "text-green-500 font-medium" : "text-red-500 font-medium"}>
-                      {/* {adherencePercentage >= 80 ? "Goal achieved!" : `${(80 - adherencePercentage).toFixed(1)}% remaining`} */}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2.5">
