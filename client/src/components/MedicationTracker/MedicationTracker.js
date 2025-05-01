@@ -18,6 +18,7 @@ import {
 import { auth, messaging, getToken, onMessage } from "../../firebase/config";
 import { toast } from "react-toastify";
 import { WiDaySunnyOvercast, WiDaySunny, WiDayWindy } from "react-icons/wi";
+import { FiHelpCircle } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { useSocket } from "../../contexts/SocketContext";
 import Modal from "react-modal";
@@ -47,6 +48,7 @@ import TimeOfDaySection from "./TimeOfDaySection";
 import LoadingSpinner from "../common/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import DeleteMedicationModal from "./Modals/DeleteMedicationModal";
+import { CloseButton } from "./styles";
 
 Modal.setAppElement("#root");
 
@@ -103,7 +105,7 @@ const TakePromptModal = ({
               fontSize: "0.875rem",
             }}
           >
-            Skip
+            No
           </button>
           <button
             onClick={onTake}
@@ -120,6 +122,61 @@ const TakePromptModal = ({
           >
             Yes
           </button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+const HelpPopup = ({ isOpen, onRequestClose }) => {
+  return (
+    <Modal
+      isOpen={isOpen}
+      onRequestClose={onRequestClose}
+      contentLabel="Help Information"
+      style={{
+        overlay: {
+          backgroundColor: "transparent",
+          zIndex: 1100,
+        },
+        content: {
+          position: "fixed",
+          bottom: "80px",
+          right: "20px",
+          width: "320px",
+          maxHeight: "80vh",
+          borderRadius: "8px",
+          padding: "0",
+          border: "none",
+          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+          backgroundColor: "transparent",
+          overflow: "visible",
+        },
+      }}
+    >
+      <div className="bg-white rounded-lg shadow-lg overflow-y-auto border border-gray-200 p-5">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-800">
+            Help: Medication Tracker
+          </h2>
+          <CloseButton onClick={onRequestClose} accentColor="#fd7e14" aria-label="Close modal">
+            ✕
+          </CloseButton>
+        </div>
+        <div className="text-sm text-gray-700 space-y-4">
+          <p>The Medication Tracker helps you manage your medications effectively. Key features include:</p>
+          <ul className="pl-5 list-disc space-y-2">
+            <li><span className="font-medium">Add Medications</span>: Enter details like name, dosage, frequency, and dose times to schedule your regimen.</li>
+            <li><span className="font-medium">Track Doses</span>: Mark doses as taken within a 2-hour window or undo if needed.</li>
+            <li><span className="font-medium">Automatic Prompts</span>: Receive prompts for doses within the 2-hour window or when reminders trigger, across the app.</li>
+            <li><span className="font-medium">Manage Reminders</span>: Set, edit, or delete single or daily reminders for doses.</li>
+            <li><span className="font-medium">View by Time of Day</span>: See doses organized into Morning, Afternoon, and Evening sections.</li>
+            <li><span className="font-medium">Calendar Navigation</span>: Select dates to view scheduled doses and their status.</li>
+            <li><span className="font-medium">Dose History</span>: Review past dose statuses (Taken, Missed, Pending).</li>
+            <li><span className="font-medium">Daily Checklist</span>: Track all doses for a specific day.</li>
+            <li><span className="font-medium">Edit/Delete Medications</span>: Update or remove medications from your list.</li>
+          </ul>
+          <p>Stay on top of your medication schedule with ease!</p>
         </div>
       </div>
     </Modal>
@@ -147,6 +204,7 @@ const MedicationTracker = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showTakePrompt, setShowTakePrompt] = useState(null);
   const [promptedDoses, setPromptedDoses] = useState(new Set());
+  const [showHelpPopup, setShowHelpPopup] = useState(false);
 
   // Modal States
   const [showAddModal, setShowAddModal] = useState(false);
@@ -516,7 +574,7 @@ const MedicationTracker = () => {
 
       toast.success(taken ? "Dose marked as taken" : "Dose status undone");
       setShowConfirmModal(false);
-      setShowTakePrompt(null); // Close the take prompt
+      setShowTakePrompt(null);
       setPromptedDoses((prev) => {
         const newSet = new Set(prev);
         newSet.add(`${medicationId}-${dateKey}-${doseIndex}`);
@@ -838,7 +896,7 @@ const MedicationTracker = () => {
             doseTime: dose.time,
           });
           setPromptedDoses((prev) => new Set(prev).add(doseKey));
-          break; // Show one prompt at a time
+          break;
         }
       }
     }
@@ -903,7 +961,7 @@ const MedicationTracker = () => {
     const interval = setInterval(() => {
       checkReminders();
       checkDosesForPrompt();
-    }, 60 * 1000); // Check every minute
+    }, 60 * 1000);
 
     checkReminders();
     checkDosesForPrompt();
@@ -912,7 +970,6 @@ const MedicationTracker = () => {
   }, [checkReminders, checkDosesForPrompt]);
 
   useEffect(() => {
-    // Reset promptedDoses daily
     const now = moment().local();
     const currentDateKey = now.format("YYYY-MM-DD");
     setPromptedDoses((prev) => {
@@ -1020,7 +1077,7 @@ const MedicationTracker = () => {
       .filter(Boolean);
   }, [medications, selectedDate]);
 
-  const timeofdaymeds = {morningMeds, afternoonMeds, eveningMeds};
+  const timeofdaymeds = { morningMeds, afternoonMeds, eveningMeds };
 
   const dailyDoses = useMemo(() => {
     return medications
@@ -1239,6 +1296,38 @@ const MedicationTracker = () => {
           />
         </div>
       </div>
+
+      {/* Floating Help Icon */}
+      <motion.button
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ type: "spring", stiffness: 260, damping: 20, delay: 0.5 }}
+        onClick={() => setShowHelpPopup(true)}
+        style={{
+          position: "fixed",
+          bottom: "20px",
+          left: "20px",
+          backgroundColor: "#1a73e8",
+          color: "white",
+          borderRadius: "50%",
+          width: "48px",
+          height: "48px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "none",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+          cursor: "pointer",
+          zIndex: 1100,
+          opacity: "70%",
+        }}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        aria-label="Open help information"
+      >
+        <FiHelpCircle style={{ fontSize: "24px", opacity: "70%" }} />
+      </motion.button>
+
       <AnimatePresence>
         {showAddModal && name !== undefined && dosage !== undefined && (
           <motion.div
@@ -1398,7 +1487,7 @@ const MedicationTracker = () => {
             showReminderModal={showReminderModal}
             actionLoading={actionLoading}
             selectedDate={selectedDate}
-            medication={medications.find(m => m.id === showReminderModal?.medicationId)}
+            medication={medications.find((m) => m.id === showReminderModal?.medicationId)}
           />
         </motion.div>
       </AnimatePresence>
@@ -1524,6 +1613,22 @@ const MedicationTracker = () => {
                 setShowTakePrompt(null);
               }}
               actionLoading={actionLoading}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showHelpPopup && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ duration: 0.2 }}
+          >
+            <HelpPopup
+              isOpen={showHelpPopup}
+              onRequestClose={() => setShowHelpPopup(false)}
             />
           </motion.div>
         )}
