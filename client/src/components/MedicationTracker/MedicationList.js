@@ -350,9 +350,9 @@ const MedicationList = ({
               currentPage={currentPage.medications}
               totalItems={sortedMedications.length}
               itemsPerPage={itemsPerPage}
-              onPageChange={(page) =>
-                setCurrentPage((prev) => ({ ...prev, medications: page }))
-              }
+              setCurrentPage={setCurrentPage}
+              pageKey="medications"
+
             />
           )}
         </>
