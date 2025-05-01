@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Modal from "react-modal";
 import { ModalContentWrapper, CloseButton, Button, ModalOverlay, ModalContent } from "../styles";
 import { moment, formatTimeForDisplay } from "../utils/utils";
+import { toast } from "react-toastify";
 
 const DailyChecklistModal = ({
   isOpen,
@@ -18,11 +19,29 @@ const DailyChecklistModal = ({
 
   useEffect(() => {
     const interval = setInterval(() => {
-      const now = moment().local();
-      setCurrentTime(now.format("h:mm:ss A"));
+      try {
+        const now = moment().local();
+        setCurrentTime(now.format("h:mm:ss A"));
+      } catch (err) {
+        console.error("Error updating current time:", err);
+      }
     }, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleTakeClick = (medicationId, doseIndex, isWithinWindow) => {
+    if (!isWithinWindow) {
+      toast.error("You can only take this dose within a 2-hour window of the scheduled time.");
+      return;
+    } else {
+      try {
+        confirmTakenStatus(medicationId, doseIndex, true);
+      } catch (err) {
+        console.error("Error taking medication:", err);
+        toast.error(err.message || "Failed to mark dose as taken");
+      }
+    }
+  };
 
   return (
     <Modal
@@ -32,8 +51,8 @@ const DailyChecklistModal = ({
       style={{ overlay: ModalOverlay, content: ModalContent }}
     >
       <ModalContentWrapper 
-        style={{minWidth:"60vw", borderColor:"#6f42c1"}}>
-        <CloseButton onClick={onRequestClose} accentColor="#6f42c1" aria-label="Close modal">
+        style={{bordercolor:"#6f42c1"}}>
+        <CloseButton onClick={onRequestClose} accentcolor="#6f42c1" aria-label="Close modal">
           ✕
         </CloseButton>
         <h2
@@ -67,52 +86,58 @@ const DailyChecklistModal = ({
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
             {dailyDoses.map((med, index) => {
-              const { isTaken, isMissed, isWithinWindow } = getDoseStatus(med, med.doseIndex);
-              return (
-                <div
-                  key={`${med.id}-${med.doseIndex}-${index}`}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "8px 0",
-                    borderBottom: "1px solid #e0e0e0",
-                  }}
-                >
-                  <div style={{ display: "flex", flexDirection: "column" }}>
-                    <span
-                      style={{
-                        fontSize: "0.875rem",
-                        fontWeight: 500,
-                        color: "#333333",
-                      }}
-                    >
-                      {med.medication_name} ({med.dosage})
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "0.875rem",
-                        color: "#666666",
-                      }}
-                    >
-                      {med.timeOfDay} - {formatTimeForDisplay(med.doseTime)}
-                    </span>
+              try {
+                const { isTaken, isMissed, isWithinWindow } = getDoseStatus(med, med.doseIndex);
+                return (
+                  <div
+                    key={`${med.id}-${med.doseIndex}-${index}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "8px 0",
+                      borderBottom: "1px solid #e0e0e0",
+                      maxWidth: "550px",
+                    }}
+                  >
+                    <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+                      <span
+                        style={{
+                          fontSize: "0.875rem",
+                          fontWeight: 500,
+                          color: "#333333",
+                        }}
+                      >
+                        {med.medication_name} ({med.dosage})
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "0.875rem",
+                          color: "#666666",
+                        }}
+                      >
+                        {med.timeOfDay} - {formatTimeForDisplay(med.doseTime)}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <Button
+                        onClick={() => handleTakeClick(med.id, med.doseIndex, isWithinWindow)}
+                        disabled={isTaken || isMissed || !isWithinWindow || actionLoading}
+                        style={{
+                          backgroundColor: isTaken ? "#e8e8e8" : "#1a73e8",
+                          color: isTaken ? "#333333" : "white",
+                        }}
+                        aria-label={isTaken ? "Undo dose" : "Mark dose as taken"}
+                      >
+                        {isTaken ? "Undo" : "Take"}
+                      </Button>
+                    </div>
                   </div>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <Button
-                      onClick={() => confirmTakenStatus(med.id, med.doseIndex, !isTaken)}
-                      disabled={isTaken || isMissed || !isWithinWindow || actionLoading || isPastDate(selectedDate) || isFutureDate(selectedDate)}
-                      style={{
-                        backgroundColor: isTaken ? "#e8e8e8" : "#1a73e8",
-                        color: isTaken ? "#333333" : "white",
-                      }}
-                      aria-label={isTaken ? "Undo dose" : "Mark dose as taken"}
-                    >
-                      {isTaken ? "Undo" : "Take"}
-                    </Button>
-                  </div>
-                </div>
-              );
+                );
+              } catch (err) {
+                console.error("Error rendering medication dose:", err);
+                return null;
+              }
             })}
           </div>
         )}

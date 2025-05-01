@@ -1,8 +1,7 @@
 import React from "react";
 import Modal from "react-modal";
-import { ModalContentWrapper, CloseButton, Button, ModalOverlay, ModalContent } from "../styles";
-import { moment, formatTimeForDisplay } from "../utils/utils";
-import { toast } from "react-toastify";
+import { ModalContentWrapper, CloseButton, Button, ModalOverlay, ModalContent, theme } from "../styles";
+import { formatTimeForDisplay, moment } from "../utils/utils";
 
 const TakeMedicationModal = ({
   isOpen,
@@ -17,20 +16,13 @@ const TakeMedicationModal = ({
   isFutureDate,
 }) => {
   const medication = medications.find((m) => m.id === showTakeModal);
-  const doses = medication?.doses?.[moment(selectedDate).format("YYYY-MM-DD")] || medication?.times.map((time) => ({
+  const dateKey = moment(selectedDate).format("YYYY-MM-DD");
+  const doses = medication?.doses?.[dateKey] || medication?.times.map((time) => ({
     time,
     taken: false,
     missed: false,
     takenAt: null,
   })) || [];
-
-  const handleTakeClick = (medicationId, doseIndex, isWithinWindow) => {
-    if (!isWithinWindow) {
-      toast.error("You can only take this dose within a 2-hour window of the scheduled time.");
-      return;
-    }
-    confirmTakenStatus(medicationId, doseIndex, true);
-  };
 
   return (
     <Modal
@@ -39,72 +31,56 @@ const TakeMedicationModal = ({
       contentLabel="Take Medication"
       style={{ overlay: ModalOverlay, content: ModalContent }}
     >
-      <ModalContentWrapper borderColor="#84cc16">
-        <CloseButton onClick={onRequestClose} accentColor="#84cc16" aria-label="Close modal">
+      <ModalContentWrapper>
+        <CloseButton onClick={onRequestClose} accentColor={theme.colors.primary} aria-label="Close modal">
           ✕
         </CloseButton>
-        <h2
-          style={{
-            fontSize: "1.25rem",
-            fontWeight: 600,
-            color: "#333333",
-            marginBottom: "16px",
-          }}
-        >
-          Take Medication
-        </h2>
-        <p
-          style={{
-            fontSize: "0.875rem",
-            color: "#666666",
-            marginBottom: "16px",
-          }}
-        >
-          Select the dose you want to mark as taken for {medication?.medication_name}.
-        </p>
-        {doses.length === 0 ? (
-          <p
-            style={{
-              fontSize: "0.875rem",
-              color: "#666666",
-            }}
-          >
-            No doses scheduled for this day.
-          </p>
-        ) : (
-          doses.map((dose, index) => {
-            const { isTaken, isMissed, isWithinWindow } = getDoseStatus(medication, index);
+        <h2>Take Medication</h2>
+        <p>Select the dose you want to mark as taken.</p>
+
+        <div className="modal-list">
+          {doses.map((dose, index) => {
+            const { isTaken, isMissed, isWithinWindow, canTake } = getDoseStatus(medication, index);
+            
             return (
-              <div
-                key={index}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "8px 0",
-                  borderBottom: "1px solid #e0e0e0",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: "0.875rem",
-                    color: "#666666",
-                  }}
-                >
+              <div key={index} className="modal-list-item">
+                <div className="modal-time">
                   {formatTimeForDisplay(dose?.time || "Unknown time")}
-                </span>
+                </div>
                 <Button
-                  onClick={() => handleTakeClick(showTakeModal, index, isWithinWindow)}
-                  disabled={isTaken || isMissed || actionLoading || isPastDate(selectedDate) || isFutureDate(selectedDate)}
-                  style={{ backgroundColor: "#84cc16" }}
-                  aria-label="Mark dose as taken"
+                  onClick={() => {
+                    onRequestClose();
+                    confirmTakenStatus(showTakeModal, index, true);
+                  }}
+                  disabled={
+                    actionLoading ||
+                    !canTake ||
+                    isPastDate(selectedDate) ||
+                    isFutureDate(selectedDate)
+                  }
+                  style={{
+                    backgroundColor: isTaken ? theme.colors.success : theme.colors.primary,
+                    padding: theme.spacing.small + " " + theme.spacing.medium,
+                  }}
                 >
                   {isTaken ? "Taken" : "Take"}
                 </Button>
               </div>
             );
-          })
-        )}
+          })}
+        </div>
+
+        <div className="modal-actions">
+          <Button
+            onClick={onRequestClose}
+            style={{
+              backgroundColor: theme.colors.secondary,
+              color: theme.colors.textLight,
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
       </ModalContentWrapper>
     </Modal>
   );

@@ -62,7 +62,7 @@ const HistorySection = ({ medicationHistory, currentPage, setCurrentPage, itemsP
           marginBottom: "16px",
         }}
       >
-        Medication History
+        Meducation History & Future Medications
       </h2>
       {filteredHistory.length === 0 ? (
         <p

@@ -1,52 +1,35 @@
 import React from "react";
+import { Button } from "./styles";
 
-const Pagination = ({ totalItems, itemsPerPage, currentPage, setCurrentPage, pageKey }) => {
+const Pagination = ({ currentPage, totalItems, itemsPerPage, setCurrentPage, pageKey }) => {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const pageNumbers = [];
 
-  // Only one page or no items in the page
-  if (totalPages <= 1) return null;
-
-  // Generate the page numbers to display
-  const getPageNumbers = () => {
-    const maxPagesToShow = 5;
-    const pages = [];
-
-    if (totalPages <= maxPagesToShow) {
-      // If total pages are less than or equal to maxPagesToShow, show all pages
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      // Always show the first page
-      pages.push(1);
-
-      // Calculate the range of pages to show around the current page
-      const leftBoundary = Math.max(2, currentPage - 1);
-      const rightBoundary = Math.min(totalPages - 1, currentPage + 1);
-
-      // Add ellipsis after the first page if needed
-      if (leftBoundary > 2) {
-        pages.push("...");
-      }
-
-      // Add pages around the current page
-      for (let i = leftBoundary; i <= rightBoundary; i++) {
-        pages.push(i);
-      }
-
-      // Add ellipsis before the last page if needed
-      if (rightBoundary < totalPages - 1) {
-        pages.push("...");
-      }
-
-      // Always show the last page
-      pages.push(totalPages);
+  // Always show first page, last page, and up to 3 pages around current page
+  for (let i = 1; i <= totalPages; i++) {
+    if (
+      i === 1 || // First page
+      i === totalPages || // Last page
+      (i >= currentPage - 1 && i <= currentPage + 1) // Pages around current page
+    ) {
+      pageNumbers.push(i);
+    } else if (
+      (i === currentPage - 2 && currentPage > 3) || // Show dots before
+      (i === currentPage + 2 && currentPage < totalPages - 2) // Show dots after
+    ) {
+      pageNumbers.push("...");
     }
+  }
 
-    return pages;
+  // Handle page change by updating the specific pageKey in the currentPage object
+  const handlePageChange = (page) => {
+    if (typeof page === "number" && page >= 1 && page <= totalPages) {
+      setCurrentPage((prev) => ({
+        ...prev,
+        [pageKey]: page,
+      }));
+    }
   };
-
-  const pages = getPageNumbers();
 
   return (
     <div
@@ -56,82 +39,50 @@ const Pagination = ({ totalItems, itemsPerPage, currentPage, setCurrentPage, pag
         alignItems: "center",
         gap: "8px",
         marginTop: "24px",
-        flexWrap: "wrap",
       }}
     >
-      <button
-        style={{
-          padding: "6px 12px",
-          borderRadius: "8px",
-          fontSize: "0.875rem",
-          fontWeight: 500,
-          cursor: "pointer",
-          transition: "background-color 0.2s ease",
-          border: "1px solid #e0e0e0",
-          backgroundColor: "white",
-          color: "#333333",
-          opacity: currentPage === 1 ? 0.5 : 1,
-        }}
-        onClick={() => setCurrentPage((prev) => ({ ...prev, [pageKey]: prev[pageKey] - 1 }))}
+      <Button
+        onClick={() => handlePageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        aria-label="Previous page"
-      >
-        Previous
-      </button>
-
-      {pages.map((page, index) =>
-        page === "..." ? (
-          <span
-            key={`ellipsis-${index}`}
-            style={{
-              padding: "6px 12px",
-              fontSize: "0.875rem",
-              color: "#666666",
-            }}
-          >
-            ...
-          </span>
-        ) : (
-          <button
-            key={page}
-            style={{
-              padding: "6px 12px",
-              borderRadius: "8px",
-              fontSize: "0.875rem",
-              fontWeight: 500,
-              cursor: "pointer",
-              transition: "background-color 0.2s ease",
-              border: "1px solid #e0e0e0",
-              backgroundColor: page === currentPage ? "#1a73e8" : "white",
-              color: page === currentPage ? "white" : "#333333",
-            }}
-            onClick={() => setCurrentPage((prev) => ({ ...prev, [pageKey]: page }))}
-            aria-label={`Go to page ${page}`}
-          >
-            {page}
-          </button>
-        )
-      )}
-
-      <button
         style={{
+          backgroundColor: "#f5f5f5",
+          color: "#666666",
           padding: "6px 12px",
-          borderRadius: "8px",
-          fontSize: "0.875rem",
-          fontWeight: 500,
-          cursor: "pointer",
-          transition: "background-color 0.2s ease",
-          border: "1px solid #e0e0e0",
-          backgroundColor: "white",
-          color: "#333333",
-          opacity: currentPage === totalPages ? 0.5 : 1,
+          minWidth: "auto",
         }}
-        onClick={() => setCurrentPage((prev) => ({ ...prev, [pageKey]: prev[pageKey] + 1 }))}
-        disabled={currentPage === totalPages}
-        aria-label="Next page"
       >
-        Next
-      </button>
+        ←
+      </Button>
+
+      {pageNumbers.map((number, index) => (
+        <Button
+          key={index}
+          onClick={() => typeof number === "number" && handlePageChange(number)}
+          disabled={number === "..." || number === currentPage}
+          style={{
+            backgroundColor: number === currentPage ? "#1a73e8" : "#f5f5f5",
+            color: number === currentPage ? "white" : "#666666",
+            padding: "6px 12px",
+            minWidth: "36px",
+            cursor: number === "..." ? "default" : "pointer",
+          }}
+        >
+          {number}
+        </Button>
+      ))}
+
+      <Button
+        onClick={() => handlePageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        style={{
+          backgroundColor: "#f5f5f5",
+          color: "#666666",
+          padding: "6px 12px",
+          minWidth: "auto",
+        }}
+      >
+        →
+      </Button>
     </div>
   );
 };

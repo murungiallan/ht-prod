@@ -1,6 +1,22 @@
 import Medication from "../models/medication.js";
 import { db as firebaseDb } from "../server.js"; // Firebase Realtime Database
 import db from "../config/db.js"; // MySQL connection pool
+import moment from "moment";
+
+// Helper functions
+const safeParseJSON = (input, defaultValue = {}) => {
+  try {
+    // If input is already an object or array, return it as is
+    if (typeof input === 'object') {
+      return input === null ? defaultValue : input;
+    }
+    // If input is a string, try to parse it
+    return input ? JSON.parse(input) : defaultValue;
+  } catch (error) {
+    console.error("Error parsing JSON:", error);
+    return defaultValue;
+  }
+};
 
 class MedicationController {
   static async addMedication(req, res) {
@@ -80,59 +96,167 @@ class MedicationController {
     }
   }
 
-  static async updateTakenStatus(id, doseIndex, taken, date) {
+  static async getById(id) {
     try {
-      const [rows] = await db.query("SELECT doses, times, times_per_day FROM medications WHERE id = ?", [id]);
+      const [rows] = await db.query(`
+        SELECT m.*, u.uid as firebase_uid 
+        FROM medications m 
+        JOIN users u ON m.user_id = u.id 
+        WHERE m.id = ?
+      `, [id]);
+
       if (rows.length === 0) {
         throw new Error("Medication not found");
       }
-      let doses = this.safeParseJSON(rows[0].doses, {});
-      const times = this.safeParseJSON(rows[0].times, []);
-      const times_per_day = rows[0].times_per_day;
-  
+
+      const medication = rows[0];
+      return {
+        id: medication.id,
+        userId: medication.user_id,
+        medication_name: medication.medication_name,
+        dosage: medication.dosage,
+        frequency: medication.frequency,
+        times_per_day: medication.times_per_day,
+        times: safeParseJSON(medication.times, []),
+        doses: safeParseJSON(medication.doses, {}),
+        start_date: medication.start_date,
+        end_date: medication.end_date,
+        notes: medication.notes
+      };
+    } catch (error) {
+      console.error("Error getting medication by ID:", error);
+      throw error;
+    }
+  }
+
+  static async updateTakenStatus(req, res) {
+    try {
+      const { id } = req.params;
+      const { date, doseIndex, taken } = req.body;
+      const firebaseUid = req.user.uid;
+
+      if (!id || date === undefined || doseIndex === undefined || taken === undefined) {
+        return res.status(400).json({ error: "Missing required parameters" });
+      }
+
+      // Verify the medication exists and belongs to the user
+      const [userMedRows] = await db.query(`
+        SELECT m.*, u.uid as firebase_uid
+        FROM medications m 
+        JOIN users u ON m.user_id = u.id 
+        WHERE m.id = ? AND u.uid = ?
+      `, [id, firebaseUid]);
+
+      // Add detailed logging for debugging
+      console.log('Medication lookup:', {
+        medicationId: id,
+        firebaseUid,
+        foundRows: userMedRows ? userMedRows.length : 0,
+        firstRow: userMedRows && userMedRows[0] ? {
+          id: userMedRows[0].id,
+          user_id: userMedRows[0].user_id,
+          firebase_uid: userMedRows[0].firebase_uid
+        } : null
+      });
+
+      if (!userMedRows || userMedRows.length === 0) {
+        // Check if the medication exists at all
+        const [medRows] = await db.query('SELECT * FROM medications WHERE id = ?', [id]);
+        if (medRows && medRows.length > 0) {
+          // Medication exists but doesn't belong to this user
+          return res.status(403).json({ 
+            error: "Unauthorized: Medication exists but does not belong to this user",
+            details: {
+              medicationId: id,
+              firebaseUid
+            }
+          });
+        }
+        return res.status(404).json({ 
+          error: "Medication not found",
+          details: {
+            medicationId: id,
+            firebaseUid
+          }
+        });
+      }
+
+      const medication = userMedRows[0];
+      
+      // Parse doses and times to ensure they're properly handled as objects/arrays
+      let doses = safeParseJSON(medication.doses);
+      const times = safeParseJSON(medication.times, []);
+      const times_per_day = medication.times_per_day;
+
+      // Initialize doses for the date if not exists
       if (!doses[date]) {
-        doses[date] = times.map((time) => ({
-          time,
+        doses[date] = Array.from({ length: times_per_day }, (_, index) => ({
+          time: times[index] || '',
           taken: false,
           missed: false,
           takenAt: null,
         }));
       }
-      if (!doses[date] || doses[date].length !== times_per_day) {
-        throw new Error(`Doses for date ${date} are invalid or do not match times_per_day (${times_per_day})`);
-      }
+
+      // Validate dose index
       if (doseIndex >= times_per_day || doseIndex < 0) {
-        throw new Error(`Invalid doseIndex: ${doseIndex}. Must be between 0 and ${times_per_day - 1}`);
+        return res.status(400).json({ error: `Invalid doseIndex: ${doseIndex}. Must be between 0 and ${times_per_day - 1}` });
       }
-  
-      if (taken) {
-        const doseTime = doses[date][doseIndex].time;
+
+      // Ensure the dose object exists for the given index
+      if (!doses[date][doseIndex]) {
+        doses[date][doseIndex] = {
+          time: times[doseIndex] || '',
+          taken: false,
+          missed: false,
+          takenAt: null,
+        };
+      }
+
+      // Validate time window for taking medication
+      if (taken && times[doseIndex]) {
+        const doseTime = times[doseIndex];
         const doseDateTime = moment(`${date} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
         const now = moment().local();
-        console.log(`Time now according to updateTakenStatus in medication model: ${now}`);
         const hoursDiff = Math.abs(doseDateTime.diff(now, "hours", true));
+        
         if (hoursDiff > 2) {
-          throw new Error("Can only mark medication as taken within 2 hours of the scheduled time");
+          return res.status(400).json({ error: "Can only mark medication as taken within 2 hours of the scheduled time" });
         }
       }
-  
+
+      // Update dose status
       doses[date][doseIndex] = {
         ...doses[date][doseIndex],
         taken,
-        missed: taken ? false : false,
+        missed: taken ? false : doses[date][doseIndex].missed,
         takenAt: taken ? new Date().toISOString() : null,
       };
-  
-      const query = `
-        UPDATE medications
-        SET doses = ?
-        WHERE id = ?
-      `;
-      await db.query(query, [JSON.stringify(doses), id]);
-      return this.getById(id);
+
+      // Update database
+      await db.query("UPDATE medications SET doses = ? WHERE id = ?", [JSON.stringify(doses), id]);
+      
+      // Get the updated medication
+      const updatedMedication = {
+        ...medication,
+        doses,
+        times
+      };
+      
+      // Update Firebase
+      await firebaseDb.ref(`medications/${firebaseUid}/${id}`).update({
+        doses,
+        times
+      });
+      
+      return res.status(200).json(updatedMedication);
     } catch (error) {
-      console.error("Database error in Medication.updateTakenStatus:", error.message, error.sqlMessage);
-      throw new Error(`Failed to update taken status: ${error.message}`);
+      console.error("Error updating taken status:", error);
+      return res.status(500).json({ 
+        error: "Failed to update taken status", 
+        details: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   }
 

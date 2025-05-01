@@ -22,14 +22,12 @@ import { useNavigate } from "react-router-dom";
 import { useSocket } from "../../contexts/SocketContext";
 import Modal from "react-modal";
 import React from "react";
-import { debounce } from "lodash";
-import { Input } from "./styles";
+import { after, debounce } from "lodash";
 import { isBefore, isAfter, format } from "date-fns";
+import moment from "moment";
 
 // Import Components
 import Header from "./Header";
-import CalendarSection from "./CalendarSection";
-import TimeOfDaySection from "./TimeOfDaySection";
 import MedicationList from "./MedicationList";
 import RemindersSection from "./RemindersSection";
 import HistorySection from "./HistorySection";
@@ -44,10 +42,11 @@ import AddReminderPromptModal from "./Modals/AddReminderPromptModal";
 import EditReminderModal from "./Modals/EditReminderModal";
 import TakeMedicationModal from "./Modals/TakeMedicationModal";
 import UndoTakenMedicationModal from "./Modals/UndoTakenMedicationModal";
-import DeleteMedicationModal from "./Modals/DeleteMedicationModal";
-import { moment } from "./utils/utils";
+import CalendarSection from "./CalendarSection";
+import TimeOfDaySection from "./TimeOfDaySection";
 import LoadingSpinner from "../common/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
+import DeleteMedicationModal from "./Modals/DeleteMedicationModal";
 
 Modal.setAppElement("#root");
 
@@ -85,6 +84,7 @@ const MedicationTracker = () => {
   const [editReminderModal, setEditReminderModal] = useState(null);
   const [showTakeModal, setShowTakeModal] = useState(null);
   const [showUndoModal, setShowUndoModal] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(null);
 
   // Form States
   const [name, setName] = useState("");
@@ -122,39 +122,59 @@ const MedicationTracker = () => {
   const isPastDate = (date) => isBefore(new Date(date), new Date(), { granularity: "day" });
   const isFutureDate = (date) => isAfter(new Date(date), new Date(), { granularity: "day" });
 
-  const getDoseStatus = useCallback((med, doseIndex) => {
-    const dateKey = moment(selectedDate).format("YYYY-MM-DD");
-    const doses = med.doses?.[dateKey];
+  const getDoseStatus = useCallback((med, date) => {
+    const dateKey = moment(date).format("YYYY-MM-DD");
+    const doses = med.doses?.[dateKey] || med.times.map((time) => ({
+      time,
+      taken: false,
+      missed: false,
+      takenAt: null,
+    }));
     
-    if (!doses || !doses[doseIndex]) {
-      console.log(`Dose not found for medication ${med.id}, doseIndex ${doseIndex}`);
+    if (!doses || !doses[0]) {
+      console.log(`Dose not found for medication ${med.id}, doseIndex 0`);
       return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false };
     }
     
-    const dose = doses[doseIndex];
-    
-    const timeParts = dose.time.split(":");
-    const hours = parseInt(timeParts[0], 10);
-    const minutes = parseInt(timeParts[1], 10);
-    const seconds = timeParts[2] ? parseInt(timeParts[2], 10) : 0;
-  
+    const dose = doses[0];
+    const doseTime = dose.time;
     const now = moment().local();
     
-    // Normalize dose time to today's date and compare the window to current time
-    const normalizedDoseTime = moment(now)
-      .set({ hour: hours, minute: minutes, second: seconds, millisecond: 0 });
-    const windowStart = moment(normalizedDoseTime).subtract(2, "hours");
-    const windowEnd = moment(normalizedDoseTime).add(2, "hours");
+    // Parse the dose time and create a moment object for today
+    const [hours, minutes] = doseTime.split(":").map(Number);
+    const doseDateTime = moment(date)
+      .set({ hour: hours, minute: minutes, second: 0, millisecond: 0 })
+      .local();
+    
+    // Calculate time window (2 hours before and after scheduled time)
+    const windowStart = moment(doseDateTime).subtract(2, "hours");
+    const windowEnd = moment(doseDateTime).add(2, "hours");
+    
+    // Check if current time is within the window
     const isWithinWindow = now.isBetween(windowStart, windowEnd, undefined, "[]");
-    console.log(`${normalizedDoseTime}\n${isWithinWindow}\n`);
-  
-    // Using the actual dose date for isTimeToTake
-    const doseDateTime = moment(dateKey, "YYYY-MM-DD")
-      .set({ hour: hours, minute: minutes, second: seconds, millisecond: 0 });
+    
+    // Check if it's time to take the medication (current time is after scheduled time)
     const isTimeToTake = now.isSameOrAfter(doseDateTime);
     
-    return { isTaken: dose.taken, isMissed: dose.missed, isTimeToTake, isWithinWindow };
-  }, [selectedDate]);
+    // A dose can be taken if:
+    // 1. It's not already taken
+    // 2. It's not marked as missed
+    // 3. User is within the time window
+    // 4. It's not a past or future date
+    const canTake = !dose.taken && 
+                   !dose.missed && 
+                   isWithinWindow && 
+                   !isPastDate(date) && 
+                   !isFutureDate(date);
+    
+    return {
+      isTaken: dose.taken,
+      isMissed: dose.missed,
+      isTimeToTake,
+      isWithinWindow,
+      canTake
+    };
+  }, []);
 
   const confirmTakenStatus = (medicationId, doseIndex, taken) => {
     setConfirmMessage(
@@ -278,6 +298,7 @@ const MedicationTracker = () => {
       navigate("/login");
       return;
     }
+
     if (!name || !frequency || !dosage || !timesPerDay || !startDate || !endDate) {
       toast.error("Please fill in all required fields");
       return;
@@ -287,6 +308,7 @@ const MedicationTracker = () => {
       toast.error("Number of dose times must match times per day");
       return;
     }
+
     const uniqueTimes = new Set(doseTimes.map((dose) => dose.time));
     if (uniqueTimes.size !== doseTimes.length) {
       toast.error("Dose times must be unique");
@@ -318,7 +340,12 @@ const MedicationTracker = () => {
         times: formattedTimes,
         doses: {},
       };
+
       const createdMedication = await createMedication(medicationData, token);
+      if (!createdMedication) {
+        throw new Error("Failed to create medication");
+      }
+
       setMedications((prev) => [createdMedication, ...prev]);
       toast.success("Medication added successfully");
       setShowAddModal(false);
@@ -335,7 +362,7 @@ const MedicationTracker = () => {
       if (err.code === "auth/id-token-expired") {
         handleSessionExpired();
       } else {
-        toast.error(err.response?.data?.error || "Failed to add medication");
+        toast.error(err.response?.data?.error || err.message || "Failed to add medication");
       }
       throw err;
     } finally {
@@ -375,19 +402,42 @@ const MedicationTracker = () => {
     try {
       const token = await getUserToken();
       const dateKey = moment(selectedDate).format("YYYY-MM-DD");
-      const updatedMedication = await updateMedicationTakenStatus(medicationId, doseIndex, taken, token, dateKey);
-      setMedications((prev) =>
-        prev.map((med) => (med.id === updatedMedication.id ? updatedMedication : med))
-      );
-      if (socket) {
-        socket.emit("medicationUpdated", updatedMedication);
+      
+      // Get the medication to check time window
+      const med = medications.find((m) => m.id === medicationId);
+      const doseTime = med.doses?.[dateKey]?.[doseIndex]?.time || med.times[doseIndex];
+      if (!doseTime) {
+        throw new Error("Dose time not found");
       }
+
+      const doseDateTime = moment(`${dateKey} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
+      const now = moment().local();
+      const hoursDiff = Math.abs(doseDateTime.diff(now, "hours", true));
+
+      // Only check time window for marking as taken
+      if (taken && hoursDiff > 2) {
+        toast.error("Can only mark medication as taken within 2 hours of the scheduled time");
+        return;
+      }
+
+      const response = await updateMedicationTakenStatus(medicationId, doseIndex, taken, token, dateKey);
+      
+      if (!response) {
+        throw new Error("Failed to update medication status");
+      }
+
+      setMedications((prev) =>
+        prev.map((med) => (med.id === response.id ? response : med))
+      );
+
+      if (socket) {
+        socket.emit("medicationUpdated", response);
+      }
+
       toast.success(taken ? "Dose marked as taken" : "Dose status undone");
       setShowConfirmModal(false);
 
       if (taken) {
-        const med = medications.find((m) => m.id === medicationId);
-        const doseTime = med.doses?.[dateKey]?.[doseIndex]?.time || med.times[doseIndex];
         setReminderTime(doseTime);
         setShowAddReminderPrompt({
           medication: med,
@@ -402,22 +452,24 @@ const MedicationTracker = () => {
       if (err.code === "auth/id-token-expired") {
         handleSessionExpired();
       } else {
-        toast.error("Failed to update dose status");
+        toast.error(err.response?.data?.error || err.message || "Failed to update dose status");
       }
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleSetReminder = async (e, medicationId, doseIndex) => {
+  const handleSetReminder = async (e, medicationId, doseIndex, reminderDate) => {
     e.preventDefault();
+    if (!reminderTime) {
+      toast.error("Please select a reminder time");
+      return;
+    }
+
     setActionLoading(true);
     try {
       const token = await getUserToken();
       let formattedReminderTime = reminderTime;
-      if (!formattedReminderTime) {
-        throw new Error("Reminder time is required");
-      }
       if (formattedReminderTime.split(":").length === 2) {
         formattedReminderTime += ":00";
       }
@@ -425,17 +477,31 @@ const MedicationTracker = () => {
         throw new Error(`Invalid time format: ${formattedReminderTime}`);
       }
 
+      // Use the provided reminderDate if available, otherwise use selectedDate
+      const effectiveDate = reminderDate || moment(selectedDate).format("YYYY-MM-DD");
+
       const reminderData = {
         medicationId,
         doseIndex,
         reminderTime: formattedReminderTime,
-        date: moment(selectedDate).format("YYYY-MM-DD"),
+        date: effectiveDate,
         type: isRecurringReminder ? "daily" : "single",
       };
+
       const createdReminder = await createReminder(reminderData, token);
+      if (!createdReminder) {
+        throw new Error("Failed to create reminder");
+      }
+
       setReminders((prev) => [createdReminder, ...prev]);
       await fetchReminders();
-      toast.success("Reminder set successfully");
+      let reminderMed;
+      if (reminderData.type === "daily") {
+        reminderMed = "daily";
+      } else {
+        reminderMed = "single";
+      }
+      toast.success(`Reminder set successfully from ${moment(effectiveDate).format("MMMM D, YYYY")} (${reminderMed})`);
       setShowReminderModal(null);
       setReminderTime("");
       setIsRecurringReminder(false);
@@ -444,7 +510,7 @@ const MedicationTracker = () => {
       if (err.code === "auth/id-token-expired") {
         handleSessionExpired();
       } else {
-        toast.error(err.message || "Failed to set reminder");
+        toast.error(err.response?.data?.error || err.message || "Failed to set reminder");
       }
     } finally {
       setActionLoading(false);
@@ -536,20 +602,27 @@ const MedicationTracker = () => {
 
   const confirmDeleteMedication = (medicationId) => {
     setMedicationToDelete(medicationId);
-    setShowDeleteConfirmModal(true);
+    setShowDeleteModal(medicationId);
   };
 
   const handleDeleteMedication = async () => {
+    if (!medicationToDelete) {
+      toast.error("No medication selected for deletion");
+      return;
+    }
+
     setActionLoading(true);
     try {
       const token = await getUserToken();
       await deleteMedication(medicationToDelete, token);
+      
       setMedications((prev) => prev.filter((med) => med.id !== medicationToDelete));
       if (selectedMedication?.id === medicationToDelete) {
         setShowDetailModal(false);
       }
+      
       toast.success("Medication deleted successfully");
-      setShowDeleteConfirmModal(false);
+      setShowDeleteModal(null);
       setMedicationToDelete(null);
       await updateMedicationHistory();
     } catch (err) {
@@ -557,7 +630,7 @@ const MedicationTracker = () => {
       if (err.code === "auth/id-token-expired") {
         handleSessionExpired();
       } else {
-        toast.error("Failed to delete medication");
+        toast.error(err.response?.data?.error || err.message || "Failed to delete medication");
       }
     } finally {
       setActionLoading(false);
@@ -793,6 +866,8 @@ const MedicationTracker = () => {
       .filter(Boolean);
   }, [medications, selectedDate]);
 
+  const timeofdaymeds = {morningMeds, afternoonMeds, eveningMeds}
+
   const dailyDoses = useMemo(() => {
     return medications
       .map((med) => {
@@ -948,42 +1023,44 @@ const MedicationTracker = () => {
         setSearchQuery={setSearchQuery}
       />
       <div className="flex flex-col lg:space-x-6 space-y-6 lg:space-y-0">
-        <div className="flex flex-col lg:flex-row lg:space-x-6 space-y-6 lg:space-y-0 w-full gap-2">
-          <div className="flex flex-col space-y-3 lg:max-w-3/4 w-full justify-center">
-            <TimeOfDaySection
-              title="Morning"
-              meds={morningMeds}
-              icon={<WiDaySunnyOvercast style={{ fontSize: "1.5rem", color: "#ffca28" }} />}
-              reminders={effectiveReminders}
-              setShowReminderModal={setShowReminderModal}
-              setSelectedMedication={setSelectedMedication}
-              getDoseStatus={getDoseStatus}
-            />
-            <TimeOfDaySection
-              title="Afternoon"
-              meds={afternoonMeds}
-              icon={<WiDaySunny style={{ fontSize: "1.5rem", color: "#ffb300" }} />}
-              reminders={effectiveReminders}
-              setShowReminderModal={setShowReminderModal}
-              setSelectedMedication={setSelectedMedication}
-              getDoseStatus={getDoseStatus}
-            />
-            <TimeOfDaySection
-              title="Evening"
-              meds={eveningMeds}
-              icon={<WiDayWindy style={{ fontSize: "1.5rem", color: "#ff8f00" }} />}
-              reminders={effectiveReminders}
-              setShowReminderModal={setShowReminderModal}
-              setSelectedMedication={setSelectedMedication}
-              getDoseStatus={getDoseStatus}
-            />
-          </div>
+      <div className="flex flex-col lg:flex-row lg:space-x-6 space-y-6 lg:space-y-0 w-full gap-2">
+        <div className="flex flex-col space-y-3 lg:w-2/3 md:w-2/3 w-full justify-center">
+          <TimeOfDaySection
+            title="Morning"
+            meds={timeofdaymeds}
+            icon={<WiDaySunnyOvercast style={{ fontSize: "1.5rem", color: "#ffca28" }} />}
+            reminders={effectiveReminders}
+            setShowReminderModal={setShowReminderModal}
+            setSelectedMedication={setSelectedMedication}
+            getDoseStatus={getDoseStatus}
+          />
+          {/* <TimeOfDaySection
+            title="Afternoon"
+            meds={afternoonMeds}
+            icon={<WiDaySunny style={{ fontSize: "1.5rem", color: "#ffb300" }} />}
+            reminders={effectiveReminders}
+            setShowReminderModal={setShowReminderModal}
+            setSelectedMedication={setSelectedMedication}
+            getDoseStatus={getDoseStatus}
+          />
+          <TimeOfDaySection
+            title="Evening"
+            meds={eveningMeds}
+            icon={<WiDayWindy style={{ fontSize: "1.5rem", color: "#ff8f00" }} />}
+            reminders={effectiveReminders}
+            setShowReminderModal={setShowReminderModal}
+            setSelectedMedication={setSelectedMedication}
+            getDoseStatus={getDoseStatus}
+          /> */}
+        </div>
+        <div className="lg:w-1/3 md:w-1/3 sm:w-full">
           <CalendarSection
             selectedDate={selectedDate}
             setSelectedDate={setSelectedDate}
             isFutureDate={isFutureDate}
           />
         </div>
+      </div>
         <div className="flex flex-col lg:space-x-6 space-y-6 lg:space-y-0 w-full gap-4 mt-4">
           <MedicationList
             medications={medications}
@@ -1027,7 +1104,6 @@ const MedicationTracker = () => {
           />
         </div>
       </div>
-
       <AnimatePresence>
         {showAddModal && name !== undefined && dosage !== undefined && (
           <motion.div
@@ -1186,6 +1262,8 @@ const MedicationTracker = () => {
             handleSetReminder={(e) => handleSetReminder(e, showReminderModal?.medicationId, showReminderModal?.doseIndex)}
             showReminderModal={showReminderModal}
             actionLoading={actionLoading}
+            selectedDate={selectedDate}
+            medication={medications.find(m => m.id === showReminderModal?.medicationId)}
           />
         </motion.div>
       </AnimatePresence>
@@ -1256,17 +1334,13 @@ const MedicationTracker = () => {
           exit={{ opacity: 0, y: -50 }}
           transition={{ duration: 0.3 }}
         >
-          <UndoTakenMedicationModal
-            isOpen={!!showUndoModal}
-            onRequestClose={() => setShowUndoModal(null)}
-            showUndoModal={showUndoModal}
+          <DeleteMedicationModal
+            isOpen={!!showDeleteModal}
+            onRequestClose={() => setShowDeleteModal(null)}
+            medicationId={showDeleteModal}
             medications={medications}
-            selectedDate={selectedDate}
-            getDoseStatus={getDoseStatus}
-            confirmTakenStatus={confirmTakenStatus}
+            confirmDeleteMedication={handleDeleteMedication}
             actionLoading={actionLoading}
-            isPastDate={isPastDate}
-            isFutureDate={isFutureDate}
           />
         </motion.div>
       </AnimatePresence>
@@ -1278,12 +1352,17 @@ const MedicationTracker = () => {
           exit={{ opacity: 0, y: -50 }}
           transition={{ duration: 0.3 }}
         >
-          <DeleteConfirmModal
-            isOpen={showDeleteConfirmModal}
-            onRequestClose={() => setShowDeleteConfirmModal(false)}
-            onConfirm={handleDeleteMedication}
+          <UndoTakenMedicationModal
+            isOpen={!!showUndoModal}
+            onRequestClose={() => setShowUndoModal(null)}
+            showUndoModal={showUndoModal}
+            medications={medications}
+            selectedDate={selectedDate}
+            getDoseStatus={getDoseStatus}
+            confirmTakenStatus={confirmTakenStatus}
             actionLoading={actionLoading}
-            message="Are you sure you want to delete this medication? This action cannot be undone, and all associated reminders will also be deleted."
+            isPastDate={isPastDate}
+            isFutureDate={isFutureDate}
           />
         </motion.div>
       </AnimatePresence>
