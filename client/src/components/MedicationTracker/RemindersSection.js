@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Section } from "./styles";
 import { MdEdit, MdDelete } from "react-icons/md";
-import { moment, formatTimeForDisplay } from "./utils/utils";
+import { formatTimeForDisplay } from "./utils/utils";
 import Pagination from "./Pagination";
 
 const RemindersSection = ({
@@ -74,6 +74,15 @@ const RemindersSection = ({
     return items.slice(startIndex, startIndex + itemsPerPage);
   };
 
+  // Format selectedDate using native Date
+  const formatSelectedDate = (date) => {
+    return new Date(date).toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
   return (
     <Section>
       <h2
@@ -84,7 +93,7 @@ const RemindersSection = ({
           marginBottom: "16px",
         }}
       >
-        Reminders for {moment(selectedDate).format("MMMM D, YYYY")}
+        Reminders for {formatSelectedDate(selectedDate)}
       </h2>
       {filteredReminders.length === 0 ? (
         <p
@@ -200,7 +209,9 @@ const RemindersSection = ({
                           <button
                             onClick={() => {
                               setEditReminderModal(reminder);
-                              setReminderTime(moment(reminder.reminderTime, "HH:mm:ss").format("HH:mm"));
+                              // Convert reminderTime (HH:mm:ss) to HH:mm for input
+                              const timeParts = reminder.reminderTime.split(":");
+                              setReminderTime(`${timeParts[0]}:${timeParts[1]}`);
                             }}
                             style={{
                               color: "#ffc107",
