@@ -43,6 +43,13 @@ const DailyChecklistModal = ({
     }
   };
 
+  // Sort dailyDoses by doseTime in ascending order
+  const sortedDoses = dailyDoses.slice().sort((a, b) => {
+    if (!a.doseTime || !b.doseTime) return 0;
+    // Compare time strings (HH:mm:ss)
+    return a.doseTime.localeCompare(b.doseTime);
+  });
+
   return (
     <Modal
       isOpen={isOpen}
@@ -50,8 +57,7 @@ const DailyChecklistModal = ({
       contentLabel="Daily Medication Checklist"
       style={{ overlay: ModalOverlay, content: ModalContent }}
     >
-      <ModalContentWrapper 
-        style={{bordercolor:"#6f42c1"}}>
+      <ModalContentWrapper style={{ borderColor: "#6f42c1" }}>
         <CloseButton onClick={onRequestClose} accentcolor="#6f42c1" aria-label="Close modal">
           ✕
         </CloseButton>
@@ -74,7 +80,7 @@ const DailyChecklistModal = ({
         >
           Current Time: {currentTime}
         </p>
-        {dailyDoses.length === 0 ? (
+        {sortedDoses.length === 0 ? (
           <p
             style={{
               fontSize: "0.875rem",
@@ -85,7 +91,7 @@ const DailyChecklistModal = ({
           </p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            {dailyDoses.map((med, index) => {
+            {sortedDoses.map((med, index) => {
               try {
                 const { isTaken, isMissed, isWithinWindow } = getDoseStatus(med, selectedDate, med.doseIndex);
                 return (
@@ -123,16 +129,16 @@ const DailyChecklistModal = ({
                       <Button
                         onClick={() => {
                           onRequestClose();
-                          handleTakeClick(med.id, med.doseIndex, isWithinWindow)
+                          handleTakeClick(med.id, med.doseIndex, isWithinWindow);
                         }}
                         disabled={isTaken || isMissed || !isWithinWindow || actionLoading}
                         style={{
-                          backgroundColor: isTaken ? "#e8e8e8" : "#1a73e8",
-                          color: isTaken ? "#333333" : "white",
+                          backgroundColor: isTaken ? "#D0F0C0" : isMissed ? "#FBCEB1" : "white",
+                          color: isTaken ? "#49796B" : isMissed ? "#FF033E" : "white",
                         }}
                         aria-label={isTaken ? "Undo dose" : "Mark dose as taken"}
                       >
-                        {isTaken ? "Undo" : "Take"}
+                        {isTaken ? "Taken" : isMissed ? "Missed" : ""}
                       </Button>
                     </div>
                   </div>
