@@ -599,7 +599,7 @@ const MedicationTracker = () => {
           reminder.id === editReminderModal.id ? { ...reminder, ...reminderData } : reminder
         )
       );
-      await fetchReminders(); // Refresh reminders
+      await fetchReminders();
       toast.success("Reminder updated successfully");
       setEditReminderModal(null);
       setReminderTime("");

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Section, Button, SecondaryButton, TableContainer } from "./styles";
-import { MdDelete, MdCheck, MdUndo, MdInfo } from "react-icons/md";
+import { MdDelete, MdCheck, MdUndo, MdInfo, MdClear, MdPending } from "react-icons/md";
 import { formatTimeForDisplay, moment } from "./utils/utils";
 import Pagination from "./Pagination";
 import { toast } from "react-toastify";
@@ -250,6 +250,7 @@ const MedicationList = ({
                               }}
                             >
                               {doses[index]?.taken && <MdCheck size={16} />}
+                              {doses[index]?.missed && <MdClear size={16} />}
                               {formatTimeForDisplay(time)}
                             </div>
                           ))}

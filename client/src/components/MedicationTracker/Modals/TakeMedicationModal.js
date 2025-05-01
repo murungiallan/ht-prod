@@ -73,7 +73,12 @@ const TakeMedicationModal = ({
                     onRequestClose();
                     handleTakeDose(index)
                   }}
-                  disabled={isTaken || isMissed || !isWithinWindow || actionLoading}
+                  disabled={
+                    isTaken || 
+                    isMissed || 
+                    !isWithinWindow || 
+                    actionLoading
+                  }
                   style={{
                     backgroundColor: isTaken ? "#e8e8e8" : "#1a73e8",
                     color: isTaken ? "#333333" : "white",

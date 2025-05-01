@@ -60,8 +60,7 @@ const UndoTakenMedicationModal = ({
           Select the dose you want to undo the taken status for.
         </p>
         {doses.map((dose, index) => {
-          const doseStatus = getDoseStatus(medication, selectedDate);
-          const isTaken = doseStatus.isTaken;
+          const { isTaken, isMissed, isWithinWindow } = getDoseStatus(medication, selectedDate, index);
           
           return (
             <div
@@ -86,6 +85,8 @@ const UndoTakenMedicationModal = ({
                 onClick={() => handleUndoClick(showUndoModal, index)}
                 disabled={
                   !isTaken ||
+                  isMissed ||
+                  !isWithinWindow ||
                   actionLoading
                 }
                 style={{ backgroundColor: "#0dcaf0" }}
