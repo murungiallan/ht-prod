@@ -1,7 +1,8 @@
 import React, { useEffect } from "react";
 import Modal from "react-modal";
 import { ModalContentWrapper, CloseButton, Button, ModalOverlay, ModalContent } from "../styles";
-import { moment, formatTimeForDisplay } from "../utils/utils";
+import { format } from "date-fns";
+import { formatTimeForDisplay } from "../utils/utils";
 
 const MedicationDetailModal = ({
   isOpen,
@@ -19,14 +20,14 @@ const MedicationDetailModal = ({
   isFutureDate,
   selectedDate,
 }) => {
-  const dateKey = moment(selectedDate).format("YYYY-MM-DD");
-  const displayDate = moment(selectedDate).format("MMMM D, YYYY");
+  const dateKey = format(selectedDate, "yyyy-MM-dd");
+  const displayDate = format(selectedDate, "MMMM d, yyyy");
 
   const startDateFormatted = selectedMedication?.start_date
-    ? moment(selectedMedication.start_date).format("MMMM D, YYYY")
+    ? format(new Date(selectedMedication.start_date), "MMMM d, yyyy")
     : "N/A";
   const endDateFormatted = selectedMedication?.end_date
-    ? moment(selectedMedication.end_date).format("MMMM D, YYYY")
+    ? format(new Date(selectedMedication.end_date), "MMMM d, yyyy")
     : "N/A";
 
   const dosesForDate = selectedMedication?.doses?.[dateKey] || [];
@@ -109,7 +110,7 @@ const MedicationDetailModal = ({
           <h3
             style={{
               fontSize: "1rem",
-              fontWeight: 500,
+              fontWeight: "500",
               color: "#333333",
               marginBottom: "8px",
             }}
@@ -136,7 +137,7 @@ const MedicationDetailModal = ({
           <h3
             style={{
               fontSize: "1rem",
-              fontWeight: 500,
+              fontWeight: "500",
               color: "#333333",
               marginBottom: "8px",
             }}
@@ -169,16 +170,15 @@ const MedicationDetailModal = ({
                   </span>
                   <div style={{ display: "flex", gap: "8px" }}>
                     <Button
-                      onClick={() =>
-                        confirmTakenStatus(selectedMedication.id, index, !isTaken)
-                      }
+                      onClick={() => {
+                        onRequestClose();
+                        confirmTakenStatus(selectedMedication.id, index, !isTaken);
+                      }}
                       disabled={
-                        isTaken ||
-                        isMissed ||
-                        !isWithinWindow ||
                         actionLoading ||
                         isPastDate(selectedDate) ||
-                        isFutureDate(selectedDate)
+                        isFutureDate(selectedDate) ||
+                        (isTaken ? false : !isWithinWindow)
                       }
                       style={{
                         backgroundColor: isTaken ? "#e8e8e8" : "#1a73e8",
@@ -209,7 +209,7 @@ const MedicationDetailModal = ({
           <h3
             style={{
               fontSize: "1rem",
-              fontWeight: 500,
+              fontWeight: "500",
               color: "#333333",
               marginBottom: "8px",
             }}
@@ -264,7 +264,302 @@ const MedicationDetailModal = ({
           <h3
             style={{
               fontSize: "1rem",
-              fontWeight: 500,
+              fontWeight: "500",
+              color: "#333333",
+              marginBottom: "8px",
+            }}
+          >
+            Potential Side Effects
+          </h3>
+          {drugInfoLoading ? (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#666666",
+              }}
+            >
+              Loading side effects...
+            </p>
+          ) : drugInfoError ? (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#d32f2f",
+              }}
+            >
+              Failed to load side effects.
+            </p>
+          ) : drugInfo?.sideEffects?.length > 0 ? (
+            <ul style={{ listStyleType: "disc", paddingLeft: "16px" }}>
+              {drugInfo.sideEffects.map((sideEffect, index) => (
+                <li
+                  key={index}
+                  style={{
+                    fontSize: "0.875rem",
+                    color: "#666666",
+                    marginBottom: "4px",
+                  }}
+                >
+                  {sideEffect}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#666666",
+              }}
+            >
+              No side effects information available.
+            </p>
+          )}
+        </section>
+        <section style={{ marginBottom: "16px" }}>
+          <h3
+            style={{
+              fontSize: "1rem",
+              fontWeight: "500",
+              color: "#333333",
+              marginBottom: "8px",
+            }}
+          >
+            Storage Instructions
+          </h3>
+          {drugInfoLoading ? (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#666666",
+              }}
+            >
+              Loading storage instructions...
+            </p>
+          ) : drugInfoError ? (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#d32f2f",
+              }}
+            >
+              Failed to load storage instructions.
+            </p>
+          ) : drugInfo?.storage ? (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#666666",
+              }}
+            >
+              {drugInfo.storage}
+            </p>
+          ) : (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#666666",
+              }}
+            >
+              No storage instructions available.
+            </p>
+          )}
+        </section>
+        <section style={{ marginBottom: "16px" }}>
+          <h3
+            style={{
+              fontSize: "1rem",
+              fontWeight: "500",
+              color: "#333333",
+              marginBottom: "8px",
+            }}
+          >
+            Missed Dose Instructions
+          </h3>
+          {drugInfoLoading ? (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#666666",
+              }}
+            >
+              Loading missed dose instructions...
+            </p>
+          ) : drugInfoError ? (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#d32f2f",
+              }}
+            >
+              Failed to load missed dose instructions.
+            </p>
+          ) : drugInfo?.missedDose ? (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#666666",
+              }}
+            >
+              {drugInfo.missedDose}
+            </p>
+          ) : (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#666666",
+              }}
+            >
+              No missed dose instructions available. Consult your doctor.
+            </p>
+          )}
+        </section>
+        <section style={{ marginBottom: "16px" }}>
+          <h3
+            style={{
+              fontSize: "1rem",
+              fontWeight: "500",
+              color: "#333333",
+              marginBottom: "8px",
+            }}
+          >
+            Food/Drink Interactions
+          </h3>
+          {drugInfoLoading ? (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#666666",
+              }}
+            >
+              Loading food/drink interactions...
+            </p>
+          ) : drugInfoError ? (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#d32f2f",
+              }}
+            >
+              Failed to load food/drink interactions.
+            </p>
+          ) : drugInfo?.foodInteractions?.length > 0 ? (
+            <ul style={{ listStyleType: "disc", paddingLeft: "16px" }}>
+              {drugInfo.foodInteractions.map((interaction, index) => (
+                <li
+                  key={index}
+                  style={{
+                    fontSize: "0.875rem",
+                    color: "#666666",
+                    marginBottom: "4px",
+                  }}
+                >
+                  {interaction}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#666666",
+              }}
+            >
+              No food/drink interactions found.
+            </p>
+          )}
+        </section>
+        <section style={{ marginBottom: "16px" }}>
+          <h3
+            style={{
+              fontSize: "1rem",
+              fontWeight: "500",
+              color: "#333333",
+              marginBottom: "8px",
+            }}
+          >
+            Refill Information
+          </h3>
+          {drugInfoLoading ? (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#666666",
+              }}
+            >
+              Loading refill information...
+            </p>
+          ) : drugInfoError ? (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#d32f2f",
+              }}
+            >
+              Failed to load refill information.
+            </p>
+          ) : selectedMedication?.refills || selectedMedication?.nextRefillDate ? (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#666666",
+              }}
+            >
+              {selectedMedication.refills ? `Refills remaining: ${selectedMedication.refills}` : ""}
+              {selectedMedication.refills && selectedMedication.nextRefillDate ? " | " : ""}
+              {selectedMedication.nextRefillDate
+                ? `Next refill: ${format(new Date(selectedMedication.nextRefillDate), "MMMM d, yyyy")}`
+                : ""}
+            </p>
+          ) : (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#666666",
+              }}
+            >
+              No refill information available.
+            </p>
+          )}
+        </section>
+        <section style={{ marginBottom: "16px" }}>
+          <h3
+            style={{
+              fontSize: "1rem",
+              fontWeight: "500",
+              color: "#333333",
+              marginBottom: "8px",
+            }}
+          >
+            Prescriber Information
+          </h3>
+          {selectedMedication?.prescriber ? (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#666666",
+              }}
+            >
+              Prescribed by: {selectedMedication.prescriber.name}
+              {selectedMedication.prescriber.contact
+                ? ` | Contact: ${selectedMedication.prescriber.contact}`
+                : ""}
+            </p>
+          ) : (
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#666666",
+              }}
+            >
+              No prescriber information available.
+            </p>
+          )}
+        </section>
+        <section style={{ marginBottom: "16px" }}>
+          <h3
+            style={{
+              fontSize: "1rem",
+              fontWeight: "500",
               color: "#333333",
               marginBottom: "8px",
             }}
@@ -319,7 +614,7 @@ const MedicationDetailModal = ({
           <h3
             style={{
               fontSize: "1rem",
-              fontWeight: 500,
+              fontWeight: "500",
               color: "#333333",
               marginBottom: "8px",
             }}

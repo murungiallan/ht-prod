@@ -6,23 +6,21 @@ const Calendar = ({ exercises, setSelectedDate, selectedDate }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const scrollContainerRef = useRef(null);
   
-  // Create a normalized today date by setting it to midnight
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // Helper function to normalize any date to midnight
   const normalizeDate = (date) => {
+    // Create a new date
     const normalized = new Date(date);
+    // Set to midnight in local timezone
     normalized.setHours(0, 0, 0, 0);
     return normalized;
   };
 
-  // Set default selected date and normalize it
+  // Get today's date normalized to midnight
+  const today = normalizeDate(new Date());
+
+  // Set default selected date on mount only
   useEffect(() => {
     if (!selectedDate) {
-      setSelectedDate(normalizeDate(today));
-    } else {
-      setSelectedDate(normalizeDate(selectedDate));
+      setSelectedDate(normalizeDate(new Date()));
     }
   }, []);
 
@@ -31,14 +29,17 @@ const Calendar = ({ exercises, setSelectedDate, selectedDate }) => {
     const dates = [];
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
+    
+    // Start 3 days before the first of the month
     const startDate = new Date(year, month, 1);
     startDate.setDate(startDate.getDate() - 3);
-
+    
+    // End 3 days after the last of the month
     const endDate = new Date(year, month + 1, 0);
     endDate.setDate(endDate.getDate() + 3);
 
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      dates.push(normalizeDate(d));
+      dates.push(normalizeDate(new Date(d)));
     }
     return dates;
   };
@@ -52,11 +53,7 @@ const Calendar = ({ exercises, setSelectedDate, selectedDate }) => {
   };
 
   const isToday = (date) => {
-    return (
-      date.getDate() === today.getDate() &&
-      date.getMonth() === today.getMonth() &&
-      date.getFullYear() === today.getFullYear()
-    );
+    return date.getTime() === today.getTime();
   };
 
   const hasExercisesOnDate = (date) => {
@@ -92,17 +89,15 @@ const Calendar = ({ exercises, setSelectedDate, selectedDate }) => {
       })
     : [];
 
-  // Calculate stats for the Stats component
-  const exerciseStats = selectedDate
-    ? selectedDateExercises.reduce(
-        (acc, ex) => ({
-          totalCalories: acc.totalCalories + (ex.calories_burned || 0),
-          totalDuration: acc.totalDuration + (ex.duration || 0),
-          totalSessions: acc.totalSessions + 1,
-        }),
-        { totalCalories: 0, totalDuration: 0, totalSessions: 0 }
-      )
-    : { totalCalories: 0, totalDuration: 0, totalSessions: 0 };
+  // Calculate stats for the selected date
+  const exerciseStats = selectedDateExercises.reduce(
+    (acc, ex) => ({
+      totalCalories: acc.totalCalories + (Number(ex.calories_burned) || 0),
+      totalDuration: acc.totalDuration + (Number(ex.duration) || 0),
+      totalSessions: acc.totalSessions + 1,
+    }),
+    { totalCalories: 0, totalDuration: 0, totalSessions: 0 }
+  );
 
   return (
     <div className="w-full mx-auto">
@@ -138,7 +133,7 @@ const Calendar = ({ exercises, setSelectedDate, selectedDate }) => {
       >
         {generateCalendarDates().map((date, index) => {
           const isDateToday = isToday(date);
-          const isSelected = selectedDate && normalizeDate(selectedDate).getTime() === date.getTime();
+          const isSelected = selectedDate && normalizeDate(new Date(selectedDate)).getTime() === date.getTime();
           const hasExercises = hasExercisesOnDate(date);
           const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
 

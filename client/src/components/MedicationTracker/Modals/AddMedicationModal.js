@@ -293,7 +293,7 @@ const AddMedicationModal = ({
       contentLabel="Add Medication"
       style={{ overlay: ModalOverlay, content: ModalContent }}
     >
-      <ModalContentWrapper maxWidth="36rem" borderColor="#28a745">
+      <ModalContentWrapper width="50vw" borderColor="#28a745">
         <CloseButton onClick={onRequestClose} accentColor="#28a745" aria-label="Close modal">
           ✕
         </CloseButton>

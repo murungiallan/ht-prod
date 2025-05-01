@@ -137,30 +137,50 @@ const ExerciseTracker = () => {
 
   const computeWeeklyData = useCallback(() => {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Create array of last 7 days
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = new Date(today);
       date.setDate(today.getDate() - i);
-      return date.toISOString().split("T")[0];
+      date.setHours(0, 0, 0, 0);
+      return date;
     }).reverse();
 
-    const caloriesData = last7Days.map((date) => {
-      const dailyExercises = exercises.filter(
-        (ex) => new Date(ex.date_logged).toISOString().split("T")[0] === date
-      );
-      return dailyExercises.reduce((sum, ex) => sum + (ex.calories_burned || 0), 0);
+    // Format dates for comparison and labels
+    const formattedDates = last7Days.map(date => {
+      return {
+        dateObj: date,
+        dateString: date.toISOString().split('T')[0], // YYYY-MM-DD format
+        shortDay: date.toLocaleDateString("en-US", { weekday: "short" }) // Short day name for display
+      };
     });
 
-    const durationData = last7Days.map((date) => {
-      const dailyExercises = exercises.filter(
-        (ex) => new Date(ex.date_logged).toISOString().split("T")[0] === date
-      );
-      return dailyExercises.reduce((sum, ex) => sum + (ex.duration || 0), 0);
+    // Calculate data for each day
+    const caloriesData = formattedDates.map(({ dateObj }) => {
+      const dailyExercises = exercises.filter(ex => {
+        const exDate = new Date(ex.date_logged);
+        exDate.setHours(0, 0, 0, 0);
+        return exDate.getTime() === dateObj.getTime();
+      });
+      return dailyExercises.reduce((sum, ex) => sum + (Number(ex.calories_burned) || 0), 0);
     });
 
-    const sessionsData = last7Days.map((date) => {
-      const dailyExercises = exercises.filter(
-        (ex) => new Date(ex.date_logged).toISOString().split("T")[0] === date
-      );
+    const durationData = formattedDates.map(({ dateObj }) => {
+      const dailyExercises = exercises.filter(ex => {
+        const exDate = new Date(ex.date_logged);
+        exDate.setHours(0, 0, 0, 0);
+        return exDate.getTime() === dateObj.getTime();
+      });
+      return dailyExercises.reduce((sum, ex) => sum + (Number(ex.duration) || 0), 0);
+    });
+
+    const sessionsData = formattedDates.map(({ dateObj }) => {
+      const dailyExercises = exercises.filter(ex => {
+        const exDate = new Date(ex.date_logged);
+        exDate.setHours(0, 0, 0, 0);
+        return exDate.getTime() === dateObj.getTime();
+      });
       return dailyExercises.length;
     });
 
@@ -168,7 +188,7 @@ const ExerciseTracker = () => {
       calories: caloriesData,
       duration: durationData,
       sessions: sessionsData,
-      labels: last7Days.map((date) => new Date(date).toLocaleDateString("en-US", { weekday: "short" })),
+      labels: formattedDates.map(date => date.shortDay),
     });
   }, [exercises]);
 

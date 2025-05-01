@@ -10,7 +10,7 @@ const CalendarSection = ({ selectedDate, setSelectedDate, isFutureDate }) => {
   };
 
   return (
-    <div className="w-1/2 sm:w-full">
+    <div className="w-full">
       <div className="p-4 calendar-container rounded-xl shadow-md bg-white overflow-hidden">
         <Calendar
           onChange={(date) => {

@@ -20,7 +20,14 @@ const AddReminderPromptModal = ({
       isOpen={isOpen}
       onRequestClose={onRequestClose}
       contentLabel="Add Reminder Prompt"
-      style={{ overlay: ModalOverlay, content: ModalContent }}
+      style={{ 
+        overlay: ModalOverlay, 
+        content: {
+          ...ModalContent,
+          minWidth: "50vw",
+          width: "auto",
+        }, 
+      }}
     >
       <ModalContentWrapper borderColor="#e83e8c">
         <CloseButton onClick={onRequestClose} accentColor="#e83e8c" aria-label="Close modal">

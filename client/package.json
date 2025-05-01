@@ -28,6 +28,7 @@
     "react-chartjs-2": "^5.3.0",
     "react-datepicker": "^8.3.0",
     "react-dom": "^19.1.0",
+    "react-feather": "^2.0.10",
     "react-icons": "^5.5.0",
     "react-modal": "^3.16.3",
     "react-router-dom": "^7.5.0",
@@ -44,6 +45,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:watch": "react-scripts test --watch",
+    "test:coverage": "react-scripts test --coverage",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -65,7 +68,20 @@
     ]
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.2.0",
+    "@testing-library/user-event": "^13.5.0",
     "autoprefixer": "^10.4.21",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
     "postcss": "^8.5.3"
+  },
+  "jest": {
+    "transformIgnorePatterns": [
+      "node_modules/(?!(firebase|@firebase)/)"
+    ],
+    "moduleNameMapper": {
+      "\\.(css|less|scss|sass)$": "identity-obj-proxy"
+    }
   }
 }

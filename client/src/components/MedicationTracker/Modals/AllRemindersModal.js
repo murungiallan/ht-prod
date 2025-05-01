@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Modal from "react-modal";
-import { ModalContentWrapper, CloseButton, ModalOverlay, ModalContent } from "../styles";
+import { ModalContentWrapper, CloseButton, ModalOverlay, ModalContent, TableContainer } from "../styles";
 import { MdEdit, MdDelete } from "react-icons/md";
 import { formatTimeForDisplay, moment } from "../utils/utils";
 import Pagination from "../Pagination";
@@ -71,108 +71,71 @@ const AllRemindersModal = ({
     return items.slice(startIndex, startIndex + itemsPerPage);
   };
 
+  const formatDateForDisplay = (date) => {
+    return moment(date).format("MMMM D, YYYY");
+  };
+
   return (
     <Modal
       isOpen={isOpen}
       onRequestClose={onRequestClose}
       contentLabel="All Reminders"
-      style={{ overlay: ModalOverlay, content: ModalContent }}
+      style={{
+        overlay: ModalOverlay,
+        content: {
+          ...ModalContent,
+          maxWidth: "90vw",
+          width: "auto",
+        },
+      }}
     >
-      <ModalContentWrapper style={{minWidth:"60vw", borderColor:"#6f42c1"}}>
+      <ModalContentWrapper>
         <CloseButton onClick={onRequestClose} accentColor="#20c997" aria-label="Close modal">
           ✕
         </CloseButton>
-        <h2
-          style={{
-            fontSize: "1.25rem",
-            fontWeight: 600,
-            color: "#333333",
-            marginBottom: "16px",
-          }}
-        >
-          All Reminders
-        </h2>
+        <h2>All Reminders</h2>
         {sortedReminders.length === 0 ? (
-          <p
-            style={{
-              fontSize: "0.875rem",
-              color: "#666666",
-            }}
-          >
-            No reminders set.
-          </p>
+          <p>No reminders set.</p>
         ) : (
           <>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <TableContainer>
+              <table>
                 <thead>
-                  <tr
-                    style={{
-                      borderBottom: "1px solid #e0e0e0",
-                      textAlign: "left",
-                      color: "#666666",
-                    }}
-                  >
-                    <th
-                      style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
-                      onClick={() => handleSort("medication")}
-                    >
+                  <tr>
+                    <th onClick={() => handleSort("medication")}>
                       Medication {sortConfig.key === "medication" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                     </th>
-                    <th
-                      style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
-                      onClick={() => handleSort("reminderTime")}
-                    >
+                    <th onClick={() => handleSort("reminderTime")}>
                       Time {sortConfig.key === "reminderTime" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                     </th>
-                    <th
-                      style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
-                      onClick={() => handleSort("effectiveDate")}
-                    >
+                    <th onClick={() => handleSort("effectiveDate")}>
                       Date {sortConfig.key === "effectiveDate" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                     </th>
-                    <th
-                      style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
-                      onClick={() => handleSort("type")}
-                    >
+                    <th onClick={() => handleSort("type")}>
                       Type {sortConfig.key === "type" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                     </th>
-                    <th
-                      style={{ padding: "12px", fontWeight: 600, cursor: "pointer" }}
-                      onClick={() => handleSort("status")}
-                    >
+                    <th onClick={() => handleSort("status")}>
                       Status {sortConfig.key === "status" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                     </th>
-                    <th
-                      style={{
-                        padding: "12px",
-                        fontWeight: 600,
-                        textAlign: "right",
-                      }}
-                    >
-                      Actions
-                    </th>
+                    <th style={{ textAlign: "right" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginate(sortedReminders, currentPage.allReminders).map((reminder) => {
                     const med = medications.find((m) => m.id === reminder.medicationId);
                     return (
-                      <tr
-                        key={reminder.id}
-                        style={{
-                          borderBottom: "1px solid #e0e0e0",
-                        }}
-                      >
-                        <td style={{ padding: "12px" }}>
+                      <tr key={reminder.id}>
+                        <td style={{ wordBreak: "break-word", maxWidth: "200px" }}>
                           {med?.medication_name || "Unknown"}
                         </td>
-                        <td style={{ padding: "12px" }}>
+                        <td style={{ whiteSpace: "nowrap" }}>
                           {formatTimeForDisplay(reminder.reminderTime)}
                         </td>
-                        <td style={{ padding: "12px" }}>{reminder.effectiveDate}</td>
-                        <td style={{ padding: "12px" }}>{reminder.type}</td>
-                        <td style={{ padding: "12px" }}>
+                        <td style={{ whiteSpace: "nowrap" }}>
+                          {formatDateForDisplay(reminder.effectiveDate)}
+                        </td>
+                        <td style={{ whiteSpace: "nowrap" }}>{reminder.type}</td>
+                        <td>
                           <span
                             style={{
                               color: reminder.status === "sent" ? "#28a745" : "#ffc107",
@@ -182,60 +145,35 @@ const AllRemindersModal = ({
                             {reminder.status || "pending"}
                           </span>
                         </td>
-                        <td style={{ padding: "12px", textAlign: "right" }}>
-                          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                        <td style={{ textAlign: "right" }}>
+                          <div className="modal-buttons">
                             {reminder.status !== "sent" && (
                               <button
                                 onClick={() => handleMarkReminderAsSent(reminder.id)}
-                                style={{
-                                  color: "#1a73e8",
-                                  background: "none",
-                                  border: "none",
-                                  cursor: "pointer",
-                                  fontSize: "0.875rem",
-                                  transition: "color 0.2s ease",
-                                }}
                                 disabled={actionLoading}
                                 aria-label="Mark reminder as sent"
-                                onMouseEnter={(e) => (e.currentTarget.style.color = "#0d5bd1")}
-                                onMouseLeave={(e) => (e.currentTarget.style.color = "#1a73e8")}
                               >
                                 Mark as Sent
                               </button>
+                            )}
+                            {reminder.status === "sent" && (
+                                <p style={{ marginBottom: 0 }}>Reminder sent</p>
                             )}
                             <button
                               onClick={() => {
                                 setEditReminderModal(reminder);
                                 setReminderTime(moment(reminder.reminderTime, "HH:mm:ss").format("HH:mm"));
                               }}
-                              style={{
-                                color: "#ffc107",
-                                background: "none",
-                                border: "none",
-                                cursor: "pointer",
-                                transition: "color 0.2s ease",
-                              }}
                               disabled={actionLoading}
                               aria-label="Edit reminder"
-                              onMouseEnter={(e) => (e.currentTarget.style.color = "#e0a800")}
-                              onMouseLeave={(e) => (e.currentTarget.style.color = "#ffc107")}
                             >
                               <MdEdit style={{ fontSize: "1.125rem" }} />
                               <span style={{ display: "none" }}>Edit</span>
                             </button>
                             <button
                               onClick={() => handleDeleteReminder(reminder.id)}
-                              style={{
-                                color: "#dc3545",
-                                background: "none",
-                                border: "none",
-                                cursor: "pointer",
-                                transition: "color 0.2s ease",
-                              }}
                               disabled={actionLoading}
                               aria-label="Delete reminder"
-                              onMouseEnter={(e) => (e.currentTarget.style.color = "#c82333")}
-                              onMouseLeave={(e) => (e.currentTarget.style.color = "#dc3545")}
                             >
                               <MdDelete style={{ fontSize: "1.125rem" }} />
                               <span style={{ display: "none" }}>Delete</span>
@@ -247,7 +185,7 @@ const AllRemindersModal = ({
                   })}
                 </tbody>
               </table>
-            </div>
+            </TableContainer>
             <Pagination
               totalItems={sortedReminders.length}
               itemsPerPage={itemsPerPage}
