@@ -42,7 +42,14 @@ const TakeMedicationModal = ({
       isOpen={isOpen}
       onRequestClose={onRequestClose}
       contentLabel="Take Medication"
-      style={{ overlay: ModalOverlay, content: ModalContent }}
+      style={{ 
+        overlay: ModalOverlay, 
+        content: {
+          ...ModalContent,
+          minWidth: "30vw",
+        },
+
+      }}
     >
       <ModalContentWrapper>
         <CloseButton onClick={onRequestClose} aria-label="Close modal">

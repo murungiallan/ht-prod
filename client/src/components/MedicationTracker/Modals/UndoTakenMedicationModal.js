@@ -34,7 +34,13 @@ const UndoTakenMedicationModal = ({
       isOpen={isOpen}
       onRequestClose={onRequestClose}
       contentLabel="Undo Taken Medication"
-      style={{ overlay: ModalOverlay, content: ModalContent }}
+      style={{ 
+        overlay: ModalOverlay, 
+        content: {
+          ...ModalContent,
+          minWidth: "30vw",
+        },
+      }}
     >
       <ModalContentWrapper borderColor="#0dcaf0">
         <CloseButton onClick={onRequestClose} accentColor="#0dcaf0" aria-label="Close modal">
