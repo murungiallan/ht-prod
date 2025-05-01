@@ -26,3 +26,4 @@ chartjs-adapter-moment
 moment-timezone
 date-fns-tz
 chartjs-plugin-annotation
+react-feather
