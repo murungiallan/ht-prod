@@ -1,3 +1,6 @@
+import React from 'react';
+
+
 const DeleteFoodModal = ({ food, onDelete, onClose }) => {
     const handleDelete = async () => {
         try {

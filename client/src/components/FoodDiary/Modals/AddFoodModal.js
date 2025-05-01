@@ -3,7 +3,28 @@ import Modal from "react-modal";
 import { MdClose } from "react-icons/md";
 
 
-const AddFoodModal = ({}) => {
+const AddFoodModal = ({
+    isOpen,
+    onRequestClose,
+    food,
+    setfood,
+    portion,
+    setPortion,
+    calories,
+    setCalories,
+    mealType,
+    setMealType,
+    date,
+    setDate,
+    handleAddFood,
+    handleUpdateFood,
+    handleDeleteFood,
+    handleEditFood,
+    onFoodAdded,
+    actionLoading,
+}) => {
+
+
 
     return (
         <Modal
