@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import Modal from "react-modal";
 import { ModalContentWrapper, CloseButton, Button, ModalOverlay, ModalContent } from "../styles";
 import { format } from "date-fns";
@@ -16,8 +16,6 @@ const MedicationDetailModal = ({
   getDoseStatus,
   confirmTakenStatus,
   actionLoading,
-  isPastDate,
-  isFutureDate,
   selectedDate,
 }) => {
   const dateKey = format(selectedDate, "yyyy-MM-dd");
@@ -148,6 +146,7 @@ const MedicationDetailModal = ({
             dosesForDate.map((dose, index) => {
               const { isTaken, isMissed, isWithinWindow } = getDoseStatus(
                 selectedMedication,
+                selectedDate,
                 index
               );
               return (
@@ -176,8 +175,6 @@ const MedicationDetailModal = ({
                       }}
                       disabled={
                         actionLoading ||
-                        isPastDate(selectedDate) ||
-                        isFutureDate(selectedDate) ||
                         (isTaken ? false : !isWithinWindow)
                       }
                       style={{

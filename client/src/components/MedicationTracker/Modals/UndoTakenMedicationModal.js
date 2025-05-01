@@ -60,7 +60,7 @@ const UndoTakenMedicationModal = ({
           Select the dose you want to undo the taken status for.
         </p>
         {doses.map((dose, index) => {
-          const doseStatus = getDoseStatus(medication, index);
+          const doseStatus = getDoseStatus(medication, selectedDate);
           const isTaken = doseStatus.isTaken;
           
           return (
@@ -86,9 +86,7 @@ const UndoTakenMedicationModal = ({
                 onClick={() => handleUndoClick(showUndoModal, index)}
                 disabled={
                   !isTaken ||
-                  actionLoading ||
-                  isPastDate(selectedDate) ||
-                  isFutureDate(selectedDate)
+                  actionLoading
                 }
                 style={{ backgroundColor: "#0dcaf0" }}
                 aria-label="Undo dose taken status"

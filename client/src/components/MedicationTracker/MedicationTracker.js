@@ -122,7 +122,7 @@ const MedicationTracker = () => {
   const isPastDate = (date) => isBefore(new Date(date), new Date(), { granularity: "day" });
   const isFutureDate = (date) => isAfter(new Date(date), new Date(), { granularity: "day" });
 
-  const getDoseStatus = useCallback((med, date) => {
+  const getDoseStatus = useCallback((med, date, doseIndex) => {
     const dateKey = moment(date).format("YYYY-MM-DD");
     const doses = med.doses?.[dateKey] || med.times.map((time) => ({
       time,
@@ -130,49 +130,50 @@ const MedicationTracker = () => {
       missed: false,
       takenAt: null,
     }));
-    
-    if (!doses || !doses[0]) {
-      console.log(`Dose not found for medication ${med.id}, doseIndex 0`);
+  
+    if (!doses[doseIndex]) {
+      console.log(`Dose not found for medication ${med.id}, doseIndex ${doseIndex}`);
       return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false };
     }
-    
-    const dose = doses[0];
+  
+    const dose = doses[doseIndex];
     const doseTime = dose.time;
     const now = moment().local();
-    
+  
     // Parse the dose time and create a moment object for today
     const [hours, minutes] = doseTime.split(":").map(Number);
     const doseDateTime = moment(date)
       .set({ hour: hours, minute: minutes, second: 0, millisecond: 0 })
       .local();
-    
+  
     // Calculate time window (2 hours before and after scheduled time)
     const windowStart = moment(doseDateTime).subtract(2, "hours");
     const windowEnd = moment(doseDateTime).add(2, "hours");
-    
+  
     // Check if current time is within the window
     const isWithinWindow = now.isBetween(windowStart, windowEnd, undefined, "[]");
-    
+  
     // Check if it's time to take the medication (current time is after scheduled time)
     const isTimeToTake = now.isSameOrAfter(doseDateTime);
-    
+  
     // A dose can be taken if:
     // 1. It's not already taken
     // 2. It's not marked as missed
     // 3. User is within the time window
     // 4. It's not a past or future date
-    const canTake = !dose.taken && 
-                   !dose.missed && 
-                   isWithinWindow && 
-                   !isPastDate(date) && 
-                   !isFutureDate(date);
-    
+    const canTake =
+      !dose.taken &&
+      !dose.missed &&
+      isWithinWindow &&
+      !isPastDate(date) &&
+      !isFutureDate(date);
+  
     return {
       isTaken: dose.taken,
       isMissed: dose.missed,
       isTimeToTake,
       isWithinWindow,
-      canTake
+      canTake,
     };
   }, []);
 
@@ -402,41 +403,56 @@ const MedicationTracker = () => {
     try {
       const token = await getUserToken();
       const dateKey = moment(selectedDate).format("YYYY-MM-DD");
-      
+  
       // Get the medication to check time window
       const med = medications.find((m) => m.id === medicationId);
       const doseTime = med.doses?.[dateKey]?.[doseIndex]?.time || med.times[doseIndex];
       if (!doseTime) {
         throw new Error("Dose time not found");
       }
-
+  
       const doseDateTime = moment(`${dateKey} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
       const now = moment().local();
       const hoursDiff = Math.abs(doseDateTime.diff(now, "hours", true));
-
+  
       // Only check time window for marking as taken
       if (taken && hoursDiff > 2) {
         toast.error("Can only mark medication as taken within 2 hours of the scheduled time");
         return;
       }
-
+  
       const response = await updateMedicationTakenStatus(medicationId, doseIndex, taken, token, dateKey);
-      
+  
       if (!response) {
         throw new Error("Failed to update medication status");
       }
-
+  
       setMedications((prev) =>
-        prev.map((med) => (med.id === response.id ? response : med))
+        prev.map((med) =>
+          med.id === response.id
+            ? {
+                ...med,
+                doses: {
+                  ...med.doses,
+                  [dateKey]: response.doses?.[dateKey] || med.times.map((time, idx) => ({
+                    time,
+                    taken: idx === doseIndex ? taken : med.doses?.[dateKey]?.[idx]?.taken || false,
+                    missed: med.doses?.[dateKey]?.[idx]?.missed || false,
+                    takenAt: idx === doseIndex && taken ? new Date().toISOString() : med.doses?.[dateKey]?.[idx]?.takenAt || null,
+                  })),
+                },
+              }
+            : med
+        )
       );
-
+  
       if (socket) {
         socket.emit("medicationUpdated", response);
       }
-
+  
       toast.success(taken ? "Dose marked as taken" : "Dose status undone");
       setShowConfirmModal(false);
-
+  
       if (taken) {
         setReminderTime(doseTime);
         setShowAddReminderPrompt({
@@ -445,7 +461,7 @@ const MedicationTracker = () => {
           suggestedDate: dateKey,
         });
       }
-
+  
       await updateMedicationHistory();
     } catch (err) {
       console.error("Error updating taken status:", err);
@@ -1077,6 +1093,7 @@ const MedicationTracker = () => {
             actionLoading={actionLoading}
             searchQuery={searchQuery}
             getDoseStatus={getDoseStatus}
+            confirmTakenStatus={confirmTakenStatus}
             selectedDate={selectedDate}
             isPastDate={isPastDate}
             isFutureDate={isFutureDate}

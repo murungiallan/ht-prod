@@ -87,7 +87,7 @@ const DailyChecklistModal = ({
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
             {dailyDoses.map((med, index) => {
               try {
-                const { isTaken, isMissed, isWithinWindow } = getDoseStatus(med, med.doseIndex);
+                const { isTaken, isMissed, isWithinWindow } = getDoseStatus(med, selectedDate, med.doseIndex);
                 return (
                   <div
                     key={`${med.id}-${med.doseIndex}-${index}`}
@@ -121,7 +121,10 @@ const DailyChecklistModal = ({
                     </div>
                     <div style={{ display: "flex", gap: "8px" }}>
                       <Button
-                        onClick={() => handleTakeClick(med.id, med.doseIndex, isWithinWindow)}
+                        onClick={() => {
+                          onRequestClose();
+                          handleTakeClick(med.id, med.doseIndex, isWithinWindow)
+                        }}
                         disabled={isTaken || isMissed || !isWithinWindow || actionLoading}
                         style={{
                           backgroundColor: isTaken ? "#e8e8e8" : "#1a73e8",

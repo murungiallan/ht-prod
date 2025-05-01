@@ -392,9 +392,6 @@ export const ModalContentWrapper = styled.div`
     align-items: center;
     justify-content: space-between;
     padding: ${({ theme }) => theme.spacing.small};
-    background-color: ${({ theme }) => theme.colors.secondary};
-    border-radius: 8px;
-    transition: background-color 0.2s ease;
     flex-wrap: wrap;
     gap: ${({ theme }) => theme.spacing.small};
 
