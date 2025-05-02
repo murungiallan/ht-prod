@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "framer-motion";
 
 const SummaryCard = ({ title, value, unit }) => (
     <motion.div

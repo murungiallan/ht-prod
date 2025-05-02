@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
+import { motion } from "framer-motion";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { format } from "date-fns";
 
 const Calendar = ({ meals, setSelectedDate, selectedDate }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
