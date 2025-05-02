@@ -39,7 +39,7 @@ describe('API Service', () => {
       const result = await api.createMedication(mockMedication, 'mock-token');
 
       expect(axios.post).toHaveBeenCalledWith(
-        'http://127.0.0.1:5000/api/medications/add',
+        'https://127.0.0.1:5000/api/medications/add',
         mockMedication,
         {
           headers: { Authorization: 'Bearer mock-token' },
@@ -55,7 +55,7 @@ describe('API Service', () => {
       const result = await api.getUserMedications('mock-token');
 
       expect(axios.get).toHaveBeenCalledWith(
-        'http://127.0.0.1:5000/api/medications/get-medications',
+        'https://127.0.0.1:5000/api/medications/get-medications',
         {
           headers: { Authorization: 'Bearer mock-token' },
         }
@@ -70,7 +70,7 @@ describe('API Service', () => {
       const result = await api.updateMedicationTakenStatus(1, 0, true, 'mock-token', '2024-04-30');
 
       expect(axios.put).toHaveBeenCalledWith(
-        'http://127.0.0.1:5000/api/medications/1/taken',
+        'https://127.0.0.1:5000/api/medications/1/taken',
         {
           doseIndex: 0,
           taken: true,
@@ -113,7 +113,7 @@ describe('API Service', () => {
       const result = await api.createReminder(mockReminder, 'mock-token');
 
       expect(axios.post).toHaveBeenCalledWith(
-        'http://127.0.0.1:5000/api/reminders/add',
+        'https://127.0.0.1:5000/api/reminders/add',
         mockReminder,
         {
           headers: { Authorization: 'Bearer mock-token' },
@@ -129,7 +129,7 @@ describe('API Service', () => {
       const result = await api.updateReminderStatus(1, 'completed', 'mock-token');
 
       expect(axios.put).toHaveBeenCalledWith(
-        'http://127.0.0.1:5000/api/reminders/1/status',
+        'https://127.0.0.1:5000/api/reminders/1/status',
         { status: 'completed' },
         {
           headers: { Authorization: 'Bearer mock-token' },

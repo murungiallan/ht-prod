@@ -26,10 +26,10 @@ function App() {
                                 containerStyle={{}}
                                 toastOptions={{
                                     className: '',
-                                    duration: 3000,
+                                    duration: 5000,
                                     removeDelay: 1000,
                                     style: {
-                                    background: '#fff',
+                                    background: 'amber',
                                     color: '#363636',
                                     },
                                 }}

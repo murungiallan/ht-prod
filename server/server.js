@@ -1,16 +1,16 @@
-// server.js
 import express, { json } from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 import { Server } from "socket.io";
-import http from "http";
-import routes from "./routes/index.js";
+import https from "https";
+import fs from "fs";
 import { initializeApp, cert } from "firebase-admin/app";
 import { getDatabase } from "firebase-admin/database";
 import { getAuth } from "firebase-admin/auth";
 import dotenv from "dotenv";
 import serviceAccount from "./service-account-key.json" with { type: "json" };
+import routes from "./routes/index.js";
 
 dotenv.config();
 
@@ -24,8 +24,20 @@ const db = getDatabase();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Load SSL certificates
+const key = fs.readFileSync(path.join(__dirname, '..', 'certs', 'selfsigned.key'));
+const sslCert = fs.readFileSync(path.join(__dirname, '..', 'certs', 'selfsigned.crt'));
+const options = {
+  key: key,
+  cert: sslCert,
+};
+
 const app = express();
-const server = http.createServer(app);
+
+// Create HTTPS server
+const server = https.createServer(options, app);
+
+// Attach Socket.IO to the HTTPS server
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -34,7 +46,6 @@ const io = new Server(server, {
 });
 
 // Socket.IO authentication middleware
-
 // Track error counts to prevent memory leaks
 const errorLogs = new Map();
 const ERROR_LOG_LIMIT = 100; // Maximum errors to log per IP
@@ -82,7 +93,10 @@ setInterval(() => {
   errorLogs.clear();
 }, CLEANUP_INTERVAL);
 
-app.use(cors({ origin: "http://127.0.0.1:3000" }));
+
+app.use(cors({ 
+  origin: ["https://127.0.0.1:5000", "http://127.0.0.1:3000"] 
+}));
 app.use(json());
 
 app.use((req, res, next) => {
@@ -98,6 +112,9 @@ app.use("/api", routes);
 const clientPath = path.join(__dirname, "..", "client", "build");
 
 app.use(express.static(clientPath));
+app.get('/', (req, res) => {
+  res.send('Now using https..');
+});
 
 app.get("*", (req, res) => {
   res.sendFile(path.join(clientPath, "index.html"));
@@ -117,10 +134,10 @@ io.on("connection", (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Socket.IO server available at http://127.0.0.1:${PORT}`);
+const port = 5000;
+server.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+  console.log(`Socket.IO server available at https://127.0.0.1:${port}`);
 });
 
 export { db };

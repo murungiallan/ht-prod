@@ -84,7 +84,7 @@ const Settings = () => {
       return;
     }
     try {
-      const response = await fetch("http://127.0.0.1:5000/api/users/reset-password", {
+      const response = await fetch("https://127.0.0.1:5000/api/users/reset-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

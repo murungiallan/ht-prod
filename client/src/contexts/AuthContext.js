@@ -103,7 +103,7 @@ export const AuthProvider = ({ children }) => {
           const fetchUserData = async (retry = true) => {
             try {
               const token = await getCachedToken();
-              const response = await fetch("http://127.0.0.1:5000/api/users", {
+              const response = await fetch("https://127.0.0.1:5000/api/users", {
                 method: "GET",
                 headers: {
                   "Content-Type": "application/json",
@@ -146,7 +146,7 @@ export const AuthProvider = ({ children }) => {
               const updateLastLogin = async (retry = true) => {
                 try {
                   const token = await getCachedToken();
-                  const response = await fetch("http://127.0.0.1:5000/api/users/last-login", {
+                  const response = await fetch("https://127.0.0.1:5000/api/users/last-login", {
                     method: "POST",
                     headers: {
                       "Content-Type": "application/json",
@@ -229,7 +229,7 @@ export const AuthProvider = ({ children }) => {
       );
 
       const token = await getCachedToken();
-      const response = await fetch("http://127.0.0.1:5000/api/users/register", {
+      const response = await fetch("https://127.0.0.1:5000/api/users/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -285,7 +285,7 @@ export const AuthProvider = ({ children }) => {
       );
 
       const token = await getCachedToken();
-      const response = await fetch("http://127.0.0.1:5000/api/users/profile", {
+      const response = await fetch("https://127.0.0.1:5000/api/users/profile", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -311,7 +311,7 @@ export const AuthProvider = ({ children }) => {
   };
   const resetPassword = async (email) => {
     try {
-      const response = await fetch("http://127.0.0.1:5000/api/users/reset-password", {
+      const response = await fetch("https://127.0.0.1:5000/api/users/reset-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
