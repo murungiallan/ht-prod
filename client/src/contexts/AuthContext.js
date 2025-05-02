@@ -9,7 +9,7 @@ import {
   updateProfile as updateFirebaseProfile,
 } from "firebase/auth";
 import { ref, update, onValue } from "firebase/database";
-import { toast } from "react-toastify";
+import { toast } from 'react-hot-toast';
 import localforage from "localforage";
 
 // Local storage instance for caching tokens
@@ -258,7 +258,7 @@ export const AuthProvider = ({ children }) => {
 
       if (firebaseUser.email && !firebaseUser.emailVerified) {
         await retryWithBackoff(() => sendEmailVerification(firebaseUser));
-        toast.info("A verification email has been sent to your email address.");
+        toast("A verification email has been sent to your email address.");
       }
     } catch (error) {
       toast.error("Registration failed: " + error.message);
@@ -324,7 +324,7 @@ export const AuthProvider = ({ children }) => {
         throw new Error(result.error || "Failed to reset password");
       }
   
-      toast.info(result.message);
+      toast(result.message);
     } catch (error) {
       toast.error(error.message || "Password reset failed");
       throw error;

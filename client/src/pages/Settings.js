@@ -97,7 +97,7 @@ const Settings = () => {
         throw new Error(result.error || "Failed to reset password");
       }
   
-      toast.info(result.message);
+      toast(result.message);
     } catch (error) {
       toast.error(error.message || "Password reset failed");
       throw error;
@@ -246,7 +246,7 @@ const Settings = () => {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold text-gray-800 mb-6">Security Settings</h2>
           <div className="mb-8">
-            <h3 className="text-lg font-medium text-gray-800 mb-4">Password</h3>
+            {/* <h3 className="text-lg font-medium text-gray-800 mb-4">Password</h3> */}
             <form onSubmit={handlePasswordReset}>
               <div className="mb-4">
                 <label htmlFor="resetEmail" className="block text-sm font-medium text-gray-700 mb-2">
@@ -258,7 +258,7 @@ const Settings = () => {
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
                   placeholder="Enter your email to reset password"
-                  className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                   required
                 />
               </div>

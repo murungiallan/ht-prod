@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from "react";
 import { AuthContext } from "../contexts/AuthContext";
 import { getUser } from "../services/api";
-import { toast } from "react-toastify";
+import { toast } from 'react-hot-toast';
 import { auth } from "../firebase/config";
 
 const UserInfo = () => {

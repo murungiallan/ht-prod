@@ -3,7 +3,7 @@ import { Section, Button, SecondaryButton, TableContainer } from "./styles";
 import { MdDelete, MdCheck, MdUndo, MdInfo, MdClear, MdPending } from "react-icons/md";
 import { formatTimeForDisplay, moment } from "./utils/utils";
 import Pagination from "./Pagination";
-import { toast } from "react-toastify";
+import { toast } from 'react-hot-toast';
 
 const MedicationList = ({
   medications,

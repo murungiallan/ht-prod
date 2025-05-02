@@ -6,7 +6,7 @@ import { BrowserRouter as Router } from "react-router-dom";
 import { ThemeProvider } from 'styled-components';
 import { theme } from './components/MedicationTracker/styles';
 import AppRoutes from "./routes/AppRoutes";
-import { ToastContainer } from 'react-toastify';
+import { Toaster } from 'react-hot-toast';
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
 
@@ -18,7 +18,22 @@ function App() {
                     <Router>
                         <div className="App">
                             <AppRoutes />
-                            <ToastContainer position="top-right" autoClose={3000} />
+                            <Toaster
+                                position="top-right"
+                                reverseOrder={false}
+                                gutter={8}
+                                containerClassName=""
+                                containerStyle={{}}
+                                toastOptions={{
+                                    className: '',
+                                    duration: 3000,
+                                    removeDelay: 1000,
+                                    style: {
+                                    background: '#fff',
+                                    color: '#363636',
+                                    },
+                                }}
+                            />
                         </div>
                     </Router>
                 </ThemeProvider>

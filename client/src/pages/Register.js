@@ -3,7 +3,7 @@ import { AuthContext } from "../contexts/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
 import { motion } from "framer-motion";
-import { toast } from "react-toastify";
+import { toast } from 'react-hot-toast';
 
 const Register = () => {
   const { register } = useContext(AuthContext);

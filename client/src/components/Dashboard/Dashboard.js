@@ -18,7 +18,7 @@ import 'chartjs-adapter-moment';
 import moment from 'moment';
 import { motion, AnimatePresence } from 'framer-motion';
 import annotationPlugin from 'chartjs-plugin-annotation';
-import { toast } from "react-toastify";
+import { toast } from 'react-hot-toast';
 
 ChartJS.register(LineElement, PointElement, LinearScale, Title, Tooltip, Legend, TimeScale, Filler, CategoryScale, annotationPlugin);
 

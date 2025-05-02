@@ -2,7 +2,7 @@ import React from "react";
 import Modal from "react-modal";
 import { ModalContentWrapper, CloseButton, Button, ModalOverlay, ModalContent } from "../styles";
 import { formatTimeForDisplay } from "../utils/utils";
-import { toast } from "react-toastify";
+import { toast } from 'react-hot-toast';
 import moment from "moment";
 
 const TakeMedicationModal = ({
@@ -55,7 +55,8 @@ const TakeMedicationModal = ({
         <CloseButton onClick={onRequestClose} aria-label="Close modal">
           ✕
         </CloseButton>
-        <h2 style={{ fontSize: "1.25rem", fontWeight: 500, color: "#333333", marginBottom: "16px" }}>
+        <h2 style={{ fontSize: "1.25rem", fontWeight: 500, color: "#333333", marginBottom: "16px" ,
+            marginRight: "2rem",}}>
           Take {medication.medication_name} ({medication.dosage})
         </h2>
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>

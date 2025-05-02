@@ -10,6 +10,7 @@ const AllRemindersModal = ({
   onRequestClose,
   reminders,
   medications,
+  selectedDate,
   currentPage,
   setCurrentPage,
   itemsPerPage,
@@ -93,7 +94,7 @@ const AllRemindersModal = ({
         <CloseButton onClick={onRequestClose} accentColor="#20c997" aria-label="Close modal">
           ✕
         </CloseButton>
-        <h2>All Reminders</h2>
+        <h2>Reminders</h2>
         {sortedReminders.length === 0 ? (
           <p>No reminders set.</p>
         ) : (

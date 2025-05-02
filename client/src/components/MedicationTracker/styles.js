@@ -438,7 +438,7 @@ export const ModalContentWrapper = styled.div`
 
   .modal-buttons {
     display: grid;
-    grid-template-columns: repeat(3, minmax(40px, 1fr));
+    grid-template-columns: 100px 30px 30px;
     gap: ${({ theme }) => theme.spacing.small};
     justify-items: right;
     align-items: center;

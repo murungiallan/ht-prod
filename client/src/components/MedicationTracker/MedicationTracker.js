@@ -16,7 +16,7 @@ import {
   getDrugDetails,
 } from "../../services/api";
 import { auth, messaging, getToken, onMessage } from "../../firebase/config";
-import { toast } from "react-toastify";
+import { toast } from 'react-hot-toast';
 import { WiDaySunnyOvercast, WiDaySunny, WiDayWindy } from "react-icons/wi";
 import { FiHelpCircle } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
@@ -940,7 +940,7 @@ const MedicationTracker = () => {
         const doseKey = `${reminder.medicationId}-${currentDateKey}-${reminder.doseIndex}`;
         if (!promptedDoses.has(doseKey)) {
           const message = `Reminder: Time to take your ${med?.medication_name} dose at ${reminder.reminderTime}`;
-          toast.info(message);
+          toast(message);
           setShowTakePrompt({
             medicationId: reminder.medicationId,
             doseIndex: reminder.doseIndex,
@@ -1184,7 +1184,7 @@ const MedicationTracker = () => {
     window.scrollTo(0, 0);
 
     onMessage(messaging, (payload) => {
-      toast.info(payload.notification.body);
+      toast(payload.notification.body);
     });
 
     return () => unsubscribe();
@@ -1202,7 +1202,7 @@ const MedicationTracker = () => {
     };
 
     const handleReminderSent = (reminder) => {
-      toast.info(`Reminder: ${reminder.message}`);
+      toast(`Reminder: ${reminder.message}`);
     };
 
     socket.on("medicationUpdated", handleMedicationUpdated);
@@ -1464,6 +1464,7 @@ const MedicationTracker = () => {
             handleDeleteReminder={handleDeleteReminder}
             setEditReminderModal={setEditReminderModal}
             setReminderTime={setReminderTime}
+            selectedDate={selectedDate}
             actionLoading={actionLoading}
           />
         </motion.div>
