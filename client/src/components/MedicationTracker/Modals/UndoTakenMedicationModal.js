@@ -34,7 +34,13 @@ const UndoTakenMedicationModal = ({
       isOpen={isOpen}
       onRequestClose={onRequestClose}
       contentLabel="Undo Taken Medication"
-      style={{ overlay: ModalOverlay, content: ModalContent }}
+      style={{ 
+        overlay: ModalOverlay, 
+        content: {
+          ...ModalContent,
+          minWidth: "30vw",
+        },
+      }}
     >
       <ModalContentWrapper borderColor="#0dcaf0">
         <CloseButton onClick={onRequestClose} accentColor="#0dcaf0" aria-label="Close modal">
@@ -60,8 +66,7 @@ const UndoTakenMedicationModal = ({
           Select the dose you want to undo the taken status for.
         </p>
         {doses.map((dose, index) => {
-          const doseStatus = getDoseStatus(medication, index);
-          const isTaken = doseStatus.isTaken;
+          const { isTaken, isMissed, isWithinWindow } = getDoseStatus(medication, selectedDate, index);
           
           return (
             <div
@@ -86,9 +91,9 @@ const UndoTakenMedicationModal = ({
                 onClick={() => handleUndoClick(showUndoModal, index)}
                 disabled={
                   !isTaken ||
-                  actionLoading ||
-                  isPastDate(selectedDate) ||
-                  isFutureDate(selectedDate)
+                  isMissed ||
+                  !isWithinWindow ||
+                  actionLoading
                 }
                 style={{ backgroundColor: "#0dcaf0" }}
                 aria-label="Undo dose taken status"

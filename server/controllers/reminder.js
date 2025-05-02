@@ -59,30 +59,26 @@ class ReminderController {
       const doseTime = doses[doseIndex].time;
       const doseDateTime = moment(`${date} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
       const reminderDateTime = moment(`${date} ${reminderTime}`, "YYYY-MM-DD HH:mm:ss");
-
-      // Check if the reminder time is in the past (only for today's date)
       const now = moment().local();
       const today = now.format("YYYY-MM-DD");
-      const windowStart = moment(doseDateTime).subtract(30, "seconds");
-      const windowEnd = moment(doseDateTime).add(30, "seconds");
-      if (date === today && reminderDateTime.isBefore(now)) {
-        console.log("Reminder time is in the past:", reminderDateTime.format(), "now:", now.format());
-        return res.status(400).json({ error: "Cannot set a reminder for this medication as it has passed. Please wait until the next dose for this time." });
-      }
 
-      // Check if the dose time has already passed (only for today's date)
-      if (date === today && doseDateTime.isBefore(now)) {
-        console.log("Dose time has already passed:", doseDateTime.format(), "now:", now.format());
-        return res.status(400).json({ error: "Cannot set a reminder for this medication as it has passed. Please wait until the next dose for this time." });
-      }
-
-      const hoursDiff = doseDateTime.diff(reminderDateTime, "hours");
-      if (hoursDiff < 0 || hoursDiff > 2) {
-        console.log("Invalid hours difference:", hoursDiff);
-        return res.status(400).json({ 
-          error: "Cannot set reminder outside the window time (2 hours before the dose time)",
-          hoursDiff: Math.abs(hoursDiff)
+      // Validation 1: Reminder time must be within 2 hours before the dose time (and not after)
+      const windowStart = moment(doseDateTime).subtract(2, "hours");
+      if (reminderDateTime.isBefore(windowStart) || reminderDateTime.isAfter(doseDateTime)) {
+        console.log("Reminder time outside the 2-hour window before dose time:", {
+          reminderTime,
+          doseTime,
+          windowStart: windowStart.format(),
         });
+        return res.status(400).json({ error: "Reminder time must be within 2 hours before the medication dose time and not after the dose time" });
+      }
+
+      // Validation 2: If reminder time is after dose time, allow only if the date is in the future
+      if (reminderDateTime.isAfter(doseDateTime)) {
+        if (moment(date, "YYYY-MM-DD").isSameOrBefore(moment(today, "YYYY-MM-DD"))) {
+          console.log("Reminder time is after dose time and date is not in the future:", { reminderTime, doseTime, date, today });
+          return res.status(400).json({ error: `Please select a reminder time that is before the dose time ${doseDateTime.format("YYYY-MM-DD HH:mm:ss")} or set it for a future date` });
+        }
       }
 
       const reminderData = {
@@ -164,19 +160,26 @@ class ReminderController {
       const doseTime = doses[reminder.dose_index].time;
       const doseDateTime = moment(`${finalDate} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
       const reminderDateTime = moment(`${finalDate} ${finalReminderTime}`, "YYYY-MM-DD HH:mm:ss");
-
       const now = moment().local();
-      if (reminderDateTime.isBefore(now)) {
-        return res.status(400).json({ error: "Cannot set a reminder for a past time" });
+      const today = now.format("YYYY-MM-DD");
+
+      // Validation 1: Reminder time must be within 2 hours before the dose time (and not after)
+      const windowStart = moment(doseDateTime).subtract(2, "hours");
+      if (reminderDateTime.isBefore(windowStart) || reminderDateTime.isAfter(doseDateTime)) {
+        console.log("Reminder time outside the 2-hour window before dose time:", {
+          finalReminderTime,
+          doseTime,
+          windowStart: windowStart.format(),
+        });
+        return res.status(400).json({ error: "Reminder time must be within 2 hours before the medication dose time and not after the dose time" });
       }
 
-      if (doseDateTime.isBefore(now)) {
-        return res.status(400).json({ error: "Cannot set a reminder for a dose that has already passed" });
-      }
-
-      const hoursDiff = doseDateTime.diff(reminderDateTime, "hours");
-      if (hoursDiff < 0 || hoursDiff > 2) {
-        return res.status(400).json({ error: "Reminder must be within 2 hours before the dose time" });
+      // Validation 2: If reminder time is after dose time, allow only if the date is in the future
+      if (reminderDateTime.isAfter(doseDateTime)) {
+        if (moment(finalDate, "YYYY-MM-DD").isSameOrBefore(moment(today, "YYYY-MM-DD"))) {
+          console.log("Reminder time is after dose time and date is not in the future:", { finalReminderTime, doseTime, finalDate, today });
+          return res.status(400).json({ error: `Please select a reminder time that is before the dose time ${doseDateTime.format("YYYY-MM-DD HH:mm:ss")} or set it for a future date` });
+        }
       }
 
       const updatedReminder = await Reminder.update(id, { reminder_time: finalReminderTime, date: finalDate, type: finalType, status });
@@ -378,9 +381,8 @@ class ReminderController {
         subject: "HealthTrack Medication Reminder",
         html: `
           <h2>Medication Reminder</h2>
-          <p>Don't forget to take your <strong>${sanitizedMedicationName}</strong> in 2 hours at ${doseTime.format("HH:mm")} on ${date}.</p>
+          <p>Don't forget to take your <strong>${sanitizedMedicationName}</strong> at ${doseTime.format("HH:mm")} on ${date}.</p>
           <p>Stay on track with your health goals!</p>
-          <p>If you no longer wish to receive these reminders, you can update your settings in the HealthTrack app.</p>
         `,
       };
   
@@ -441,26 +443,26 @@ class ReminderController {
             }
           });
   
-        // Add a delay between each email send to avoid rate limiting
-        for (let i = 0; i < reminders.length; i++) {
-          const reminder = reminders[i];
-          try {
-            await this.sendReminderNotification(
-              reminder.userId,
-              reminder.medicationId,
-              reminder.doseIndex,
-              reminder.reminderTime,
-              reminder.date
-            );
-            // Add a 5-second delay between emails (12 emails/minute, <Gmail limits>)
-            if (i < reminders.length - 1) {
-              console.log(`Waiting 5 seconds before sending the next email...`);
-              await new Promise((resolve) => setTimeout(resolve, 5000));
+          // Add a delay between each email send to avoid rate limiting
+          for (let i = 0; i < reminders.length; i++) {
+            const reminder = reminders[i];
+            try {
+              await this.sendReminderNotification(
+                reminder.userId,
+                reminder.medicationId,
+                reminder.doseIndex,
+                reminder.reminderTime,
+                reminder.date
+              );
+              // Add a 5-second delay between emails (12 emails/minute, <Gmail limits>)
+              if (i < reminders.length - 1) {
+                console.log(`Waiting 5 seconds before sending the next email...`);
+                await new Promise((resolve) => setTimeout(resolve, 5000));
+              }
+            } catch (error) {
+              console.error(`Failed to process reminder ${reminder.id} for user ${firebaseUid}:`, error.message, error.stack);
             }
-          } catch (error) {
-            console.error(`Failed to process reminder ${reminder.id} for user ${firebaseUid}:`, error.message, error.stack);
           }
-        }
         }
       } catch (error) {
         console.error("Error in reminder cron job:", error.message, error.stack);

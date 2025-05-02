@@ -1,7 +1,9 @@
 import React from "react";
 import Modal from "react-modal";
-import { ModalContentWrapper, CloseButton, Button, ModalOverlay, ModalContent, theme } from "../styles";
-import { formatTimeForDisplay, moment } from "../utils/utils";
+import { ModalContentWrapper, CloseButton, Button, ModalOverlay, ModalContent } from "../styles";
+import { formatTimeForDisplay } from "../utils/utils";
+import { toast } from 'react-hot-toast';
+import moment from "moment";
 
 const TakeMedicationModal = ({
   isOpen,
@@ -15,52 +17,80 @@ const TakeMedicationModal = ({
   isPastDate,
   isFutureDate,
 }) => {
-  const medication = medications.find((m) => m.id === showTakeModal);
+  const medication = medications.find((med) => med.id === showTakeModal?.medicationId);
   const dateKey = moment(selectedDate).format("YYYY-MM-DD");
   const doses = medication?.doses?.[dateKey] || medication?.times.map((time) => ({
     time,
     taken: false,
     missed: false,
     takenAt: null,
-  })) || [];
+  }));
+
+  if (!medication) return null;
+
+  const handleTakeDose = (doseIndex) => {
+    const { isWithinWindow } = getDoseStatus(medication, selectedDate, doseIndex);
+    if (!isWithinWindow) {
+      toast.error("You can only take this dose within a 2-hour window of the scheduled time.");
+      return;
+    }
+    confirmTakenStatus(medication.id, doseIndex, true);
+  };
 
   return (
     <Modal
       isOpen={isOpen}
       onRequestClose={onRequestClose}
       contentLabel="Take Medication"
-      style={{ overlay: ModalOverlay, content: ModalContent }}
+      style={{ 
+        overlay: ModalOverlay, 
+        content: {
+          ...ModalContent,
+          minWidth: "30vw",
+        },
+
+      }}
     >
       <ModalContentWrapper>
-        <CloseButton onClick={onRequestClose} accentColor={theme.colors.primary} aria-label="Close modal">
+        <CloseButton onClick={onRequestClose} aria-label="Close modal">
           ✕
         </CloseButton>
-        <h2>Take Medication</h2>
-        <p>Select the dose you want to mark as taken.</p>
-
-        <div className="modal-list">
+        <h2 style={{ fontSize: "1.25rem", fontWeight: 500, color: "#333333", marginBottom: "16px" ,
+            marginRight: "2rem",}}>
+          Take {medication.medication_name} ({medication.dosage})
+        </h2>
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
           {doses.map((dose, index) => {
-            const { isTaken, isMissed, isWithinWindow, canTake } = getDoseStatus(medication, index);
-            
+            const { isTaken, isMissed, isWithinWindow } = getDoseStatus(medication, selectedDate, index);
             return (
-              <div key={index} className="modal-list-item">
-                <div className="modal-time">
-                  {formatTimeForDisplay(dose?.time || "Unknown time")}
-                </div>
+              <div
+                key={index}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "8px 0",
+                  borderBottom: "1px solid #e0e0e0",
+                }}
+              >
+                <span style={{ fontSize: "0.875rem", color: "#333333" }}>
+                  {formatTimeForDisplay(dose.time)}
+                </span>
                 <Button
                   onClick={() => {
                     onRequestClose();
-                    confirmTakenStatus(showTakeModal, index, true);
+                    handleTakeDose(index)
                   }}
                   disabled={
-                    actionLoading ||
-                    !canTake ||
-                    isPastDate(selectedDate) ||
-                    isFutureDate(selectedDate)
+                    isTaken || 
+                    isMissed || 
+                    !isWithinWindow || 
+                    actionLoading
                   }
                   style={{
-                    backgroundColor: isTaken ? theme.colors.success : theme.colors.primary,
-                    padding: theme.spacing.small + " " + theme.spacing.medium,
+                    backgroundColor: isTaken ? "#e8e8e8" : "#1a73e8",
+                    color: isTaken ? "#333333" : "white",
+                    padding: "6px 12px",
                   }}
                 >
                   {isTaken ? "Taken" : "Take"}
@@ -68,18 +98,6 @@ const TakeMedicationModal = ({
               </div>
             );
           })}
-        </div>
-
-        <div className="modal-actions">
-          <Button
-            onClick={onRequestClose}
-            style={{
-              backgroundColor: theme.colors.secondary,
-              color: theme.colors.textLight,
-            }}
-          >
-            Cancel
-          </Button>
         </div>
       </ModalContentWrapper>
     </Modal>

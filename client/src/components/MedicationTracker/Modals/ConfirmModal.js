@@ -8,7 +8,12 @@ const ConfirmModal = ({ isOpen, onRequestClose, message, onConfirm, actionLoadin
       isOpen={isOpen}
       onRequestClose={onRequestClose}
       contentLabel="Confirm Action"
-      style={{ overlay: ModalOverlay, content: ModalContent }}
+      style={{ overlay: ModalOverlay, 
+        content: {
+          ...ModalContent,
+          minWidth: "30vw",
+        } 
+      }}
     >
       <ModalContentWrapper borderColor="#ffca28">
         <CloseButton onClick={onRequestClose} accentColor="#ffca28" aria-label="Close modal">

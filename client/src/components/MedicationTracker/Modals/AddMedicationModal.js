@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Modal from "react-modal";
 import { ModalContentWrapper, CloseButton, Button, ModalOverlay, ModalContent, Input } from "../styles";
 import { searchDrugsByName, getDrugDetails } from "../../../services/api";
-import { toast } from "react-toastify";
+import { toast } from 'react-hot-toast';
 
 const AddMedicationModal = ({
   isOpen,

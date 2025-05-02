@@ -1,7 +1,7 @@
 import React from "react";
 import Modal from "react-modal";
 import { ModalContentWrapper, CloseButton, Button, ModalOverlay, ModalContent } from "../styles";
-import { toast } from "react-toastify";
+import { toast } from 'react-hot-toast';
 
 const DeleteMedicationModal = ({
   isOpen,

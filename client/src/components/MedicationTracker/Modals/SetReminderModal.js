@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import Modal from "react-modal";
 import { ModalContentWrapper, CloseButton, Input, Button, SecondaryButton, ModalOverlay, ModalContent } from "../styles";
 import moment from "moment";
-import { toast } from "react-toastify";
+import { toast } from 'react-hot-toast';
 
 const SetReminderModal = ({
   isOpen,
@@ -36,23 +36,23 @@ const SetReminderModal = ({
   const maxDate = medication?.end_date || moment().add(1, 'year').format("YYYY-MM-DD");
 
   // Validate if the selected datetime is in the past
-  const isSelectedDateTimeInPast = () => {
-    const now = moment();
-    const medicationTime = moment(reminderTime, "HH:mm:ss");
-    const selectedDateTime = moment(selectedReminderDate).set({
-      hour: medicationTime.hour(),
-      minute: medicationTime.minute(),
-      second: medicationTime.second()
-    });
-    return now.isAfter(selectedDateTime);
-  };
+  // const isSelectedDateTimeInPast = () => {
+  //   const now = moment();
+  //   const medicationTime = moment(reminderTime, "HH:mm:ss");
+  //   const selectedDateTime = moment(selectedReminderDate).set({
+  //     hour: medicationTime.hour(),
+  //     minute: medicationTime.minute(),
+  //     second: medicationTime.second()
+  //   });
+  //   return now.isAfter(selectedDateTime);
+  // };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (isSelectedDateTimeInPast()) {
-      toast.error("Cannot set a reminder for a past time");
-      return;
-    }
+    // if (isSelectedDateTimeInPast()) {
+    //   toast.error("Cannot set a reminder for a past time");
+    //   return;
+    // }
     handleSetReminder(e, showReminderModal.medicationId, showReminderModal.doseIndex, selectedReminderDate);
   };
 
@@ -97,7 +97,7 @@ const SetReminderModal = ({
             <Input
               id="reminder-time"
               type="time"
-              value={reminderTime.split(":").slice(0, 2).join(":")} // Display only HH:mm in the input
+              value={reminderTime.split(":").slice(0, 2).join(":")}
               onChange={handleTimeChange}
               required
             />

@@ -24,7 +24,6 @@ const AddReminderPromptModal = ({
         overlay: ModalOverlay, 
         content: {
           ...ModalContent,
-          minWidth: "50vw",
           width: "auto",
         }, 
       }}
@@ -48,6 +47,7 @@ const AddReminderPromptModal = ({
             fontSize: "0.875rem",
             color: "#666666",
             marginBottom: "16px",
+            maxWidth: "400px",
           }}
         >
           Would you like to set a reminder for {showAddReminderPrompt?.medication.medication_name} on{" "}

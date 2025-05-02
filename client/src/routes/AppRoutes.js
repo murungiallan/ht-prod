@@ -1,8 +1,8 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useContext } from "react";
 import { AuthContext } from "../contexts/AuthContext";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+// import { ToastContainer } from "react-toastify";
+// import "react-toastify/dist/ReactToastify.css";
 import Navbar from "../layouts/Nav";
 import Home from "../pages/Home";
 import About from "../components/About";
@@ -32,7 +32,7 @@ const AppRoutes = () => {
 
   return (
     <div>
-      <ToastContainer
+      {/* <ToastContainer
         position="top-right"
         autoClose={5000}
         hideProgressBar={false}
@@ -43,7 +43,7 @@ const AppRoutes = () => {
         draggable
         pauseOnHover
         theme="light"
-      />
+      /> */}
 
       {/* Conditionally rendering the Navbar for unauthenticated routes */}
       {unauthenticatedRoutes.includes(location.pathname) && <Navbar />}

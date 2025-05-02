@@ -2,7 +2,7 @@ import { useState, useEffect, useContext, useCallback } from "react";
 import { useSocket } from "../../contexts/SocketContext";
 import { AuthContext } from "../../contexts/AuthContext";
 import { createExercise, getUserExercises, updateExercise, deleteExercise, getExerciseStats } from "../../services/api";
-import { toast } from "react-toastify";
+import { toast } from 'react-hot-toast';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from "chart.js";
 import { auth } from "../../firebase/config";
 import { useNavigate } from "react-router-dom";

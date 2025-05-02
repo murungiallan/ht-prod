@@ -4,7 +4,7 @@ import { AuthContext } from "../contexts/AuthContext";
 import { FaBars, FaTimes, FaSignOutAlt, FaUser, FaCog } from "react-icons/fa";
 import logo from "../assets/logo.png";
 import placeholder from "../assets/placeholder.jpg";
-import { toast } from "react-toastify";
+import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from "framer-motion";
 
 const Nav = () => {
@@ -17,7 +17,7 @@ const Nav = () => {
   const handleLogout = async () => {
     await logout();
     navigate("/login");
-    toast.info("You have been logged out");
+    toast("You have been logged out");
     setIsMobileMenuOpen(false);
     setIsDropdownOpen(false);
   };

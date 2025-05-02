@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { Section, Button, SecondaryButton, TableContainer, Grid } from "./styles";
-import { MdDelete, MdCheck, MdUndo, MdInfo } from "react-icons/md";
+import { Section, Button, SecondaryButton, TableContainer } from "./styles";
+import { MdDelete, MdCheck, MdUndo, MdInfo, MdClear, MdPending } from "react-icons/md";
 import { formatTimeForDisplay, moment } from "./utils/utils";
 import Pagination from "./Pagination";
-import { toast } from "react-toastify";
+import { toast } from 'react-hot-toast';
 
 const MedicationList = ({
   medications,
@@ -20,9 +20,8 @@ const MedicationList = ({
   actionLoading,
   searchQuery,
   getDoseStatus,
+  confirmTakenStatus,
   selectedDate,
-  isPastDate,
-  isFutureDate,
 }) => {
   const [sortConfig, setSortConfig] = useState({ key: "medication_name", direction: "asc" });
 
@@ -70,9 +69,9 @@ const MedicationList = ({
         missed: false,
         takenAt: null,
       }));
-      
+
       return doses.some((_, index) => {
-        const { isTaken, isMissed, isWithinWindow } = getDoseStatus(med, index);
+        const { isTaken, isMissed, isWithinWindow } = getDoseStatus(med, selectedDate, index);
         return !isTaken && !isMissed && isWithinWindow;
       });
     } catch (err) {
@@ -83,7 +82,7 @@ const MedicationList = ({
 
   const handleTakeClick = (medicationId) => {
     try {
-      setShowTakeModal(medicationId);
+      setShowTakeModal({ medicationId, doseIndex: null });
     } catch (err) {
       console.error("Error handling take click:", err);
       toast.error("Failed to open take medication modal");
@@ -215,15 +214,20 @@ const MedicationList = ({
                       )}
                     </div>
                   </th>
-                  <th style={{ textAlign: "right"}}>Status</th>
-                  <th  style={{ textAlign: "right"}}>Actions</th>
+                  <th style={{ textAlign: "right" }}>Status</th>
+                  <th style={{ textAlign: "right" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedMedications.map((med) => {
                   const { totalDoses, takenDoses } = calculateDoseStatus(med);
                   const dateKey = moment(selectedDate).format("YYYY-MM-DD");
-                  const doses = med.doses?.[dateKey] || [];
+                  const doses = med.doses?.[dateKey] || med.times.map((time) => ({
+                    time,
+                    taken: false,
+                    missed: false,
+                    takenAt: null,
+                  }));
 
                   return (
                     <tr key={med.id}>
@@ -246,6 +250,7 @@ const MedicationList = ({
                               }}
                             >
                               {doses[index]?.taken && <MdCheck size={16} />}
+                              {doses[index]?.missed && <MdClear size={16} />}
                               {formatTimeForDisplay(time)}
                             </div>
                           ))}
@@ -289,17 +294,12 @@ const MedicationList = ({
                             display: "flex",
                             gap: "8px",
                             alignItems: "center",
-                            justifyContent: "flex-end"
+                            justifyContent: "flex-end",
                           }}
                         >
                           <Button
                             onClick={() => handleTakeClick(med.id)}
-                            disabled={
-                              actionLoading ||
-                              !canTakeAnyDose(med) ||
-                              isPastDate(selectedDate) ||
-                              isFutureDate(selectedDate)
-                            }
+                            disabled={actionLoading || !canTakeAnyDose(med)}
                             style={{ padding: "6px 12px" }}
                           >
                             <MdCheck size={16} />
@@ -350,9 +350,9 @@ const MedicationList = ({
               currentPage={currentPage.medications}
               totalItems={sortedMedications.length}
               itemsPerPage={itemsPerPage}
-              onPageChange={(page) =>
-                setCurrentPage((prev) => ({ ...prev, medications: page }))
-              }
+              setCurrentPage={setCurrentPage}
+              pageKey="medications"
+
             />
           )}
         </>
