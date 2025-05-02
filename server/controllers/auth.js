@@ -117,6 +117,17 @@ class AuthController {
     }
   }
 
+  static async getAllUsers(req, res) {
+    console.log(req.user.role);
+    try {
+      const users = await User.getAllUsers();
+      res.status(200).json(users);
+    } catch (error) {
+      console.error("Error fetching all users:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  }
+
   static async updateProfile(req, res) {
     try {
       const email = req.user.email;

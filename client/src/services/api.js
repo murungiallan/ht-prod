@@ -107,6 +107,10 @@ export const getUser = async (token) => {
   return authFetch("/users", {}, token);
 };
 
+export const getAllUsers = async (token) => {
+  return authFetch("/users/all", {}, token);
+};
+
 export const updateProfile = async (userData, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");

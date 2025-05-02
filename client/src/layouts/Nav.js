@@ -1,7 +1,7 @@
 import { useState, useContext, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../contexts/AuthContext";
-import { FaBars, FaTimes, FaSignOutAlt, FaUser, FaCog } from "react-icons/fa";
+import { FaBars, FaTimes, FaSignOutAlt, FaUser, FaCog, FaShieldAlt } from "react-icons/fa";
 import logo from "../assets/logo.png";
 import placeholder from "../assets/placeholder.jpg";
 import { toast } from 'react-hot-toast';
@@ -46,9 +46,9 @@ const Nav = () => {
 
   // Animation variants for the mobile menu
   const mobileMenuVariants = {
-    hidden: { x: "100%" }, // Start off-screen to the right
-    visible: { x: 0, transition: { duration: 0.3, ease: "easeInOut" } }, // Slide in
-    exit: { x: "100%", transition: { duration: 0.3, ease: "easeInOut" } }, // Slide out
+    hidden: { x: "100%" },
+    visible: { x: 0, transition: { duration: 0.3, ease: "easeInOut" } },
+    exit: { x: "100%", transition: { duration: 0.3, ease: "easeInOut" } },
   };
 
   // Animation variants for the overlay
@@ -168,6 +168,16 @@ const Nav = () => {
                         <FaCog className="w-4 h-4 mr-2" />
                         Settings
                       </Link>
+                      {user?.role === "admin" && (
+                        <Link
+                          to="/admin"
+                          onClick={() => setIsDropdownOpen(false)}
+                          className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100"
+                        >
+                          <FaShieldAlt className="w-4 h-4 mr-2" />
+                          Admin Dashboard
+                        </Link>
+                      )}
                       <button
                         onClick={handleLogout}
                         className="flex items-center w-full px-4 py-2 text-gray-700 hover:bg-red-50 hover:text-red-600 border-t border-gray-200"
@@ -277,6 +287,9 @@ const Nav = () => {
                           { to: "/medications", label: "Medications" },
                           { to: "/food-diary", label: "Food Diary" },
                           { to: "/exercise", label: "Exercises" },
+                          ...(user?.role === "admin"
+                            ? [{ to: "/admin", label: "Admin Dashboard" }]
+                            : []),
                           { to: "/profile", label: "Profile" },
                           { to: "/user-info", label: "User Information" },
                           { to: "/settings", label: "Settings" },

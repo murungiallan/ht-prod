@@ -38,6 +38,15 @@ class User {
     return rows[0] || null;
   }
 
+  static async getAllUsers() {
+    const query = `
+      SELECT id, uid, username, email, display_name, role, created_at, last_login, weekly_food_calorie_goal, weekly_exercise_calorie_goal
+      FROM users
+    `;
+    const [rows] = await db.query(query);
+    return rows;
+  }
+
   static async updateProfile(userId, { username, email, displayName, role }) {
     const query = `
       UPDATE users

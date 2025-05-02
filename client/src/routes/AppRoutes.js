@@ -1,8 +1,6 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useContext } from "react";
 import { AuthContext } from "../contexts/AuthContext";
-// import { ToastContainer } from "react-toastify";
-// import "react-toastify/dist/ReactToastify.css";
 import Navbar from "../layouts/Nav";
 import Home from "../pages/Home";
 import About from "../components/About";
@@ -14,59 +12,39 @@ import Profile from "../pages/Profile";
 import UserInfo from "../pages/UserInfo";
 import Dashboard from "../components/Dashboard/Dashboard";
 import MedicationTracker from "../components/MedicationTracker/MedicationTracker";
-import AdminDashboard from "../components/AdminDash/AdminDashboard";
+import AdminDashboard from "../components/Admin/AdminDashboard";
 import FoodDiary from "../components/FoodDiary/FoodDiary";
 import ExerciseTracker from "../components/ExerciseTracker/ExerciseTracker";
 import MainLayout from "../layouts/MainLayout";
 import ForgotPassword from "../pages/ForgotPassword";
 
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children, adminOnly = false }) => {
   const { user } = useContext(AuthContext);
-  return user ? children : <Navigate to="/login" />;
+  if (!user) return <Navigate to="/login" />;
+  if (adminOnly && user.role !== "admin") return <Navigate to="/dashboard" />;
+  return children;
 };
 
 const AppRoutes = () => {
   const { user } = useContext(AuthContext);
   const location = useLocation();
-  const unauthenticatedRoutes = ["/", "/about", "/contact", "/login", "/register"];
+  const unauthenticatedRoutes = ["/", "/about", "/contact", "/login", "/register", "/forgot-password"];
 
   return (
     <div>
-      {/* <ToastContainer
-        position="top-right"
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
-      /> */}
-
-      {/* Conditionally rendering the Navbar for unauthenticated routes */}
       {unauthenticatedRoutes.includes(location.pathname) && <Navbar />}
-
       <div>
         <Routes>
           {/* Unauthenticated Routes */}
           <Route
             path="/"
-            element={
-              user ? (
-                <Navigate to="/dashboard" />
-              ) : (
-                <Home />
-              )
-            }
+            element={user ? <Navigate to="/dashboard" /> : <Home />}
           />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/admin" element={<AdminDashboard />} />
 
           {/* Authenticated Routes */}
           <Route
@@ -135,6 +113,16 @@ const AppRoutes = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <UserInfo />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute adminOnly={true}>
+                <MainLayout>
+                  <AdminDashboard />
                 </MainLayout>
               </ProtectedRoute>
             }
