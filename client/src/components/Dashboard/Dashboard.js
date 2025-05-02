@@ -130,7 +130,7 @@ const WeeklyActivity = ({ weeklyData, chartOptions, calorieChartRef, durationCha
         <svg className="w-4 h-4 mr-2 text-red-500" fill="currentColor" viewBox="0 0 20 20">
           <path
             fillRule="evenodd"
-            d="M12.395 2.553a1 1 0 00-1.45-.385c危機.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z"
+            d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z"
             clipRule="evenodd"
           />
         </svg>
@@ -158,18 +158,18 @@ const WeeklyActivity = ({ weeklyData, chartOptions, calorieChartRef, durationCha
           annotation: {
             annotations: {
               goalLine: {
-                type: 'line',
+                type: "line",
                 yMin: 2000 / 7,
                 yMax: 2000 / 7,
-                borderColor: 'rgba(255, 99, 132, 0.5)',
+                borderColor: "rgba(255, 99, 132, 0.5)",
                 borderWidth: 2,
                 borderDash: [5, 5],
                 label: {
-                  content: 'Goal: ~285 cal/day',
+                  content: "Goal: ~285 cal/day",
                   enabled: true,
-                  position: 'end',
-                  backgroundColor: 'rgba(255, 99, 132, 0.8)',
-                  color: 'white',
+                  position: "end",
+                  backgroundColor: "rgba(255, 99, 132, 0.8)",
+                  color: "white",
                   font: {
                     size: 10,
                   },
@@ -214,18 +214,18 @@ const WeeklyActivity = ({ weeklyData, chartOptions, calorieChartRef, durationCha
           annotation: {
             annotations: {
               goalLine: {
-                type: 'line',
+                type: "line",
                 yMin: 150 / 7,
                 yMax: 150 / 7,
-                borderColor: 'rgba(59, 130, 246, 0.5)',
+                borderColor: "rgba(59, 130, 246, 0.5)",
                 borderWidth: 2,
                 borderDash: [5, 5],
                 label: {
-                  content: 'Goal: ~21 min/day',
+                  content: "Goal: ~21 min/day",
                   enabled: true,
-                  position: 'end',
-                  backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                  color: 'white',
+                  position: "end",
+                  backgroundColor: "rgba(59, 130, 246, 0.8)",
+                  color: "white",
                   font: {
                     size: 10,
                   },
@@ -243,7 +243,7 @@ const WeeklyActivity = ({ weeklyData, chartOptions, calorieChartRef, durationCha
           <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
           <path
             fillRule="evenodd"
-            d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2 2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z"
+            d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z"
             clipRule="evenodd"
           />
         </svg>
@@ -271,18 +271,18 @@ const WeeklyActivity = ({ weeklyData, chartOptions, calorieChartRef, durationCha
           annotation: {
             annotations: {
               goalLine: {
-                type: 'line',
+                type: "line",
                 yMin: 5 / 7,
                 yMax: 5 / 7,
-                borderColor: 'rgba(16, 185, 129, 0.5)',
+                borderColor: "rgba(16, 185, 129, 0.5)",
                 borderWidth: 2,
                 borderDash: [5, 5],
                 label: {
-                  content: 'Goal: ~0.7 sessions/day',
+                  content: "Goal: ~0.7 sessions/day",
                   enabled: true,
-                  position: 'end',
-                  backgroundColor: 'rgba(16, 185, 129, 0.8)',
-                  color: 'white',
+                  position: "end",
+                  backgroundColor: "rgba(16, 185, 129, 0.8)",
+                  color: "white",
                   font: {
                     size: 10,
                   },
@@ -355,6 +355,7 @@ const WeeklyActivity = ({ weeklyData, chartOptions, calorieChartRef, durationCha
     </motion.div>
   );
 };
+
 
 const Dashboard = () => {
   const { user, loading: authLoading, logout } = useContext(AuthContext);
@@ -1169,7 +1170,7 @@ const Dashboard = () => {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 z-10"
+                      className="absolute right-0 mt-2 w-90 bg-white rounded-xl shadow-lg border border-gray-100 z-10"
                     >
                       <div className="p-4">
                         <ul className="space-y-3 max-h-64 overflow-y-auto mb-4">
