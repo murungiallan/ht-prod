@@ -53,7 +53,7 @@ const AdminDashboard = () => {
   };
 
   const handleSessionExpired = useCallback(() => {
-    toast.error("Your session has expired. Please log in again.");
+    // toast.error("Your session has expired. Please log in again.");
     logout();
     navigate("/login");
   }, [logout, navigate]);
@@ -666,13 +666,12 @@ const AdminDashboard = () => {
                         animate="visible"
                         exit="exit"
                       >
-                        <h3 className="text-lg font-medium text-gray-700 mb-4">Create New User</h3>
+                        <h3 className="text-lg font-bold text-gray-700 mb-4">Create New User</h3>
                         <form
                           onSubmit={(e) => {
                             e.preventDefault();
                             const formData = new FormData(e.target);
                             handleCreateUser({
-                              uid: formData.get("uid"),
                               username: formData.get("username"),
                               email: formData.get("email"),
                               displayName: formData.get("displayName"),
@@ -682,13 +681,13 @@ const AdminDashboard = () => {
                           }}
                           className="space-y-4"
                         >
-                          <input
+                          {/* <input
                             type="text"
                             name="uid"
                             placeholder="User ID (Firebase UID)"
                             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             required
-                          />
+                          /> */}
                           <input
                             type="text"
                             name="username"
@@ -758,7 +757,7 @@ const AdminDashboard = () => {
                         animate="visible"
                         exit="exit"
                       >
-                        <h3 className="text-lg font-medium text-gray-700 mb-4">Update User Profile</h3>
+                        <h3 className="text-lg font-bold text-gray-700 mb-4">Update User Profile</h3>
                         <form
                           onSubmit={(e) => {
                             e.preventDefault();
@@ -772,13 +771,6 @@ const AdminDashboard = () => {
                           }}
                           className="space-y-4"
                         >
-                          <input
-                            type="text"
-                            name="uid"
-                            placeholder="User ID (Firebase UID)"
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            required
-                          />
                           <input
                             type="text"
                             name="username"
@@ -841,7 +833,7 @@ const AdminDashboard = () => {
                         animate="visible"
                         exit="exit"
                       >
-                        <h3 className="text-lg font-medium text-gray-700 mb-4">Set Weekly Goals</h3>
+                        <h3 className="text-lg font-bold text-gray-700 mb-4">Set Weekly Goals</h3>
                         <form
                           onSubmit={(e) => {
                             e.preventDefault();
@@ -971,7 +963,7 @@ const AdminDashboard = () => {
                         animate="visible"
                         exit="exit"
                       >
-                        <h3 className="text-lg font-medium text-gray-700 mb-4">Add Medication</h3>
+                        <h3 className="text-lg font-bold text-gray-700 mb-4">Add Medication</h3>
                         <form
                           onSubmit={(e) => {
                             e.preventDefault();
@@ -1173,7 +1165,7 @@ const AdminDashboard = () => {
                         animate="visible"
                         exit="exit"
                       >
-                        <h3 className="text-lg font-medium text-gray-700 mb-4">Add Reminder</h3>
+                        <h3 className="text-lg font-bold text-gray-700 mb-4">Add Reminder</h3>
                         <form
                           onSubmit={(e) => {
                             e.preventDefault();
@@ -1332,7 +1324,7 @@ const AdminDashboard = () => {
                         animate="visible"
                         exit="exit"
                       >
-                        <h3 className="text-lg font-medium text-gray-700 mb-4">Add Food Log</h3>
+                        <h3 className="text-lg font-bold text-gray-700 mb-4">Add Food Log</h3>
                         <form
                           onSubmit={(e) => {
                             e.preventDefault();
@@ -1492,7 +1484,7 @@ const AdminDashboard = () => {
                         animate="visible"
                         exit="exit"
                       >
-                        <h3 className="text-lg font-medium text-gray-700 mb-4">Add Exercise</h3>
+                        <h3 className="text-lg font-bold text-gray-700 mb-4">Add Exercise</h3>
                         <form
                           onSubmit={(e) => {
                             e.preventDefault();

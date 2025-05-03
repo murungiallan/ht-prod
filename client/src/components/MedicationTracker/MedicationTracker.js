@@ -247,7 +247,7 @@ const MedicationTracker = () => {
 
   // Centralized session expiration handler
   const handleSessionExpired = useCallback(() => {
-    toast.error("Your session has expired. Please log in again.");
+    // toast.error("Your session has expired. Please log in again.");
     logout();
     navigate("/login");
   }, [logout, navigate]);

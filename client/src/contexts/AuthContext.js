@@ -200,7 +200,45 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      await retryWithBackoff(() => signInWithEmailAndPassword(auth, email, password));
+      const userCredential = await retryWithBackoff(() => signInWithEmailAndPassword(auth, email, password));
+      const firebaseUser = userCredential.user;
+      
+      // Update lastLogin in Firebase Realtime Database
+      const lastLogin = new Date().toISOString();
+      const userData = {
+        lastLogin,
+        email: firebaseUser.email,
+        displayName: firebaseUser.displayName || "",
+      };
+      await retryWithBackoff(() =>
+        update(ref(database, `users/${firebaseUser.uid}`), userData)
+      );
+
+      // Update lastLogin in MySQL via API
+      const token = await getCachedToken();
+      const response = await fetch("https://127.0.0.1:5000/api/users/last-login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName || "",
+          lastLogin,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error("Failed to update last login in MySQL");
+      } else {
+        const updatedUserData = await response.json();
+        setUser((prevUser) => ({
+          ...prevUser,
+          ...updatedUserData,
+          emailVerified: firebaseUser.emailVerified,
+        }));
+      }
     } catch (error) {
       toast.error("Login failed: " + error.message);
       throw error;
@@ -309,6 +347,7 @@ export const AuthProvider = ({ children }) => {
       throw error;
     }
   };
+
   const resetPassword = async (email) => {
     try {
       const response = await fetch("https://127.0.0.1:5000/api/users/reset-password", {

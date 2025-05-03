@@ -49,6 +49,7 @@ class AuthController {
       await firebaseDb.ref(`users/${req.user.uid}/lastLogin`).set(lastLogin);
 
       res.status(200).json({ email, displayName, lastLogin });
+      console.log(`User last login updated: ${lastLogin}`)
     } catch (error) {
       console.error("Error updating last login:", error);
       res.status(500).json({ error: "Failed to update last login" });
@@ -118,7 +119,8 @@ class AuthController {
   }
 
   static async getAllUsers(req, res) {
-    console.log(req.user.role);
+    // const {usersconst} = await User.getAllUsers();
+    // console.log(`User role for this user: ${displayName} - ${userRole}`);
     try {
       const users = await User.getAllUsers();
       res.status(200).json(users);
