@@ -6,7 +6,8 @@ import {
   getUserMedications, 
   getTakenMedicationHistory, 
   getUserExercises, 
-  getExerciseStats 
+  getExerciseStats,
+  updateProfile
 } from '../services/api';
 import placeholder from '../assets/placeholder.jpg';
 import { toast } from 'react-toastify';
@@ -20,11 +21,19 @@ const Profile = () => {
   // States
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [userData, setUserData] = useState({
+    username: '',
     display_name: '',
     email: '',
     phone: '',
-    photoURL: placeholder
+    address: '',
+    height: '',
+    weight: '',
+    created_at: '',
+    last_login: '',
+    role: 'user',
+    profile_image: placeholder
   });
   const [medications, setMedications] = useState([]);
   const [exercises, setExercises] = useState([]);
@@ -45,21 +54,24 @@ const Profile = () => {
         setIsLoading(true);
         setError(null);
 
-        // Fetch the ID token
         const token = await auth.currentUser.getIdToken(true);
-
-        // Fetch user data
         const userResponse = await getUser(token);
         if (isMounted) {
           setUserData({
+            username: userResponse?.username || 'Not provided',
             display_name: userResponse?.display_name || 'Not provided',
             email: userResponse?.email || 'Not provided',
-            phone: userResponse?.phone || 'Not provided',
-            photoURL: userResponse?.photoURL || placeholder
+            phone: userResponse?.phone || '',
+            address: userResponse?.address || '',
+            height: userResponse?.height || '',
+            weight: userResponse?.weight || '',
+            created_at: userResponse?.created_at || '',
+            last_login: userResponse?.last_login || '',
+            role: userResponse?.role || 'user',
+            profile_image: userResponse?.profile_image || placeholder
           });
         }
 
-        // Fetch medications and history
         const [userMedications, medicationHistory] = await Promise.all([
           getUserMedications(token),
           getTakenMedicationHistory(5)
@@ -67,8 +79,6 @@ const Profile = () => {
         
         if (isMounted) {
           setMedications(userMedications || []);
-          
-          // Set recent medications from history (limit to 3)
           const recentMeds = medicationHistory.slice(0, 3).map(entry => ({
             id: entry.id || Math.random(),
             medication_name: entry.medication_name || 'Unknown',
@@ -77,14 +87,11 @@ const Profile = () => {
             taken: true
           }));
           setRecentMedications(recentMeds);
-          
-          // Calculate adherence
           const fullHistory = await getTakenMedicationHistory();
           const adherence = calculateOverallAdherence(userMedications || [], fullHistory || []);
           setStats(prev => ({ ...prev, medicationAdherence: adherence }));
         }
 
-        // Fetch exercises and stats
         const [userExercises, exerciseStats] = await Promise.all([
           getUserExercises(token),
           getExerciseStats(token)
@@ -92,11 +99,7 @@ const Profile = () => {
 
         if (isMounted) {
           setExercises(userExercises || []);
-          
-          // Set recent exercises (limit to 3)
           setRecentExercises(userExercises?.slice(0, 3) || []);
-          
-          // Update stats
           setStats(prev => ({
             ...prev,
             totalExercises: exerciseStats?.totalExercises || 0
@@ -123,7 +126,6 @@ const Profile = () => {
     };
   }, [user, authLoading]);
 
-  // Socket handling for real-time updates
   useEffect(() => {
     if (!socket || !user) return;
 
@@ -254,16 +256,48 @@ const Profile = () => {
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image size must be less than 5MB');
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
-        setUserData(prev => ({ ...prev, photoURL: reader.result || placeholder }));
-        toast.success('Profile picture updated successfully (client-side preview)');
+        setUserData(prev => ({ ...prev, profile_image: reader.result }));
+        toast.success('Profile picture updated (client-side preview)');
       };
       reader.onerror = () => {
         toast.error('Failed to upload profile picture.');
-        setUserData(prev => ({ ...prev, photoURL: placeholder }));
+        setUserData(prev => ({ ...prev, profile_image: placeholder }));
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setUserData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const token = await auth.currentUser.getIdToken(true);
+      const updatedData = {
+        username: userData.username,
+        displayName: userData.display_name,
+        role: userData.role,
+        phone: userData.phone,
+        address: userData.address,
+        height: parseFloat(userData.height) || null,
+        weight: parseFloat(userData.weight) || null,
+        profile_image: userData.profile_image
+      };
+      await updateProfile(updatedData, token);
+      toast.success('Profile updated successfully');
+      setIsEditing(false);
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      toast.error(err.message || 'Failed to update profile');
     }
   };
 
@@ -271,7 +305,7 @@ const Profile = () => {
     if (!dateString) return 'Not available';
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return 'Not available';
-    return type === 'dateTime' ? date.toLocaleString() : date.toLocaleString();
+    return type === 'dateTime' ? date.toLocaleString() : date.toLocaleDateString();
   };
 
   if (authLoading || isLoading) {
@@ -306,7 +340,7 @@ const Profile = () => {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <p className="text-red-600">{error}</p>
           <p className="text-gray-600 mt-2">
-            You may need to <a href="/login" className="text-blue-600 hover:underline">log in</a> or refresh the page.
+            You may need to <a href="/login" className="text-blue-600 hover:underline">Log in</a> or refresh the page.
           </p>
         </div>
       </div>
@@ -317,56 +351,221 @@ const Profile = () => {
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-800">Your Profile</h1>
 
-      {/* Profile Overview */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-        <div className="flex flex-col md:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-6">
-          <div className="relative">
-            <img
-              src={userData.photoURL || placeholder}
-              alt="Profile"
-              className="w-32 h-32 rounded-full object-cover border-4 border-gray-200"
-              onError={(e) => (e.target.src = placeholder)}
-            />
-            <label
-              htmlFor="photo-upload"
-              className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-all duration-200"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z"
+        {isEditing ? (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="flex flex-col md:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-6">
+              <div className="relative">
+                <img
+                  src={userData.profile_image || placeholder}
+                  alt="Profile"
+                  className="w-32 h-32 rounded-full object-cover border-4 border-gray-200"
+                  onError={(e) => (e.target.src = placeholder)}
                 />
-              </svg>
-              <input
-                id="photo-upload"
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handlePhotoUpload}
+                <label
+                  htmlFor="photo-upload"
+                  className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-all duration-200"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z"
+                    />
+                  </svg>
+                  <input
+                    id="photo-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePhotoUpload}
+                  />
+                </label>
+              </div>
+              <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Username</label>
+                  <input
+                    type="text"
+                    name="username"
+                    value={userData.username}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Display Name</label>
+                  <input
+                    type="text"
+                    name="display_name"
+                    value={userData.display_name}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={userData.email}
+                    disabled
+                    className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Phone</label>
+                  <input
+                    type="text"
+                    name="phone"
+                    value={userData.phone}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Address</label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={userData.address}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Height (cm)</label>
+                  <input
+                    type="number"
+                    name="height"
+                    value={userData.height}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Weight (kg)</label>
+                  <input
+                    type="number"
+                    name="weight"
+                    value={userData.weight}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Role</label>
+                  <select
+                    name="role"
+                    value={userData.role}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  >
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Created At</label>
+                  <input
+                    type="text"
+                    value={formatDate(userData.created_at)}
+                    disabled
+                    className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Last Login</label>
+                  <input
+                    type="text"
+                    value={formatDate(userData.last_login)}
+                    disabled
+                    className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-4">
+              <button
+                type="button"
+                onClick={() => setIsEditing(false)}
+                className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Save
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="flex flex-col md:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-6">
+            <div className="relative">
+              <img
+                src={userData.profile_image || placeholder}
+                alt="Profile"
+                className="w-32 h-32 rounded-full object-cover border-4 border-gray-200"
+                onError={(e) => (e.target.src = placeholder)}
               />
-            </label>
+              <label
+                htmlFor="photo-upload"
+                className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-all duration-200"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z"
+                  />
+                </svg>
+                <input
+                  id="photo-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                />
+              </label>
+            </div>
+            <div className="flex-1">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-2">{userData.display_name || 'Not provided'}</h2>
+              <p className="text-gray-600 mb-1"><span className="font-medium">Username:</span> {userData.username || 'Not provided'}</p>
+              <p className="text-gray-600 mb-1"><span className="font-medium">Email:</span> {userData.email || 'Not provided'}</p>
+              <p className="text-gray-600 mb-1"><span className="font-medium">Phone:</span> {userData.phone || 'Not provided'}</p>
+              <p className="text-gray-600 mb-1"><span className="font-medium">Address:</span> {userData.address || 'Not provided'}</p>
+              <p className="text-gray-600 mb-1"><span className="font-medium">Height:</span> {userData.height ? `${userData.height} cm` : 'Not provided'}</p>
+              <p className="text-gray-600 mb-1"><span className="font-medium">Weight:</span> {userData.weight ? `${userData.weight} kg` : 'Not provided'}</p>
+              <p className="text-gray-600 mb-1"><span className="font-medium">Role:</span> {userData.role || 'Not provided'}</p>
+              <p className="text-gray-600 mb-1"><span className="font-medium">Created At:</span> {formatDate(userData.created_at)}</p>
+              <p className="text-gray-600 mb-1"><span className="font-medium">Last Login:</span> {formatDate(userData.last_login)}</p>
+              <button
+                onClick={() => setIsEditing(true)}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Edit Profile
+              </button>
+            </div>
           </div>
-          <div className="flex-1">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-2">{userData.display_name || 'Not provided'}</h2>
-            <p className="text-gray-600 mb-1">
-              <span className="font-medium">Email:</span> {userData.email || 'Not provided'}
-            </p>
-            <p className="text-gray-600">
-              <span className="font-medium">Phone:</span> {userData.phone || 'Not provided'}
-            </p>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Total Exercises</h3>
@@ -380,7 +579,6 @@ const Profile = () => {
         </div>
       </div>
 
-      {/* Recent Activity */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h3 className="text-lg text-gray-800 mb-4 font-semibold">Recent Medications</h3>

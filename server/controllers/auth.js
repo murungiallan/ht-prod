@@ -1,14 +1,14 @@
 import User from "../models/user.js";
 import { getAuth } from "firebase-admin/auth";
-import { db as firebaseDb } from "../server.js"; // Firebase Realtime Database
-import db from "../config/db.js"; // MySQL connection pool
+import { db as firebaseDb } from "../server.js";
+import db from "../config/db.js";
 import bcrypt from "bcrypt";
 import nodemailer from "nodemailer";
 
 class AuthController {
   static async register(req, res) {
     try {
-      const { uid, username, email, displayName, password, role } = req.body;
+      const { uid, username, email, displayName, password, role, phone, address, height, weight, profile_image } = req.body;
 
       const hashedPassword = await bcrypt.hash(password, 10);
       const newUser = await User.register({
@@ -18,6 +18,11 @@ class AuthController {
         displayName,
         password: hashedPassword,
         role,
+        phone,
+        address,
+        height,
+        weight,
+        profile_image
       });
 
       await firebaseDb.ref(`users/${uid}`).set({
@@ -27,6 +32,11 @@ class AuthController {
         role,
         createdAt: new Date().toISOString(),
         lastLogin: new Date().toISOString(),
+        phone: phone || null,
+        address: address || null,
+        height: height || null,
+        weight: weight || null,
+        profile_image: profile_image || null
       });
 
       res.status(201).json(newUser);
@@ -64,7 +74,6 @@ class AuthController {
       }
       await User.resetPassword(email);
 
-      // Generate password reset link using Firebase Admin SDK
       const auth = getAuth();
       const actionCodeSettings = {
         url: "http://127.0.0.1:3000/login",
@@ -119,8 +128,6 @@ class AuthController {
   }
 
   static async getAllUsers(req, res) {
-    // const {usersconst} = await User.getAllUsers();
-    // console.log(`User role for this user: ${displayName} - ${userRole}`);
     try {
       const users = await User.getAllUsers();
       res.status(200).json(users);
@@ -132,17 +139,29 @@ class AuthController {
 
   static async updateProfile(req, res) {
     try {
-      const email = req.user.email;
-      const { username, email: newEmail, displayName, role } = req.body;
+      const { username, displayName, role, phone, address, height, weight, profile_image } = req.body;
+      const userId = req.user.uid;
 
-      const updatedUser = await User.updateProfile(email, { username, email: newEmail, displayName, role });
+      const updatedUser = await User.updateProfile(userId, {
+        username,
+        displayName,
+        role,
+        phone,
+        address,
+        height,
+        weight,
+        profile_image
+      });
 
-      await firebaseDb.ref(`users/${req.user.uid}`).set({
-        username: updatedUser.username,
-        email: updatedUser.email,
-        displayName: updatedUser.displayName,
-        role: updatedUser.role,
-        lastLogin: updatedUser.lastLogin || new Date().toISOString(),
+      await firebaseDb.ref(`users/${userId}`).update({
+        username,
+        displayName,
+        role,
+        phone: phone || null,
+        address: address || null,
+        height: height || null,
+        weight: weight || null,
+        profile_image: profile_image || null
       });
 
       res.status(200).json(updatedUser);
@@ -160,13 +179,11 @@ class AuthController {
         return res.status(400).json({ error: "uid and fcmToken are required" });
       }
 
-      // Save to MySQL
       const [result] = await db.query("UPDATE users SET fcm_token = ? WHERE uid = ?", [fcmToken, uid]);
       if (result.affectedRows === 0) {
         return res.status(404).json({ error: "User not found in MySQL" });
       }
 
-      // Save to Firebase
       await firebaseDb.ref(`users/${uid}/fcmToken`).set(fcmToken);
 
       res.status(200).json({ message: "FCM token saved successfully" });
