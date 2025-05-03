@@ -15,7 +15,7 @@ const createTables = [
       last_login TIMESTAMP NULL DEFAULT NULL,
       weekly_food_calorie_goal FLOAT DEFAULT NULL,
       weekly_exercise_calorie_goal FLOAT DEFAULT NULL,
-      profile_image VARCHAR(255) DEFAULT NULL,
+      profile_image LONGBLOB DEFAULT NULL,
       phone VARCHAR(20) DEFAULT NULL,
       address VARCHAR(255) DEFAULT NULL,
       height FLOAT DEFAULT NULL,
