@@ -1,11 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { getUser, getUserMedications, getUserExercises, getExerciseStats } from '../services/api';
+import React, { useState, useEffect, useContext } from 'react';
+import { AuthContext } from '../contexts/AuthContext';
+import { useSocket } from '../contexts/SocketContext';
+import { 
+  getUser, 
+  getUserMedications, 
+  getTakenMedicationHistory, 
+  getUserExercises, 
+  getExerciseStats 
+} from '../services/api';
 import placeholder from '../assets/placeholder.jpg';
 import { toast } from 'react-toastify';
 import { auth } from '../firebase/config';
+import moment from 'moment';
 
 const Profile = () => {
-  // states
+  const { user, loading: authLoading } = useContext(AuthContext);
+  const { socket } = useSocket();
+  
+  // States
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userData, setUserData] = useState({
@@ -14,60 +26,230 @@ const Profile = () => {
     phone: '',
     photoURL: placeholder
   });
+  const [medications, setMedications] = useState([]);
+  const [exercises, setExercises] = useState([]);
   const [recentMedications, setRecentMedications] = useState([]);
   const [recentExercises, setRecentExercises] = useState([]);
-  const [stats, setStats] = useState({ totalExercises: 0, medicationAdherence: 0 });
+  const [stats, setStats] = useState({ 
+    totalExercises: 0, 
+    medicationAdherence: 0 
+  });
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchData = async () => {
+      if (!user || !isMounted) return;
+
       try {
         setIsLoading(true);
         setError(null);
-
-        // Check if user is authenticated
-        if (!auth.currentUser) {
-          throw new Error('Not authenticated. Please log in to view your profile.');
-        }
 
         // Fetch the ID token
         const token = await auth.currentUser.getIdToken(true);
 
         // Fetch user data
-        const user = await getUser(token);
-        setUserData({
-          display_name: user?.display_name || 'Not provided',
-          email: user?.email || 'Not provided',
-          phone: user?.phone || 'Not provided',
-          photoURL: user?.photoURL || placeholder
-        });
+        const userResponse = await getUser(token);
+        if (isMounted) {
+          setUserData({
+            display_name: userResponse?.display_name || 'Not provided',
+            email: userResponse?.email || 'Not provided',
+            phone: userResponse?.phone || 'Not provided',
+            photoURL: userResponse?.photoURL || placeholder
+          });
+        }
 
-        // Fetch recent medications (limit to 3)
-        const medications = await getUserMedications(token);
-        setRecentMedications(medications?.slice(0, 3) || []);
+        // Fetch medications and history
+        const [userMedications, medicationHistory] = await Promise.all([
+          getUserMedications(token),
+          getTakenMedicationHistory(5)
+        ]);
+        
+        if (isMounted) {
+          setMedications(userMedications || []);
+          
+          // Set recent medications from history (limit to 3)
+          const recentMeds = medicationHistory.slice(0, 3).map(entry => ({
+            id: entry.id || Math.random(),
+            medication_name: entry.medication_name || 'Unknown',
+            dosage: entry.dosage || 'Unknown',
+            time: entry.takenAt,
+            taken: true
+          }));
+          setRecentMedications(recentMeds);
+          
+          // Calculate adherence
+          const fullHistory = await getTakenMedicationHistory();
+          const adherence = calculateOverallAdherence(userMedications || [], fullHistory || []);
+          setStats(prev => ({ ...prev, medicationAdherence: adherence }));
+        }
 
-        // Fetch recent exercises (limit to 3)
-        const exercises = await getUserExercises(token);
-        setRecentExercises(exercises?.slice(0, 3) || []);
+        // Fetch exercises and stats
+        const [userExercises, exerciseStats] = await Promise.all([
+          getUserExercises(token),
+          getExerciseStats(token)
+        ]);
 
-        // Fetch stats
-        const exerciseStats = await getExerciseStats(token);
-        setStats({
-          totalExercises: exerciseStats?.totalExercises || 0,
-          medicationAdherence: medications?.length
-            ? (medications.filter(m => m?.taken).length / medications.length) * 100
-            : 0
-        });
+        if (isMounted) {
+          setExercises(userExercises || []);
+          
+          // Set recent exercises (limit to 3)
+          setRecentExercises(userExercises?.slice(0, 3) || []);
+          
+          // Update stats
+          setStats(prev => ({
+            ...prev,
+            totalExercises: exerciseStats?.totalExercises || 0
+          }));
+        }
+
       } catch (err) {
         console.error('Error fetching profile data:', err);
         setError(err.message || 'Failed to load profile data. Please try again.');
         toast.error(err.message || 'Failed to load profile data. Please try again.');
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    fetchData();
-  }, []);
+    if (user && !authLoading) {
+      fetchData();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user, authLoading]);
+
+  // Socket handling for real-time updates
+  useEffect(() => {
+    if (!socket || !user) return;
+
+    const handleMedicationUpdate = async (updatedMedication) => {
+      try {
+        setMedications(prev => 
+          prev.map(med => 
+            med.id === updatedMedication.id ? updatedMedication : med
+          )
+        );
+
+        const history = await getTakenMedicationHistory(5);
+        const recentMeds = history.slice(0, 3).map(entry => ({
+          id: entry.id || Math.random(),
+          medication_name: entry.medication_name || 'Unknown',
+          dosage: entry.dosage || 'Unknown',
+          time: entry.takenAt,
+          taken: true
+        }));
+        setRecentMedications(recentMeds);
+
+        const fullHistory = await getTakenMedicationHistory();
+        const adherence = calculateOverallAdherence(
+          medications.map(med => 
+            med.id === updatedMedication.id ? updatedMedication : med
+          ),
+          fullHistory
+        );
+        setStats(prev => ({ ...prev, medicationAdherence: adherence }));
+      } catch (err) {
+        console.error('Error in handleMedicationUpdate:', err);
+      }
+    };
+
+    const handleExerciseAdded = async (newExercise) => {
+      try {
+        const updatedExercises = [newExercise, ...exercises].sort(
+          (a, b) => new Date(b.date_logged) - new Date(a.date_logged)
+        );
+        setExercises(updatedExercises);
+        setRecentExercises(updatedExercises.slice(0, 3));
+
+        const token = await auth.currentUser.getIdToken(true);
+        const exerciseStats = await getExerciseStats(token);
+        setStats(prev => ({
+          ...prev,
+          totalExercises: exerciseStats?.totalExercises || 0
+        }));
+      } catch (err) {
+        console.error('Error in handleExerciseAdded:', err);
+      }
+    };
+
+    const handleExerciseDeleted = async (id) => {
+      try {
+        const updatedExercises = exercises.filter(ex => ex.id !== id);
+        setExercises(updatedExercises);
+        setRecentExercises(updatedExercises.slice(0, 3));
+
+        const token = await auth.currentUser.getIdToken(true);
+        const exerciseStats = await getExerciseStats(token);
+        setStats(prev => ({
+          ...prev,
+          totalExercises: exerciseStats?.totalExercises || 0
+        }));
+      } catch (err) {
+        console.error('Error in handleExerciseDeleted:', err);
+      }
+    };
+
+    const handleExerciseUpdated = async (updatedExercise) => {
+      try {
+        const updatedExercises = exercises
+          .map(ex => ex.id === updatedExercise.id ? updatedExercise : ex)
+          .sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged));
+        setExercises(updatedExercises);
+        setRecentExercises(updatedExercises.slice(0, 3));
+
+        const token = await auth.currentUser.getIdToken(true);
+        const exerciseStats = await getExerciseStats(token);
+        setStats(prev => ({
+          ...prev,
+          totalExercises: exerciseStats?.totalExercises || 0
+        }));
+      } catch (err) {
+        console.error('Error in handleExerciseUpdated:', err);
+      }
+    };
+
+    socket.on('medicationUpdated', handleMedicationUpdate);
+    socket.on('exerciseAdded', handleExerciseAdded);
+    socket.on('exerciseDeleted', handleExerciseDeleted);
+    socket.on('exerciseUpdated', handleExerciseUpdated);
+    socket.on('error', (error) => {
+      console.error('Socket error:', error.message);
+    });
+
+    return () => {
+      socket.off('medicationUpdated', handleMedicationUpdate);
+      socket.off('exerciseAdded', handleExerciseAdded);
+      socket.off('exerciseDeleted', handleExerciseDeleted);
+      socket.off('exerciseUpdated', handleExerciseUpdated);
+      socket.off('error');
+    };
+  }, [socket, user, exercises, medications]);
+
+  const calculateOverallAdherence = (meds, history) => {
+    let totalDoses = 0;
+    let takenDoses = 0;
+
+    if (!meds || meds.length === 0) return 0;
+
+    meds.forEach((med) => {
+      if (!med.doses || typeof med.doses !== 'object') return;
+
+      Object.values(med.doses).forEach((dosesForDate) => {
+        if (!Array.isArray(dosesForDate)) return;
+        dosesForDate.forEach((dose) => {
+          totalDoses++;
+          if (dose.taken) takenDoses++;
+        });
+      });
+    });
+
+    return totalDoses > 0 ? parseFloat(((takenDoses / totalDoses) * 100).toFixed(2)) : 0;
+  };
 
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
@@ -85,15 +267,14 @@ const Profile = () => {
     }
   };
 
-  // Format date with fallback
   const formatDate = (dateString, type = 'dateTime') => {
     if (!dateString) return 'Not available';
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return 'Not available';
-    return type === 'dateTime' ? date.toLocaleString() : date.toLocaleDateString();
+    return type === 'dateTime' ? date.toLocaleString() : date.toLocaleString();
   };
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen pt-16">
         <div className="text-center">
@@ -104,7 +285,20 @@ const Profile = () => {
     );
   }
 
-  // Display error message if there's an error
+  if (!user) {
+    return (
+      <div className="min-h-screen p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+        <h1 className="text-2xl font-bold text-gray-800">Your Profile</h1>
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <p className="text-red-600">Please log in to view your profile.</p>
+          <p className="text-gray-600 mt-2">
+            <a href="/login" className="text-blue-600 hover:underline">Log in</a>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="min-h-screen p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
@@ -114,18 +308,6 @@ const Profile = () => {
           <p className="text-gray-600 mt-2">
             You may need to <a href="/login" className="text-blue-600 hover:underline">log in</a> or refresh the page.
           </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Fallback for if userData is null or undefined
-  if (!userData) {
-    return (
-      <div className="min-h-screen p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-800">Your Profile</h1>
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <p className="text-gray-600">No profile data available.</p>
         </div>
       </div>
     );
@@ -192,7 +374,9 @@ const Profile = () => {
         </div>
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Medication Adherence</h3>
-          <p className="text-3xl font-bold text-blue-600">{(stats?.medicationAdherence || 0).toFixed(1)}%</p>
+          <p className="text-3xl font-bold text-blue-600">
+            {(typeof stats?.medicationAdherence === 'number' ? stats.medicationAdherence : 0).toFixed(1)}%
+          </p>
         </div>
       </div>
 
@@ -203,7 +387,7 @@ const Profile = () => {
           {recentMedications?.length > 0 ? (
             <ul className="space-y-3">
               {recentMedications.map(med => (
-                <li key={med?.id || Math.random()} className="flex justify-between items-center">
+                <li key={med?.id} className="flex justify-between items-center">
                   <div>
                     <p className="text-gray-800 font-medium">{med?.medication_name || 'Unknown medication'}</p>
                     <p className="text-sm text-gray-600">
@@ -231,12 +415,12 @@ const Profile = () => {
               {recentExercises.map(exercise => (
                 <li key={exercise?.id || Math.random()} className="flex justify-between items-center">
                   <div>
-                    <p className="text-gray-800 font-medium">{exercise?.name || 'Unknown exercise'}</p>
+                    <p className="text-gray-800 font-medium">{exercise?.activity || 'Unknown exercise'}</p>
                     <p className="text-sm text-gray-600">
-                      {exercise?.duration || 0} mins - {formatDate(exercise?.date, 'date')}
+                      {exercise?.duration || 0} mins - {formatDate(exercise?.date_logged, 'date')}
                     </p>
                   </div>
-                  <span className="text-gray-600 text-sm">{exercise?.calories || 0} kcal</span>
+                  <span className="text-gray-600 text-sm">{exercise?.calories_burned || 0} kcal</span>
                 </li>
               ))}
             </ul>
