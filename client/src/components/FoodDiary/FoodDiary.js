@@ -3,6 +3,7 @@ import { MdAdd, MdClose, MdExpandMore, MdExpandLess } from "react-icons/md";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Modal from "react-modal";
 import { motion, AnimatePresence } from "framer-motion";
+import LogFood from "./LogFood";
 import Calendar from "./Calendar";
 import MealSection from "./MealSection";
 import SummaryCard from "./SummaryCard";
@@ -25,6 +26,8 @@ const mealData = [
 const FoodTracker = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLogFoodModalOpen, setIsLogFoodModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
   const mealTypes = ["Breakfast", "Lunch", "Dinner", "Snacks"];
@@ -37,6 +40,65 @@ const FoodTracker = () => {
     currentPage * itemsPerPage
   );
   const totalPages = Math.ceil(filteredMeals.length / itemsPerPage);
+
+  const handleLogFood = useCallback(async (e, foodName, portion, calories, setFoodName, setPortion, setCalories) => {
+    e.preventDefault();
+    if (!user) {
+      setError("You must be logged in to log food");
+      setLastFailedAction({ type: "logFood", params: null });
+      toast.error("You must be logged in to log food");
+      handleSessionExpired();
+      return;
+    }
+    if (!foodName || !portion || !calories) {
+      setError("All fields are required");
+      setLastFailedAction({ type: "logFood", params: null });
+      toast.error("All fields are required");
+      return;
+    }
+    const portionNum = Number(portion);
+    const caloriesNum = Number(calories);
+    if (isNaN(portionNum) || isNaN(caloriesNum) || portionNum <= 0 || caloriesNum <= 0) {
+      setError("Portion and calories must be positive numbers");
+      setLastFailedAction({ type: "logFood", params: null });
+      toast.error("Portion and calories must be positive numbers");
+      return;
+    }
+  
+    try {
+      setLoading(true);
+      const token = await getUserToken();
+      const newFood = {
+        food_name: foodName,
+        portion: portionNum,
+        calories: caloriesNum,
+        date_logged: new Date().toISOString(),
+        status: "consumed",
+      };
+      await createFood(newFood, token, getSocket);
+      setFoodName("");
+      setPortion("");
+      setCalories("");
+  
+      const foodStats = await getFoodStats(token);
+      setStats({
+        totalCalories: foodStats.totalCalories || 0,
+        totalPortion: foodStats.totalPortion || 0,
+        totalEntries: foodStats.totalFoods || 0,
+      });
+      setError(null);
+    } catch (err) {
+      setError("Failed to log food");
+      setLastFailedAction({ type: "logFood", params: { foodName, portion: portionNum, calories: caloriesNum } });
+      toast.error("Failed to log food");
+      console.error(err);
+      if (err.code === "auth/id-token-expired") {
+        handleSessionExpired();
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [user, getSocket, handleSessionExpired]);
 
   return (
     <div className="min-h-screen p-4 lg:p-8">
@@ -101,6 +163,12 @@ const FoodTracker = () => {
 
       {/* Add Food Modal */}
       <AddFoodModal isOpen={isModalOpen} onRequestClose={() => setIsModalOpen(false)} />
+      <LogFood
+          handleLogFood={handleLogFood}
+          loading={loading}
+          isOpen={isLogFoodModalOpen}
+          onClose={() => setIsLogFoodModalOpen(false)}
+        />
     </div>
   );
 };
