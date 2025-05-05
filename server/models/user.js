@@ -46,14 +46,14 @@ class User {
     return rows;
   }
 
-  static async updateProfile(userId, { username, email, displayName, role }) {
+  static async updateProfile(userId, { username, displayName, role, phone, address, height, weight, profile_image }) {
     const query = `
       UPDATE users
-      SET username = ?, email = ?, display_name = ?, role = ?
+      SET username = ?, display_name = ?, role = ?, phone = ?, address = ?, height = ?, weight = ?, profile_image = ?
       WHERE uid = ?
     `;
-    await db.query(query, [username, email, displayName, role, userId]);
-    return { uid: userId, username, email, displayName, role };
+    await db.query(query, [username, displayName, role, phone || null, address || null, height || null, weight || null, profile_image || null, userId]);
+    return { uid: userId, username, displayName, role, phone, address, height, weight, profile_image };
   }
 
   static async saveWeeklyGoals(userId, { weeklyFoodCalorieGoal, weeklyExerciseCalorieGoal }) {

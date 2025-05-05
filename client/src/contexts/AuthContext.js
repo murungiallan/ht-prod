@@ -304,7 +304,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const updateProfile = async (username, email, displayName, role) => {
+  const updateProfile = async (username, displayName, role, phone, address, height, weight, profile_image) => {
     try {
       const firebaseUser = auth.currentUser;
       if (!firebaseUser) throw new Error("User not authenticated");
@@ -313,23 +313,26 @@ export const AuthProvider = ({ children }) => {
 
       const userData = {
         username,
-        email,
         displayName,
         role,
-        lastLogin: new Date().toISOString(),
+        phone: phone || null,
+        address: address || null,
+        height: parseFloat(height) || null,
+        weight: parseFloat(weight) || null,
+        profile_image: profile_image || null
       };
       await retryWithBackoff(() =>
         update(ref(database, `users/${firebaseUser.uid}`), userData)
       );
 
       const token = await getCachedToken();
-      const response = await fetch("https://127.0.0.1:5000/api/users/profile", {
+      const response = await fetch("http://127.0.0.1:5000/api/users/profile", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ username, email, displayName, role }),
+        body: JSON.stringify(userData),
       });
 
       if (!response.ok) {
@@ -342,6 +345,7 @@ export const AuthProvider = ({ children }) => {
         ...updatedUserData,
         emailVerified: firebaseUser.emailVerified,
       });
+      toast.success("Profile updated successfully");
     } catch (error) {
       toast.error("Profile update failed: " + error.message);
       throw error;

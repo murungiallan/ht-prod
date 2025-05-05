@@ -1,6 +1,6 @@
 import db from './config/db.js';
 
-// Array of SQL statements to create tables
+// Array of SQL statements to create and alter tables
 const createTables = [
   `
   CREATE TABLE IF NOT EXISTS users (
@@ -14,7 +14,12 @@ const createTables = [
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       last_login TIMESTAMP NULL DEFAULT NULL,
       weekly_food_calorie_goal FLOAT DEFAULT NULL,
-      weekly_exercise_calorie_goal FLOAT DEFAULT NULL
+      weekly_exercise_calorie_goal FLOAT DEFAULT NULL,
+      profile_image LONGBLOB DEFAULT NULL,
+      phone VARCHAR(20) DEFAULT NULL,
+      address VARCHAR(255) DEFAULT NULL,
+      height FLOAT DEFAULT NULL,
+      weight FLOAT DEFAULT NULL
   )`,
   `
   CREATE TABLE IF NOT EXISTS exercises (

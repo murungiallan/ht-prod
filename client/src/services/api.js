@@ -118,10 +118,13 @@ export const updateProfile = async (userData, token) => {
   const userPath = `users/${user.uid}`;
   const updatedUserData = {
     username: userData.username,
-    email: userData.email,
     displayName: userData.displayName,
     role: userData.role,
-    lastLogin: new Date().toISOString(),
+    phone: userData.phone || null,
+    address: userData.address || null,
+    height: userData.height || null,
+    weight: userData.weight || null,
+    profile_image: userData.profile_image || null
   };
   await retryWithBackoff(() => update(ref(database), { [userPath]: updatedUserData }));
 
@@ -129,7 +132,7 @@ export const updateProfile = async (userData, token) => {
     "/users/profile",
     {
       method: "PUT",
-      body: JSON.stringify(userData),
+      body: JSON.stringify(updatedUserData),
     },
     token
   );
