@@ -11,10 +11,11 @@ import AddFoodModal from "./Modals/AddFoodModal";
 import Pagination from "./Pagination";
 import { AuthContext } from "../../contexts/AuthContext";
 import toast from "react-hot-toast";
-import React from "react";
 import { useSocket } from "../../contexts/SocketContext";
 import { auth } from "../../firebase/config";
-import React from "react";
+import { useContext } from "react";
+import { useNavigate } from "react-router-dom";
+import { getFoodStats, createFoodLog } from "../../services/api";
 
 // Placeholder data
 const mealData = [
@@ -36,7 +37,9 @@ const FoodTracker = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
   const mealTypes = ["Breakfast", "Lunch", "Dinner", "Snacks"];
+  const [stats, setStats] = useState({ totalCalories: 0, totalPortion: 0, totalFoods: 0 });
   const { user, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
 
   const filteredMeals = mealData.filter(
     (meal) => new Date(meal.date).toDateString() === selectedDate.toDateString()
@@ -93,7 +96,7 @@ const FoodTracker = () => {
         date_logged: new Date().toISOString(),
         status: "consumed",
       };
-      await createFood(newFood, token, getSocket);
+      await createFoodLog(newFood, token);
       setFoodName("");
       setPortion("");
       setCalories("");
@@ -115,7 +118,7 @@ const FoodTracker = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, getSocket, handleSessionExpired]);
+  }, [user, handleSessionExpired]);
 
   return (
     <div className="min-h-screen p-4 lg:p-8">
