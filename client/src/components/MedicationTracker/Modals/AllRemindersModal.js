@@ -104,10 +104,13 @@ const AllRemindersModal = ({
                 <thead>
                   <tr>
                     <th onClick={() => handleSort("medication")}>
-                      Medication {sortConfig.key === "medication" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                      Medication Name {sortConfig.key === "medication" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                    </th>
+                    <th>
+                      Medication Time
                     </th>
                     <th onClick={() => handleSort("reminderTime")}>
-                      Time {sortConfig.key === "reminderTime" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                      Reminder Time {sortConfig.key === "reminderTime" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                     </th>
                     <th onClick={() => handleSort("effectiveDate")}>
                       Date {sortConfig.key === "effectiveDate" && (sortConfig.direction === "asc" ? "↑" : "↓")}
@@ -128,6 +131,9 @@ const AllRemindersModal = ({
                       <tr key={reminder.id}>
                         <td style={{ wordBreak: "break-word", maxWidth: "200px" }}>
                           {med?.medication_name || "Unknown"}
+                        </td>
+                        <td style={{ whiteSpace: "nowrap" }}>
+                          {formatTimeForDisplay(reminder.reminderTime)}
                         </td>
                         <td style={{ whiteSpace: "nowrap" }}>
                           {formatTimeForDisplay(reminder.reminderTime)}

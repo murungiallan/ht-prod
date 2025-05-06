@@ -397,7 +397,7 @@ const Profile = () => {
                     name="username"
                     value={userData.username}
                     onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2"
                   />
                 </div>
                 <div>
@@ -407,7 +407,7 @@ const Profile = () => {
                     name="display_name"
                     value={userData.display_name}
                     onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2"
                   />
                 </div>
                 <div>
@@ -417,7 +417,7 @@ const Profile = () => {
                     name="email"
                     value={userData.email}
                     disabled
-                    className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed"
+                    className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed p-2"
                   />
                 </div>
                 <div>
@@ -427,7 +427,7 @@ const Profile = () => {
                     name="phone"
                     value={userData.phone}
                     onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2"
                   />
                 </div>
                 <div>
@@ -437,7 +437,7 @@ const Profile = () => {
                     name="address"
                     value={userData.address}
                     onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2"
                   />
                 </div>
                 <div>
@@ -447,7 +447,7 @@ const Profile = () => {
                     name="height"
                     value={userData.height}
                     onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2"
                   />
                 </div>
                 <div>
@@ -457,7 +457,7 @@ const Profile = () => {
                     name="weight"
                     value={userData.weight}
                     onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2"
                   />
                 </div>
                 <div>
@@ -466,7 +466,7 @@ const Profile = () => {
                     name="role"
                     value={userData.role}
                     onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2"
                   >
                     <option value="user">User</option>
                     <option value="admin">Admin</option>
@@ -478,7 +478,7 @@ const Profile = () => {
                     type="text"
                     value={formatDate(userData.created_at)}
                     disabled
-                    className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed"
+                    className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed p-2"
                   />
                 </div>
                 <div>
@@ -487,7 +487,7 @@ const Profile = () => {
                     type="text"
                     value={formatDate(userData.last_login)}
                     disabled
-                    className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed"
+                    className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed p-2"
                   />
                 </div>
               </div>

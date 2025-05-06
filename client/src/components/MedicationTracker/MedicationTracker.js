@@ -24,7 +24,7 @@ import { useSocket } from "../../contexts/SocketContext";
 import Modal from "react-modal";
 import React from "react";
 import { after, debounce } from "lodash";
-import { isBefore, isAfter, format } from "date-fns";
+import { isBefore, isAfter, format, isWithinInterval } from "date-fns";
 import moment from "moment";
 
 // Import Components
@@ -581,7 +581,7 @@ const MedicationTracker = () => {
         return newSet;
       });
 
-      if (taken) {
+      if (!taken && hoursDiff < 2) {
         setReminderTime(doseTime);
         setShowAddReminderPrompt({
           medication: med,
