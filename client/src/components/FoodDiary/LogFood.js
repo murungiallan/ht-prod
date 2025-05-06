@@ -7,11 +7,11 @@ const LogFood = ({ handleLogFood, loading, isOpen, onClose }) => {
     const [portion, setPortion] = useState("");
     const [calories, setCalories] = useState("");
     const [image, setImage] = useState(null);
-    const [loading, setLoading] = useState(false);
+    const [setLoading] = useState(false);
 
     const onSubmit = async (e) => {
         e.preventDefault();
-        await handleLogFood(e, foodName, sportion, calories, setFoodName, setPortion, setCalories);
+        await handleLogFood(e, foodName, portion, calories, setFoodName, setPortion, setCalories);
         if (!loading) onClose();
     };
 

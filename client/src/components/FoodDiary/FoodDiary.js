@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { MdAdd, MdClose, MdExpandMore, MdExpandLess } from "react-icons/md";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Modal from "react-modal";
@@ -9,7 +9,12 @@ import MealSection from "./MealSection";
 import SummaryCard from "./SummaryCard";
 import AddFoodModal from "./Modals/AddFoodModal";
 import Pagination from "./Pagination";
-
+import { AuthContext } from "../../contexts/AuthContext";
+import toast from "react-hot-toast";
+import React from "react";
+import { useSocket } from "../../contexts/SocketContext";
+import { auth } from "../../firebase/config";
+import React from "react";
 
 // Placeholder data
 const mealData = [
@@ -31,6 +36,7 @@ const FoodTracker = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
   const mealTypes = ["Breakfast", "Lunch", "Dinner", "Snacks"];
+  const { user, logout } = useContext(AuthContext);
 
   const filteredMeals = mealData.filter(
     (meal) => new Date(meal.date).toDateString() === selectedDate.toDateString()
@@ -41,26 +47,38 @@ const FoodTracker = () => {
   );
   const totalPages = Math.ceil(filteredMeals.length / itemsPerPage);
 
+  const { socket } = useSocket();
+
+  const getUserToken = async () => {
+    return await auth.currentUser.getIdToken(true);
+  };
+
+  // Centralized session expiration handler
+  const handleSessionExpired = useCallback(() => {
+    logout();
+    navigate("/login");
+  }, [logout, navigate]);
+
   const handleLogFood = useCallback(async (e, foodName, portion, calories, setFoodName, setPortion, setCalories) => {
     e.preventDefault();
     if (!user) {
-      setError("You must be logged in to log food");
-      setLastFailedAction({ type: "logFood", params: null });
+      console.log("You must be logged in to log food");
+      // setLastFailedAction({ type: "logFood", params: null });
       toast.error("You must be logged in to log food");
       handleSessionExpired();
       return;
     }
     if (!foodName || !portion || !calories) {
-      setError("All fields are required");
-      setLastFailedAction({ type: "logFood", params: null });
+      console.log("All fields are required");
+      // setLastFailedAction({ type: "logFood", params: null });
       toast.error("All fields are required");
       return;
     }
     const portionNum = Number(portion);
     const caloriesNum = Number(calories);
     if (isNaN(portionNum) || isNaN(caloriesNum) || portionNum <= 0 || caloriesNum <= 0) {
-      setError("Portion and calories must be positive numbers");
-      setLastFailedAction({ type: "logFood", params: null });
+      console.log("Portion and calories must be positive numbers");
+      // setLastFailedAction({ type: "logFood", params: null });
       toast.error("Portion and calories must be positive numbers");
       return;
     }
@@ -86,10 +104,9 @@ const FoodTracker = () => {
         totalPortion: foodStats.totalPortion || 0,
         totalEntries: foodStats.totalFoods || 0,
       });
-      setError(null);
     } catch (err) {
-      setError("Failed to log food");
-      setLastFailedAction({ type: "logFood", params: { foodName, portion: portionNum, calories: caloriesNum } });
+      console.log(`Failed to log food: ${err}`);
+      // setLastFailedAction({ type: "logFood", params: { foodName, portion: portionNum, calories: caloriesNum } });
       toast.error("Failed to log food");
       console.error(err);
       if (err.code === "auth/id-token-expired") {
