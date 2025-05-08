@@ -1,5 +1,5 @@
 import { Router } from "express";
-import ReminderController from "../controllers/reminder.js";
+import ReminderController from "../controllers/reminder.controllers.js";
 import authMiddleware from "../middleware/auth.js";
 
 const router = Router();

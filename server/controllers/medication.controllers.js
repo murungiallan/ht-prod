@@ -1,4 +1,4 @@
-import Medication from "../models/medication.js";
+import Medication from "../models/medication.models.js";
 import { db as firebaseDb } from "../server.js"; // Firebase Realtime Database
 import db from "../config/db.js"; // MySQL connection pool
 import moment from "moment";

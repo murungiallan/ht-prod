@@ -1,9 +1,10 @@
 import { Router } from "express";
 import authenticate from "../middleware/auth.js";
-import exerciseRoutes from "./exercise.js";
-import medicationRoutes from "./medication.js";
-import userRoutes from "./user.js";
-import reminderRoutes from "./reminder.js";
+import exerciseRoutes from "./exercise.routes.js";
+import medicationRoutes from "./medication.routes.js";
+import userRoutes from "./user.routes.js";
+import reminderRoutes from "./reminder.routes.js";
+import foodRoutes from "./food.routes.js";
 
 const router = Router();
 
@@ -17,5 +18,6 @@ router.use("/exercises", exerciseRoutes);
 router.use("/medications", medicationRoutes);
 router.use("/users", userRoutes);
 router.use("/reminders", reminderRoutes);
+router.use("/food-logs", foodRoutes);
 
 export default router;

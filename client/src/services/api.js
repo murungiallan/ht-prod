@@ -1,6 +1,8 @@
 import axios from "axios";
 import { auth, database } from "../firebase/config.js";
 import { ref, update, get, push, query, orderByChild, limitToLast } from "firebase/database";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "../firebase/config.js";
 import { debounce } from "lodash";
 
 const api = axios.create({ baseURL: "https://127.0.0.1:5000/api" });
@@ -796,7 +798,7 @@ export const searchDrugsByName = async (query) => {
   }
 };
 
-// Reminder API
+// Reminders API
 export const createReminder = async (reminderData, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
@@ -816,7 +818,12 @@ export const createReminder = async (reminderData, token) => {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    const reminderId = response.data.id.toString();
+    const data = response.data;
+    if (!data.success) {
+      throw new Error(data.message || "Failed to create reminder");
+    }
+
+    const reminderId = data.reminder.id.toString();
     const reminderPath = `reminders/${user.uid}/${reminderId}`;
     const firebaseEntry = {
       ...reminderEntry,
@@ -829,17 +836,13 @@ export const createReminder = async (reminderData, token) => {
 
     return { id: reminderId, ...firebaseEntry };
   } catch (error) {
-    if (error.response?.data?.error) {
-      if (error.response.data.hoursDiff !== undefined) {
-        throw new Error(error.response.data.error);
-      }
-      throw new Error(error.response.data.error);
+    if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
     }
-    throw error;
+    throw new Error(error.message || "Failed to create reminder");
   }
 };
 
-// Reminders API
 export const getUserReminders = async (token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
@@ -849,10 +852,14 @@ export const getUserReminders = async (token) => {
     const response = await api.get("/reminders/get-reminders", {
       headers: { Authorization: `Bearer ${token}` },
     });
-    remindersFromMySQL = response.data;
+    const data = response.data;
+    if (!data.success) {
+      throw new Error(data.message || "Failed to fetch reminders from server");
+    }
+    remindersFromMySQL = data.reminders || [];
   } catch (error) {
     console.error("Error fetching reminders from MySQL:", error);
-    throw new Error("Failed to fetch reminders from server");
+    throw new Error(error.message || "Failed to fetch reminders from server");
   }
 
   try {
@@ -900,17 +907,22 @@ export const deleteReminder = async (reminderId, token) => {
   if (!user) throw new Error("User not authenticated");
 
   try {
-    await api.delete(`/reminders/delete/${reminderId}`, {
+    const response = await api.delete(`/reminders/delete/${reminderId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
+
+    const data = response.data;
+    if (!data.success) {
+      throw new Error(data.message || "Failed to delete reminder");
+    }
 
     const reminderPath = `reminders/${user.uid}/${reminderId}`;
     await retryWithBackoff(() => update(ref(database), { [reminderPath]: null }));
 
-    return { success: true };
+    return { success: true, message: data.message };
   } catch (error) {
     console.error("Error deleting reminder:", error);
-    throw new Error("Failed to delete reminder");
+    throw new Error(error.message || "Failed to delete reminder");
   }
 };
 
@@ -927,13 +939,18 @@ export const updateReminderStatus = async (reminderId, status, token) => {
       headers: { Authorization: `Bearer ${token}` },
     });
 
+    const data = response.data;
+    if (!data.success) {
+      throw new Error(data.message || "Failed to update reminder status");
+    }
+
     const reminderPath = `reminders/${user.uid}/${reminderId}`;
     await retryWithBackoff(() => update(ref(database), { [reminderPath + "/status"]: status }));
 
-    return response.data;
+    return data.reminder;
   } catch (error) {
     console.error("Error updating reminder status:", error);
-    throw new Error("Failed to update reminder status");
+    throw new Error(error.message || "Failed to update reminder status");
   }
 };
 
@@ -963,6 +980,11 @@ export const updateReminder = async (reminderId, reminderData, token) => {
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
+    const data = response.data;
+    if (!data.success) {
+      throw new Error(data.message || "Failed to update reminder");
+    }
+
     const reminderPath = `reminders/${user.uid}/${reminderId}`;
     await retryWithBackoff(() =>
       update(ref(database), {
@@ -980,10 +1002,10 @@ export const updateReminder = async (reminderId, reminderData, token) => {
       })
     );
 
-    return response.data;
+    return data.reminder;
   } catch (error) {
     console.error("Error updating reminder:", error);
-    throw new Error("Failed to update reminder");
+    throw new Error(error.message || "Failed to update reminder");
   }
 };
 
@@ -1002,122 +1024,6 @@ export const saveFcmToken = async (token, fcmToken) => {
     throw new Error("Failed to save FCM token");
   }
 };
-
-//Food Diary API
-export const createFoodLog = async (foodData, token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
-
-  const foodEntry = {
-      
-      userId: user.uid,
-      food_name: foodData.food_name,
-      calories: foodData.calories,
-      date_logged: foodData.date_logged,
-      meal_type: foodData.meal_type,
-  };
-
-  const response = await api.post("/food-logs/add", foodEntry, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  const foodId = response.data.id.toString();
-  const foodPath = `food_logs/${user.uid}/${foodId}`;
-  const firebaseEntry = {
-    ...foodEntry,
-    id: foodId
-  };
-
-  await retryWithBackoff(() => update(ref(database), { [foodPath]: firebaseEntry }));
-
-  return response.data;
-}
-
-export const getUserFoodLogs = async (token) => {
-  
-    const user = auth.currentUser;
-    if (!user) throw new Error("User not authenticated");
-  
-    // Fetch from MySQL
-    const response = await authFetch("/food-logs/get-food-logs", {}, token);
-    const foodLogsFromMySQL = response;
-  
-    // Update Firebase with the latest data from MySQL
-    const updates = {};
-    foodLogsFromMySQL.forEach((foodLog) => {
-      const foodPath = `food_logs/${user.uid}/${foodLog.id}`;
-      updates[foodPath] = {
-        id: foodLog.id.toString(),
-        userId: user.uid,
-        food_name: foodLog.food_name,
-        calories: foodLog.calories,
-        date_logged: foodLog.date_logged,
-        meal_type: foodLog.meal_type
-      };
-    });
-    await retryWithBackoff(() => update(ref(database), updates));
-  
-    return foodLogsFromMySQL;
-};
-
-const updateFoodLogDebounced = debounce((userId, id, foodData) => {
-  
-  const foodPath = `food_logs/${userId}/${id}`;
-  update(ref(database), {
-    [foodPath]: {
-      id,
-      userId,
-      food_name: foodData.food_name,
-      calories: foodData.calories,
-      date_logged: foodData.date_logged,
-      meal_type: foodData.meal_type,
-    },
-  });
-
-  
-
-}, 500);
-
-export const updateFoodLog = async (id, foodData, token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
-  const response = await api.put(`/food-logs/update/${id}`, foodData, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  updateFoodLogDebounced(user.uid, id, foodData);
-  return response.data;
-};
-
-export const deleteFoodLog = async (id, token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
-
-  // Sync with MySQL
-  const response = await api.delete(`/food-logs/delete/${id}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  // Delete in Firebase with a single request
-  const foodPath = `food_logs/${user.uid}/${id}`;
-  await retryWithBackoff(() => update(ref(database), { [foodPath]: null }));
-
-  return response.data;
-};
-
-export const getFoodStats = async (token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
-
-  // Fetch from MySQL
-  const response = await authFetch("/food-logs/food-stats", {}, token);
-  const stats = response;
-
-  // Update Firebase
-  const statsPath = `food_stats/${user.uid}`;
-  await retryWithBackoff(() => update(ref(database), { [statsPath]: stats }));
-
-  return stats;
-}
 
 
 // Exercise API
@@ -1230,4 +1136,348 @@ export const getExerciseStats = async (token) => {
   await retryWithBackoff(() => update(ref(database), { [statsPath]: stats }));
 
   return stats;
+};
+
+// Food Diary API
+export const createFoodLog = async (foodData, imageFile, token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  let image_url = null;
+  if (imageFile) {
+    const storageReference = storageRef(storage, `food_images/${user.uid}/${Date.now()}_${imageFile.name}`);
+    const snapshot = await uploadBytes(storageReference, imageFile);
+    image_url = await getDownloadURL(snapshot);
+  }
+
+  const foodEntry = {
+    userId: user.uid,
+    food_name: foodData.food_name,
+    calories: foodData.calories,
+    carbs: foodData.carbs,
+    protein: foodData.protein,
+    fats: foodData.fats,
+    image_url,
+    date_logged: foodData.date_logged,
+    meal_type: foodData.meal_type,
+  };
+
+  const formData = new FormData();
+  Object.keys(foodEntry).forEach(key => {
+    if (foodEntry[key] !== null && foodEntry[key] !== undefined) {
+      formData.append(key, foodEntry[key]);
+    }
+  });
+  if (imageFile) {
+    formData.append("image", imageFile);
+  }
+
+  const response = await fetch("https://127.0.0.1:5000/api/food-logs/add", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to create food log");
+  }
+
+  const foodId = data.id.toString();
+  const foodPath = `food_logs/${user.uid}/${foodId}`;
+  const firebaseEntry = {
+    ...foodEntry,
+    id: foodId,
+  };
+
+  await retryWithBackoff(() => update(ref(database), { [foodPath]: firebaseEntry }));
+
+  return data;
+};
+
+export const getUserFoodLogs = async (token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const response = await authFetch("/food-logs/get-food-logs", {}, token);
+  const foodLogsFromMySQL = response;
+
+  const updates = {};
+  foodLogsFromMySQL.forEach((foodLog) => {
+    const foodPath = `food_logs/${user.uid}/${foodLog.id}`;
+    updates[foodPath] = {
+      id: foodLog.id.toString(),
+      userId: user.uid,
+      food_name: foodLog.food_name,
+      calories: foodLog.calories,
+      carbs: foodLog.carbs,
+      protein: foodLog.protein,
+      fats: foodLog.fats,
+      image_url: foodLog.image_url,
+      date_logged: foodLog.date_logged,
+      meal_type: foodLog.meal_type,
+    };
+  });
+  await retryWithBackoff(() => update(ref(database), updates));
+
+  return foodLogsFromMySQL;
+};
+
+const updateFoodLogDebounced = debounce((userId, id, foodData) => {
+  const foodPath = `food_logs/${userId}/${id}`;
+  update(ref(database), {
+    [foodPath]: {
+      id,
+      userId,
+      food_name: foodData.food_name,
+      calories: foodData.calories,
+      carbs: foodData.carbs,
+      protein: foodData.protein,
+      fats: foodData.fats,
+      image_url: foodData.image_url,
+      date_logged: foodData.date_logged,
+      meal_type: foodData.meal_type,
+    },
+  });
+}, 500);
+
+export const updateFoodLog = async (id, foodData, imageFile, token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  let image_url = foodData.image_url;
+  if (imageFile) {
+    const storageReference = storageRef(storage, `food_images/${user.uid}/${Date.now()}_${imageFile.name}`);
+    const snapshot = await uploadBytes(storageReference, imageFile);
+    image_url = await getDownloadURL(snapshot);
+  }
+
+  const updatedData = {
+    food_name: foodData.food_name,
+    calories: foodData.calories,
+    carbs: foodData.carbs,
+    protein: foodData.protein,
+    fats: foodData.fats,
+    image_url,
+    date_logged: foodData.date_logged,
+    meal_type: foodData.meal_type,
+  };
+
+  const formData = new FormData();
+  Object.keys(updatedData).forEach(key => {
+    if (updatedData[key] !== null && updatedData[key] !== undefined) {
+      formData.append(key, updatedData[key]);
+    }
+  });
+  if (imageFile) {
+    formData.append("image", imageFile);
+  }
+
+  const response = await fetch(`https://127.0.0.1:5000/api/food-logs/update/${id}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to update food log");
+  }
+
+  updateFoodLogDebounced(user.uid, id, updatedData);
+  return data;
+};
+
+export const deleteFoodLog = async (id, token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const response = await authFetch(`/food-logs/delete/${id}`, { method: "DELETE" }, token);
+
+  const foodPath = `food_logs/${user.uid}/${id}`;
+  await retryWithBackoff(() => update(ref(database), { [foodPath]: null }));
+
+  return response;
+};
+
+export const getFoodStats = async (token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const response = await authFetch("/food-logs/food-stats", {}, token);
+  const stats = response;
+
+  const statsPath = `food_stats/${user.uid}`;
+  await retryWithBackoff(() => update(ref(database), { [statsPath]: stats }));
+
+  return stats;
+};
+
+export const copyFoodLog = async (id, newDate, token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const response = await authFetch(
+    "/food-logs/copy",
+    {
+      method: "POST",
+      body: JSON.stringify({ id, newDate }),
+    },
+    token
+  );
+
+  const foodPath = `food_logs/${user.uid}/${response.id}`;
+  await retryWithBackoff(() => update(ref(database), { [foodPath]: response }));
+
+  return response;
+};
+
+// USDA API Key (replace with your actual key from data.gov)
+const USDA_API_KEY = "DEMO_KEY"; // Replace with your actual API key
+
+export const searchFoods = async (query) => {
+  const proxyUrl = "https://api.nal.usda.gov/fdc/v1/foods/search";
+  const url = `${proxyUrl}?api_key=${USDA_API_KEY}&query=${encodeURIComponent(query)}&pageSize=10`;
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Accept": "application/json",
+      },
+    });
+
+    // Log the status and headers for debugging
+    console.log("USDA API Response Status:", response.status, response.statusText);
+    console.log("USDA API Response Headers:", response.headers.get("content-type"));
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("USDA API Error Response:", errorText);
+      throw new Error(`USDA API error: ${response.status} ${response.statusText}`);
+    }
+
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const errorText = await response.text();
+      console.error("USDA API Non-JSON Response:", errorText);
+      throw new Error("Response is not JSON");
+    }
+
+    const data = await response.json();
+    return data.foods.map(food => ({
+      food_name: food.description,
+      calories: food.foodNutrients.find(n => n.nutrientName === "Energy")?.value || 0,
+      carbs: food.foodNutrients.find(n => n.nutrientName === "Carbohydrate, by difference")?.value || 0,
+      protein: food.foodNutrients.find(n => n.nutrientName === "Protein")?.value || 0,
+      fats: food.foodNutrients.find(n => n.nutrientName === "Total lipid (fat)")?.value || 0,
+    }));
+  } catch (error) {
+    console.error("Error in searchFoods:", error.message);
+    throw error;
+  }
+};
+
+// K-Means Clustering for Nutritional Patterns
+export const clusterEatingPatterns = async (token) => {
+  const allUsersLogs = await Promise.all(
+    (await getAllUsers(token)).map(async (user) => {
+      const userLogs = await getUserFoodLogs(token);
+      return {
+        userId: user.uid,
+        logs: userLogs,
+      };
+    })
+  );
+
+  const userData = allUsersLogs.map(user => {
+    const logs = user.logs;
+    const totalLogs = logs.length;
+    if (totalLogs === 0) return null;
+
+    const avgCalories = logs.reduce((sum, log) => sum + log.calories, 0) / totalLogs;
+    const avgCarbs = logs.reduce((sum, log) => sum + (log.carbs || 0), 0) / totalLogs;
+    const avgProtein = logs.reduce((sum, log) => sum + (log.protein || 0), 0) / totalLogs;
+    const avgFats = logs.reduce((sum, log) => sum + (log.fats || 0), 0) / totalLogs;
+
+    return {
+      userId: user.userId,
+      features: [avgCalories, avgCarbs, avgProtein, avgFats],
+    };
+  }).filter(data => data !== null);
+
+  const k = 3; // Number of clusters
+  const centroids = [];
+  const featureVectors = userData.map(d => d.features);
+
+  // Initialize centroids randomly
+  for (let i = 0; i < k; i++) {
+    centroids.push(featureVectors[Math.floor(Math.random() * featureVectors.length)]);
+  }
+
+  // K-Means clustering
+  let clusters = new Array(featureVectors.length).fill(0);
+  let changed = true;
+  const maxIterations = 100;
+  let iteration = 0;
+
+  while (changed && iteration < maxIterations) {
+    changed = false;
+    const newClusters = [];
+
+    // Assign points to nearest centroid
+    for (let i = 0; i < featureVectors.length; i++) {
+      let minDist = Infinity;
+      let cluster = 0;
+
+      for (let j = 0; j < k; j++) {
+        const dist = Math.sqrt(
+          featureVectors[i].reduce((sum, val, idx) => sum + Math.pow(val - centroids[j][idx], 2), 0)
+        );
+        if (dist < minDist) {
+          minDist = dist;
+          cluster = j;
+        }
+      }
+
+      newClusters[i] = cluster;
+      if (newClusters[i] !== clusters[i]) {
+        changed = true;
+      }
+    }
+
+    clusters = newClusters;
+
+    // Update centroids
+    for (let j = 0; j < k; j++) {
+      const clusterPoints = featureVectors.filter((_, idx) => clusters[idx] === j);
+      if (clusterPoints.length > 0) {
+        const newCentroid = [];
+        for (let d = 0; d < 4; d++) {
+          const avg = clusterPoints.reduce((sum, point) => sum + point[d], 0) / clusterPoints.length;
+          newCentroid[d] = avg;
+        }
+        centroids[j] = newCentroid;
+      }
+    }
+
+    iteration++;
+  }
+
+  const clusterLabels = [
+    "Balanced Eater",
+    "High Carb Eater",
+    "High Protein Eater",
+  ];
+
+  const userClusters = userData.map((data, idx) => ({
+    userId: data.userId,
+    cluster: clusterLabels[clusters[idx]] || "Unknown",
+  }));
+
+  return userClusters;
 };

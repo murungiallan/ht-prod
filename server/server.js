@@ -11,6 +11,7 @@ import { getAuth } from "firebase-admin/auth";
 import dotenv from "dotenv";
 import serviceAccount from "./service-account-key.json" with { type: "json" };
 import routes from "./routes/index.js";
+import multer from "multer";
 
 dotenv.config();
 
@@ -93,12 +94,25 @@ setInterval(() => {
   errorLogs.clear();
 }, CLEANUP_INTERVAL);
 
+// Set up Multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // Limit file size to 5MB
+  },
+});
 
 app.use(cors({ 
-  origin: ["https://127.0.0.1:5000", "http://127.0.0.1:3000"] 
+  origin: ["https://127.0.0.1:5000", "http://127.0.0.1:3000"],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 }));
 app.use(json());
 
+// Serve the uploads directory as static to access images
+app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
+
+// Middleware to attach Socket.IO to req and handle content type for CSS
 app.use((req, res, next) => {
   if (req.path.endsWith(".css")) {
     res.type("text/css");
@@ -107,6 +121,9 @@ app.use((req, res, next) => {
   next();
 });
 
+// Apply Multer middleware for routes that handle file uploads
+app.use("/api/food_logs", upload.single("image"), routes);
+// Use routes for other endpoints
 app.use("/api", routes);
 
 const clientPath = path.join(__dirname, "..", "client", "build");
