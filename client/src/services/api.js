@@ -1139,62 +1139,36 @@ export const getExerciseStats = async (token) => {
 };
 
 // Food Diary API
-export const createFoodLog = async (foodData, imageFile, token) => {
+export const createFoodLog = async (foodLogData, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  let image_url = null;
-  if (imageFile) {
-    const storageReference = storageRef(storage, `food_images/${user.uid}/${Date.now()}_${imageFile.name}`);
-    const snapshot = await uploadBytes(storageReference, imageFile);
-    image_url = await getDownloadURL(snapshot);
+  let imageUrl = null;
+  if (foodLogData.image) {
+    imageUrl = await uploadImage(foodLogData.image, user.uid);
   }
 
-  const foodEntry = {
-    userId: user.uid,
-    food_name: foodData.food_name,
-    calories: foodData.calories,
-    carbs: foodData.carbs,
-    protein: foodData.protein,
-    fats: foodData.fats,
-    image_url,
-    date_logged: foodData.date_logged,
-    meal_type: foodData.meal_type,
-  };
-
-  const formData = new FormData();
-  Object.keys(foodEntry).forEach(key => {
-    if (foodEntry[key] !== null && foodEntry[key] !== undefined) {
-      formData.append(key, foodEntry[key]);
-    }
-  });
-  if (imageFile) {
-    formData.append("image", imageFile);
-  }
-
-  const response = await fetch("https://127.0.0.1:5000/api/food-logs/add", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
+  const response = await authFetch(
+    "/food-logs/add",
+    {
+      method: "POST",
+      body: JSON.stringify({ ...foodLogData, image: imageUrl }),
     },
-    body: formData,
-  });
+    token
+  );
 
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to create food log");
-  }
+  const foodLogPath = `food_logs/${user.uid}/${response.id}`;
+  await retryWithBackoff(() =>
+    update(ref(database), { [foodLogPath]: response })
+  );
 
-  const foodId = data.id.toString();
-  const foodPath = `food_logs/${user.uid}/${foodId}`;
-  const firebaseEntry = {
-    ...foodEntry,
-    id: foodId,
-  };
+  return response;
+};
 
-  await retryWithBackoff(() => update(ref(database), { [foodPath]: firebaseEntry }));
-
-  return data;
+const uploadImage = async (file, userId) => {
+  const storageRef = ref(storage, `food_images/${userId}/${Date.now()}_${file.name}`);
+  const snapshot = await uploadBytes(storageRef, file);
+  return getDownloadURL(snapshot.ref);
 };
 
 export const getUserFoodLogs = async (token) => {
@@ -1336,8 +1310,8 @@ export const copyFoodLog = async (id, newDate, token) => {
   return response;
 };
 
-// USDA API Key (replace with your actual key from data.gov)
-const USDA_API_KEY = "DEMO_KEY"; // Replace with your actual API key
+// USDA API Key
+const USDA_API_KEY = "DEMO_KEY";
 
 export const searchFoods = async (query) => {
   const proxyUrl = "https://api.nal.usda.gov/fdc/v1/foods/search";
@@ -1351,7 +1325,6 @@ export const searchFoods = async (query) => {
       },
     });
 
-    // Log the status and headers for debugging
     console.log("USDA API Response Status:", response.status, response.statusText);
     console.log("USDA API Response Headers:", response.headers.get("content-type"));
 
@@ -1480,4 +1453,22 @@ export const clusterEatingPatterns = async (token) => {
   }));
 
   return userClusters;
+};
+
+export const predictCaloricIntake = async (token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  try {
+    const response = await authFetch("/food-logs/predict-calories", {}, token);
+    const predictions = response;
+
+    const predictionsPath = `calorie_predictions/${user.uid}`;
+    await retryWithBackoff(() => update(ref(database), { [predictionsPath]: predictions }));
+
+    return predictions;
+  } catch (error) {
+    console.error("Error predicting caloric intake:", error);
+    throw new Error(error.message || "Failed to predict caloric intake");
+  }
 };

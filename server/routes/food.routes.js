@@ -11,6 +11,7 @@ router.get("/get-food-logs", authMiddleware, FoodDiaryController.getUserFoodLogs
 router.put("/update/:id", authMiddleware, upload.single("image"), FoodDiaryController.updateFoodLog);
 router.delete("/delete/:id", authMiddleware, FoodDiaryController.deleteFoodLog);
 router.get("/food-stats", authMiddleware, FoodDiaryController.getFoodStats);
+router.get("/predict-calories", authMiddleware, FoodDiaryController.predictCaloricIntake);
 router.post("/copy", authMiddleware, FoodDiaryController.copyFoodLog);
 
 export default router;

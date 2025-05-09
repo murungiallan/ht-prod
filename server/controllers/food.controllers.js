@@ -3,19 +3,24 @@ import { db as firebaseDb } from "../server.js";
 import db from "../config/db.js";
 import fs from "fs";
 import path from "path";
-
 import { fileURLToPath } from 'url';
+import { spawn } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Directory to store uploaded images
-const uploadDir = path.join(__dirname, '../../uploads');
+// Directory to store uploaded images and temporary files
+const uploadDir = path.join(__dirname, '../../Uploads');
+const tempDir = path.join(__dirname, '../../Temp');
 
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
-// Base URL for accessing uploaded images (adjust based on your server setup)
+if (!fs.existsSync(tempDir)) {
+  fs.mkdirSync(tempDir, { recursive: true });
+}
+
+// Base URL for accessing uploaded images
 const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
 
 class FoodDiaryController {
@@ -39,8 +44,8 @@ class FoodDiaryController {
       if (file) {
         const fileName = `${firebaseUid}_${Date.now()}_${file.originalname}`;
         const filePath = path.join(uploadDir, fileName);
-        fs.writeFileSync(filePath, file.buffer); // Save the file locally
-        image_url = `${BASE_URL}/uploads/${fileName}`; // Generate URL for the file
+        fs.writeFileSync(filePath, file.buffer);
+        image_url = `${BASE_URL}/Uploads/${fileName}`;
       }
 
       const foodData = {
@@ -57,11 +62,10 @@ class FoodDiaryController {
 
       const foodLog = await FoodDiary.add(foodData);
 
-      // Sync with Firebase, including createdAt timestamp
       await firebaseDb.ref(`food_logs/${firebaseUid}/${foodLog.id}`).set({
         ...foodData,
         id: foodLog.id,
-        createdAt: new Date().toISOString(), // Add createdAt timestamp
+        createdAt: new Date().toISOString(),
       });
 
       req.io.emit("foodLogAdded", foodLog);
@@ -84,7 +88,6 @@ class FoodDiaryController {
 
       const foodLogs = await FoodDiary.getByUser(userId);
 
-      // Sync with Firebase, matching ExerciseController structure
       const updates = {};
       foodLogs.forEach((log) => {
         updates[`food_logs/${firebaseUid}/${log.id}`] = {
@@ -98,7 +101,7 @@ class FoodDiaryController {
           image_url: log.image_url,
           date_logged: log.date_logged.toISOString(),
           meal_type: log.meal_type,
-          createdAt: log.createdAt ? log.createdAt.toISOString() : new Date().toISOString(), // Ensure createdAt exists
+          createdAt: log.createdAt ? log.createdAt.toISOString() : new Date().toISOString(),
         };
       });
       await firebaseDb.ref().update(updates);
@@ -133,8 +136,8 @@ class FoodDiaryController {
       if (file) {
         const fileName = `${firebaseUid}_${Date.now()}_${file.originalname}`;
         const filePath = path.join(uploadDir, fileName);
-        fs.writeFileSync(filePath, file.buffer); // Save the file locally
-        image_url = `${BASE_URL}/uploads/${fileName}`; // Generate URL for the file
+        fs.writeFileSync(filePath, file.buffer);
+        image_url = `${BASE_URL}/Uploads/${fileName}`;
       }
 
       const updatedData = {
@@ -150,12 +153,11 @@ class FoodDiaryController {
 
       const updatedFoodLog = await FoodDiary.update(id, updatedData);
 
-      // Sync with Firebase, preserving createdAt
       await firebaseDb.ref(`food_logs/${firebaseUid}/${id}`).set({
         ...updatedData,
         id: parseInt(id),
         userId,
-        createdAt: foodLog.createdAt ? foodLog.createdAt.toISOString() : new Date().toISOString(), // Preserve or set createdAt
+        createdAt: foodLog.createdAt ? foodLog.createdAt.toISOString() : new Date().toISOString(),
       });
 
       req.io.emit("foodLogUpdated", updatedFoodLog);
@@ -183,12 +185,11 @@ class FoodDiaryController {
         return res.status(404).json({ error: "Food log not found or unauthorized" });
       }
 
-      // Delete the image file if it exists
       if (foodLog.image_url) {
         const fileName = path.basename(foodLog.image_url);
         const filePath = path.join(uploadDir, fileName);
         if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath); // Remove the image file
+          fs.unlinkSync(filePath);
         }
       }
 
@@ -249,12 +250,11 @@ class FoodDiaryController {
         date_logged: new Date(newDate),
       };
 
-      // Sync with Firebase, including createdAt
       await firebaseDb.ref(`food_logs/${firebaseUid}/${newId}`).set({
         ...newLog,
         userId,
         date_logged: newLog.date_logged.toISOString(),
-        createdAt: new Date().toISOString(), // Add createdAt for new log
+        createdAt: new Date().toISOString(),
       });
 
       req.io.emit("foodLogAdded", newLog);
@@ -263,6 +263,75 @@ class FoodDiaryController {
     } catch (error) {
       console.error("Error copying food log:", error);
       return res.status(500).json({ error: "Failed to copy food log" });
+    }
+  }
+
+  static async predictCaloricIntake(req, res) {
+    try {
+      const firebaseUid = req.user.uid;
+      const [userRows] = await db.query("SELECT id FROM users WHERE uid = ?", [firebaseUid]);
+      if (!userRows || userRows.length === 0) {
+        return res.status(404).json({ error: "User not found in the database" });
+      }
+      const userId = userRows[0].id;
+
+      // Fetch daily calorie totals
+      const [rows] = await db.query(`
+        SELECT DATE(date_logged) as logDate, SUM(calories) as totalCalories
+        FROM food_logs
+        WHERE user_id = ? AND date_logged >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+        GROUP BY DATE(date_logged)
+        ORDER BY logDate
+      `, [userId]);
+
+      let predictions = [];
+      if (rows.length < 7) {
+        console.warn(`Insufficient data for user ${firebaseUid}: only ${rows.length} days available`);
+        // Generate default predictions (2000 kcal/day for 7 days)
+        const lastDate = rows.length > 0 ? new Date(rows[rows.length - 1].logDate) : new Date();
+        predictions = Array.from({ length: 7 }, (_, i) => {
+          const date = new Date(lastDate);
+          date.setDate(lastDate.getDate() + i + 1);
+          return {
+            date: date.toISOString().split('T')[0],
+            value: 2000, // Default calorie estimate
+          };
+        });
+      } else {
+        // Proceed with ARIMA prediction
+        const csvPath = path.join(tempDir, `calories_${firebaseUid}.csv`);
+        const csvContent = ['date,calories\n', ...rows.map(row => `${row.logDate},${row.totalCalories}\n`)];
+        fs.writeFileSync(csvPath, csvContent.join(''));
+
+        const pythonScriptPath = path.join(__dirname, 'arima_predict.py');
+        const outputPath = path.join(tempDir, `predictions_${firebaseUid}.json`);
+        const pythonExecutable = path.join(__dirname, 'venv', 'Scripts', 'python.exe');
+        const result = spawnSync(pythonExecutable, [pythonScriptPath, csvPath, outputPath], { encoding: 'utf-8' });
+
+        if (result.error || result.status !== 0) {
+          console.error('Python script error:', result.stderr || result.error);
+          return res.status(500).json({ error: "Failed to run prediction model" });
+        }
+
+        try {
+          const outputContent = fs.readFileSync(outputPath, 'utf-8');
+          predictions = JSON.parse(outputContent);
+        } catch (err) {
+          console.error('Error reading predictions:', err);
+          return res.status(500).json({ error: "Failed to parse predictions" });
+        }
+
+        fs.unlinkSync(csvPath);
+        fs.unlinkSync(outputPath);
+      }
+
+      // Store in Firebase
+      await firebaseDb.ref(`calorie_predictions/${firebaseUid}`).set(predictions);
+
+      return res.status(200).json(predictions);
+    } catch (error) {
+      console.error("Error predicting caloric intake:", error);
+      return res.status(500).json({ error: "Failed to predict caloric intake" });
     }
   }
 }
