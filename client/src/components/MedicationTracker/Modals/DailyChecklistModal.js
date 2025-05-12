@@ -82,7 +82,7 @@ const DailyChecklistModal = ({
         <h2
           style={{
             fontSize: "1.25rem",
-            fontWeight: 500,
+            fontWeight: 700,
             color: "#333333",
             marginBottom: "8px",
           }}

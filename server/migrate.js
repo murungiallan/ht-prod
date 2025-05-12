@@ -32,14 +32,19 @@ const createTables = [
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )`,
   `
-  CREATE TABLE IF NOT EXISTS food_diary (
+  CREATE TABLE IF NOT EXISTS food_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
-    food_name VARCHAR(100) NOT NULL,
-    portion_size VARCHAR(50),
-    calories INT,
-    date_logged TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    notes TEXT,
+    food_name VARCHAR(255) NOT NULL,
+    calories DECIMAL(10, 2) NOT NULL,
+    carbs DECIMAL(10, 2),
+    protein DECIMAL(10, 2),
+    fats DECIMAL(10, 2),
+    image_url VARCHAR(255),
+    date_logged DATETIME NOT NULL,
+    meal_type ENUM('morning', 'afternoon', 'evening') NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )`,
   `

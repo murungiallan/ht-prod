@@ -28,7 +28,7 @@ const CalendarSection = ({ selectedDate, setSelectedDate, isFutureDate }) => {
             const isCurrentMonth = date.getMonth() === (selectedDate ? selectedDate.getMonth() : today.getMonth());
             const isWeekend = date.getDay() === 0 || date.getDay() === 6;
             const isSunday = date.getDay() === 0;
-            const isSpecialDate = date.getDate() === 6 || date.getDate() === 10;
+            // const isSpecialDate = date.getDate() === 6 || date.getDate() === 10;
           
             let classes = "transition-colors duration-200 text-sm flex items-center justify-center rounded-md";
             if (!isCurrentMonth) {
@@ -130,7 +130,7 @@ const CalendarSection = ({ selectedDate, setSelectedDate, isFutureDate }) => {
           border: none;
           background: transparent;
           padding: 0;
-          font-size: 0.875rem;
+          font-size: 0.75rem;
           border-radius: 0.375rem;
         }
 
@@ -141,6 +141,10 @@ const CalendarSection = ({ selectedDate, setSelectedDate, isFutureDate }) => {
           align-items: center;
           padding: 0.75rem;
           border-bottom: 1px solid #f3f4f6; /* border-gray-100 */
+        }
+
+        .react-calendar__navigation__label {
+          font-size: 0.75rem;
         }
 
         .react-calendar__navigation button {

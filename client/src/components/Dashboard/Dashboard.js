@@ -18,6 +18,7 @@ import 'chartjs-adapter-moment';
 import moment from 'moment';
 import { motion, AnimatePresence } from 'framer-motion';
 import annotationPlugin from 'chartjs-plugin-annotation';
+import WeeklyActivity from './WeeklyActivity';
 import { toast } from 'react-hot-toast';
 
 ChartJS.register(LineElement, PointElement, LinearScale, Title, Tooltip, Legend, TimeScale, Filler, CategoryScale, annotationPlugin);
@@ -122,241 +123,6 @@ const GoalsModal = ({ isOpen, onClose, onSave }) => {
   );
 };
 
-const WeeklyActivity = ({ weeklyData, chartOptions, calorieChartRef, durationChartRef, sessionsChartRef }) => {
-  const chartConfigs = {
-    calories: {
-      title: "Calories Burned (Last 7 Days)",
-      icon: (
-        <svg className="w-4 h-4 mr-2 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-          <path
-            fillRule="evenodd"
-            d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z"
-            clipRule="evenodd"
-          />
-        </svg>
-      ),
-      data: {
-        labels: weeklyData.labels || [],
-        datasets: [
-          {
-            label: "Calories Burned",
-            data: weeklyData.calories || [],
-            borderColor: "rgba(239, 68, 68, 1)",
-            backgroundColor: "rgba(239, 68, 68, 0.2)",
-            borderWidth: 1,
-            pointBackgroundColor: "rgba(239, 68, 68, 1)",
-            pointRadius: 2,
-            tension: 0.4,
-            fill: true,
-          },
-        ],
-      },
-      options: {
-        ...chartOptions,
-        plugins: {
-          ...chartOptions.plugins,
-          annotation: {
-            annotations: {
-              goalLine: {
-                type: "line",
-                yMin: 2000 / 7,
-                yMax: 2000 / 7,
-                borderColor: "rgba(255, 99, 132, 0.5)",
-                borderWidth: 2,
-                borderDash: [5, 5],
-                label: {
-                  content: "Goal: ~285 cal/day",
-                  enabled: true,
-                  position: "end",
-                  backgroundColor: "rgba(255, 99, 132, 0.8)",
-                  color: "white",
-                  font: {
-                    size: 10,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-    duration: {
-      title: "Duration in minutes (Last 7 Days)",
-      icon: (
-        <svg className="w-4 h-4 mr-2 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-          <path
-            fillRule="evenodd"
-            d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-            clipRule="evenodd"
-          />
-        </svg>
-      ),
-      data: {
-        labels: weeklyData.labels || [],
-        datasets: [
-          {
-            label: "Duration",
-            data: weeklyData.duration || [],
-            borderColor: "rgba(59, 130, 246, 1)",
-            backgroundColor: "rgba(59, 130, 246, 0.2)",
-            borderWidth: 1,
-            pointBackgroundColor: "rgba(59, 130, 246, 1)",
-            pointRadius: 2,
-            tension: 0.4,
-            fill: true,
-          },
-        ],
-      },
-      options: {
-        ...chartOptions,
-        plugins: {
-          ...chartOptions.plugins,
-          annotation: {
-            annotations: {
-              goalLine: {
-                type: "line",
-                yMin: 150 / 7,
-                yMax: 150 / 7,
-                borderColor: "rgba(59, 130, 246, 0.5)",
-                borderWidth: 2,
-                borderDash: [5, 5],
-                label: {
-                  content: "Goal: ~21 min/day",
-                  enabled: true,
-                  position: "end",
-                  backgroundColor: "rgba(59, 130, 246, 0.8)",
-                  color: "white",
-                  font: {
-                    size: 10,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-    sessions: {
-      title: "Total Sessions (Last 7 Days)",
-      icon: (
-        <svg className="w-4 h-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-          <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-          <path
-            fillRule="evenodd"
-            d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z"
-            clipRule="evenodd"
-          />
-        </svg>
-      ),
-      data: {
-        labels: weeklyData.labels || [],
-        datasets: [
-          {
-            label: "Sessions",
-            data: weeklyData.sessions || [],
-            borderColor: "rgba(16, 185, 129, 1)",
-            backgroundColor: "rgba(16, 185, 129, 0.2)",
-            borderWidth: 1,
-            pointBackgroundColor: "rgba(16, 185, 129, 1)",
-            pointRadius: 2,
-            tension: 0.4,
-            fill: true,
-          },
-        ],
-      },
-      options: {
-        ...chartOptions,
-        plugins: {
-          ...chartOptions.plugins,
-          annotation: {
-            annotations: {
-              goalLine: {
-                type: "line",
-                yMin: 5 / 7,
-                yMax: 5 / 7,
-                borderColor: "rgba(16, 185, 129, 0.5)",
-                borderWidth: 2,
-                borderDash: [5, 5],
-                label: {
-                  content: "Goal: ~0.7 sessions/day",
-                  enabled: true,
-                  position: "end",
-                  backgroundColor: "rgba(16, 185, 129, 0.8)",
-                  color: "white",
-                  font: {
-                    size: 10,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="space-y-4 w-full"
-    >
-      <div className="flex flex-wrap gap-4 sm:gap-6">
-        {/* Calories Burned Chart */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 w-full lg:w-[calc(50%-0.75rem)]">
-          <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center">
-            {chartConfigs.calories.icon}
-            {chartConfigs.calories.title}
-          </h3>
-          <div className="h-64 w-full">
-            {weeklyData.calories && weeklyData.calories.some(value => value > 0) ? (
-              <Line ref={calorieChartRef} data={chartConfigs.calories.data} options={chartConfigs.calories.options} />
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-gray-500">No calorie data available for this period</p>
-              </div>
-            )}
-          </div>
-        </div>
-        {/* Duration Chart */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 w-full lg:w-[calc(50%-0.75rem)]">
-          <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center">
-            {chartConfigs.duration.icon}
-            {chartConfigs.duration.title}
-          </h3>
-          <div className="h-64 w-full">
-            {weeklyData.duration && weeklyData.duration.some(value => value > 0) ? (
-              <Line ref={durationChartRef} data={chartConfigs.duration.data} options={chartConfigs.duration.options} />
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-gray-500">No duration data available for this period</p>
-              </div>
-            )}
-          </div>
-        </div>
-        {/* Sessions Chart */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 w-full">
-          <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center">
-            {chartConfigs.sessions.icon}
-            {chartConfigs.sessions.title}
-          </h3>
-          <div className="h-64 w-full">
-            {weeklyData.sessions && weeklyData.sessions.some(value => value > 0) ? (
-              <Line ref={sessionsChartRef} data={chartConfigs.sessions.data} options={chartConfigs.sessions.options} />
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-gray-500">No sessions data available for this period</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-};
-
-
 const Dashboard = () => {
   const { user, loading: authLoading, logout } = useContext(AuthContext);
   const { socket } = useSocket();
@@ -417,7 +183,7 @@ const Dashboard = () => {
 
         // Fetch medication history and exercises
         const [history, userExercises] = await Promise.all([
-          getTakenMedicationHistory(5),
+          getTakenMedicationHistory(),
           getUserExercises(token),
         ]);
         if (!isMounted) return;
@@ -443,10 +209,9 @@ const Dashboard = () => {
         if (!isMounted) return;
         setRecentActivities(combinedActivities);
 
-        // Fetch full history for adherence data
-        const fullHistory = await getTakenMedicationHistory();
-        if (!isMounted) return;
-        calculateAdherenceData(userMedications || [], fullHistory);
+        // Calculate adherence data
+        const updatedAdherenceData = calculateAdherenceData(userMedications || [], history);
+        setAdherenceData(updatedAdherenceData);
 
         // Fetch streak
         const userStreak = await calculateMedicationStreak();
@@ -493,7 +258,7 @@ const Dashboard = () => {
           )
         );
 
-        const history = await getTakenMedicationHistory(5);
+        const history = await getTakenMedicationHistory();
         const medicationActivities = history.map((entry) => ({
           type: 'medication',
           description: `Logged ${entry.medication_name} on ${moment(entry.date).format('MMM D, YYYY')} at ${moment(entry.takenAt).format('h:mm A')}`,
@@ -512,11 +277,11 @@ const Dashboard = () => {
           .slice(0, 5);
         setRecentActivities(combinedActivities);
 
-        const fullHistory = await getTakenMedicationHistory();
-        calculateAdherenceData(
+        const updatedAdherenceData = calculateAdherenceData(
           medications.map(med => med.id === updatedMedication.id ? updatedMedication : med),
-          fullHistory
+          history
         );
+        setAdherenceData(updatedAdherenceData);
 
         const userStreak = await calculateMedicationStreak();
         setStreak(userStreak || 0);
@@ -533,7 +298,7 @@ const Dashboard = () => {
         setExercises(updatedExercises);
         computeWeeklyData(updatedExercises);
 
-        const history = await getTakenMedicationHistory(5);
+        const history = await getTakenMedicationHistory();
         const medicationActivities = history.map((entry) => ({
           type: 'medication',
           description: `Logged ${entry.medication_name} on ${moment(entry.date).format('MMM D, YYYY')} at ${moment(entry.takenAt).format('h:mm A')}`,
@@ -569,7 +334,7 @@ const Dashboard = () => {
         setExercises(updatedExercises);
         computeWeeklyData(updatedExercises);
 
-        const history = await getTakenMedicationHistory(5);
+        const history = await getTakenMedicationHistory();
         const medicationActivities = history.map((entry) => ({
           type: 'medication',
           description: `Logged ${entry.medication_name} on ${moment(entry.date).format('MMM D, YYYY')} at ${moment(entry.takenAt).format('h:mm A')}`,
@@ -608,7 +373,7 @@ const Dashboard = () => {
         setExercises(updatedExercises);
         computeWeeklyData(updatedExercises);
 
-        const history = await getTakenMedicationHistory(5);
+        const history = await getTakenMedicationHistory();
         const medicationActivities = history.map((entry) => ({
           type: 'medication',
           description: `Logged ${entry.medication_name} on ${moment(entry.date).format('MMM D, YYYY')} at ${moment(entry.takenAt).format('h:mm A')}`,
@@ -696,33 +461,10 @@ const Dashboard = () => {
     }
   };
 
-  const calculateOverallAdherence = () => {
-    let totalDoses = 0;
-    let takenDoses = 0;
-
-    if (!medications || medications.length === 0) return 0;
-
-    medications.forEach((med) => {
-      if (!med.doses || typeof med.doses !== "object") return;
-
-      Object.values(med.doses).forEach((dosesForDate) => {
-        if (!Array.isArray(dosesForDate)) return;
-        dosesForDate.forEach((dose) => {
-          totalDoses++;
-          if (dose.taken) takenDoses++;
-        });
-      });
-    });
-
-    return totalDoses > 0 ? ((takenDoses / totalDoses) * 100).toFixed(2) : 0;
-  };
-
-  const adherencePercentage = calculateOverallAdherence();
-
   const calculateAdherenceData = (meds, history) => {
     const days = 7;
     const adherenceByDay = [];
-    const today = moment().local();
+    const today = moment().local().startOf('day'); // May 8, 2025
 
     for (let i = days - 1; i >= 0; i--) {
       const date = moment(today).subtract(i, 'days').startOf('day');
@@ -731,32 +473,53 @@ const Dashboard = () => {
 
       if (meds && meds.length > 0) {
         meds.forEach((med) => {
-          const startDate = moment(med.start_date);
-          const endDate = moment(med.end_date);
-          if (date.isBefore(startDate) || date.isAfter(endDate)) {
-            return;
-          }
-
-          if (med.times && Array.isArray(med.times)) {
-            totalDoses += med.times.length;
+          const dosesForDate = med.doses && med.doses[date.format('YYYY-MM-DD')];
+          if (dosesForDate && Array.isArray(dosesForDate)) {
+            totalDoses += dosesForDate.length; // Count all scheduled doses for the day
+            takenDoses += dosesForDate.filter(dose => dose.taken).length; // Count only taken doses
           }
         });
       }
 
-      takenDoses = history && history.length > 0 ? history.filter((entry) => {
+      // Supplement with history for taken doses
+      const historyTaken = history && history.length > 0 ? history.filter((entry) => {
         const entryDate = moment(entry.date).startOf('day');
         return entryDate.isSame(date, 'day');
       }).length : 0;
+      takenDoses = Math.max(takenDoses, historyTaken); // Use the higher count to avoid undercounting
 
-      const adherence = totalDoses > 0 ? (takenDoses / totalDoses) * 100 : 0;
+      const missedDoses = totalDoses - takenDoses;
+
       adherenceByDay.push({
         date: date.toDate(),
-        adherence: adherence.toFixed(2),
+        takenDoses,
+        missedDoses,
+        totalDoses
       });
     }
 
-    setAdherenceData(adherenceByDay);
+    return adherenceByDay;
   };
+
+  const calculateOverallAdherence = (adherenceData) => {
+    let totalDoses = 0;
+    let takenDoses = 0;
+
+    if (!adherenceData || adherenceData.length === 0) return { percentage: 0, fraction: "0/0" };
+
+    adherenceData.forEach((day) => {
+      totalDoses += day.totalDoses || 0;
+      takenDoses += day.takenDoses || 0;
+    });
+
+    const percentage = totalDoses > 0 ? ((takenDoses / totalDoses) * 100).toFixed(2) : 0;
+    const fraction = `${takenDoses}/${totalDoses}`;
+    return { percentage, fraction };
+  };
+
+  const overallAdherence = calculateOverallAdherence(adherenceData);
+  const adherencePercentage = overallAdherence.percentage;
+  const adherenceFraction = overallAdherence.fraction;
 
   const computeWeeklyData = (exercisesToCompute) => {
     if (!exercisesToCompute || exercisesToCompute.length === 0) {
@@ -826,6 +589,7 @@ const Dashboard = () => {
       labels: formattedDates.map(date => date.shortDay),
     });
   };
+
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -859,9 +623,18 @@ const Dashboard = () => {
     scales: {
       y: {
         beginAtZero: true,
-        ticks: {
+        title: {
+          display: true,
+          text: 'Value',
           font: {
             size: 14,
+            family: "'Inter', sans-serif",
+          },
+          color: "#6B7280",
+        },
+        ticks: {
+          font: {
+            size: 12,
             family: "'Inter', sans-serif",
           },
           color: "#6B7280",
@@ -871,9 +644,16 @@ const Dashboard = () => {
         },
       },
       x: {
+        type: 'time',
+        time: {
+          unit: 'day',
+          displayFormats: {
+            day: 'MMM D',
+          },
+        },
         ticks: {
           font: {
-            size: 14,
+            size: 12,
             family: "'Inter', sans-serif",
           },
           color: "#6B7280",
@@ -888,121 +668,61 @@ const Dashboard = () => {
   const chartData = {
     datasets: [
       {
-        label: 'Adherence (%)',
+        label: 'Taken Doses',
         data: adherenceData.map((entry) => ({
           x: entry.date,
-          y: entry.adherence,
+          y: entry.takenDoses,
         })),
-        borderColor: 'rgb(75, 192, 192)',
-        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+        borderColor: 'rgba(34, 197, 94, 1)', // Green for taken
+        backgroundColor: 'rgba(34, 197, 94, 0.2)',
         fill: true,
         tension: 0.4,
+        pointRadius: 4,
+      },
+      {
+        label: 'Missed Doses',
+        data: adherenceData.map((entry) => ({
+          x: entry.date,
+          y: entry.missedDoses,
+        })),
+        borderColor: 'rgba(239, 68, 68, 1)', // Red for missed
+        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 4,
       },
     ],
   };
 
   const medicationChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
+    ...chartOptions,
     scales: {
-      x: {
-        type: 'time',
-        time: {
-          unit: 'day',
-          displayFormats: {
-            day: 'MMM D',
-          },
-        },
+      y: {
+        ...chartOptions.scales.y,
         title: {
           display: true,
-          text: 'Date',
+          text: 'Number of Doses',
           font: {
             size: 14,
-            family: "'Inter', sans-serif",
-          },
-          color: "#6B7280",
-        },
-        ticks: {
-          font: {
-            size: 12,
             family: "'Inter', sans-serif",
           },
           color: "#6B7280",
         },
       },
-      y: {
-        beginAtZero: true,
-        max: 100,
-        title: {
-          display: true,
-          text: 'Adherence (%)',
-          font: {
-            size: 14,
-            family: "'Inter', sans-serif",
-          },
-          color: "#6B7280",
-        },
-        ticks: {
-          font: {
-            size: 12,
-            family: "'Inter', sans-serif",
-          },
-          color: "#6B7280",
-        },
-        grid: {
-          color: "rgba(209, 213, 219, 0.3)",
-        },
+      x: {
+        ...chartOptions.scales.x,
       },
     },
     plugins: {
-      legend: {
-        display: true,
-        position: "top",
-        labels: {
-          boxWidth: 12,
-          usePointStyle: true,
-          font: {
-            size: 10,
-            family: "'Inter', sans-serif",
-          },
-        },
-      },
+      ...chartOptions.plugins,
       tooltip: {
-        backgroundColor: "rgba(31, 41, 55, 0.9)",
-        padding: 12,
-        titleFont: {
-          size: 14,
-          weight: "bold",
-          family: "'Inter', sans-serif",
-        },
-        bodyFont: {
-          size: 14,
-          family: "'Inter', sans-serif",
-        },
-        cornerRadius: 8,
+        ...chartOptions.plugins.tooltip,
         callbacks: {
-          label: (context) => `${context.parsed.y}%`,
-        },
-      },
-      annotation: {
-        annotations: {
-          goalLine: {
-            type: 'line',
-            yMin: 80,
-            yMax: 80,
-            borderColor: 'rgba(75, 192, 192, 0.5)',
-            borderWidth: 2,
-            borderDash: [5, 5],
-            label: {
-              content: 'Goal: 80%',
-              enabled: true,
-              position: 'end',
-              backgroundColor: 'rgba(75, 192, 192, 0.8)',
-              color: 'white',
-              font: {
-                size: 10,
-              },
-            },
+          label: (context) => {
+            const label = context.dataset.label;
+            const value = context.raw.y;
+            const total = adherenceData.find(entry => moment(entry.date).isSame(context.raw.x, 'day'))?.totalDoses || 0;
+            return `${label}: ${value} (Total: ${total})`;
           },
         },
       },
@@ -1025,6 +745,24 @@ const Dashboard = () => {
 
   const foodChartOptions = {
     ...chartOptions,
+    scales: {
+      y: {
+        ...chartOptions.scales.y,
+        title: {
+          display: true,
+          text: 'Calories (kcal)',
+          font: {
+            size: 14,
+            family: "'Inter', sans-serif",
+          },
+          color: "#6B7280",
+        },
+      },
+      x: {
+        ...chartOptions.scales.x,
+        type: 'category', // Use category scale for days of week
+      },
+    },
     plugins: {
       ...chartOptions.plugins,
       annotation: {
@@ -1090,14 +828,16 @@ const Dashboard = () => {
     const headers = ['Date', dataField.charAt(0).toUpperCase() + dataField.slice(1)];
     const rows = labels.map((label, index) => {
       let value;
-      if (dataField === 'adherence') {
+      if (dataField === 'takenDoses' || dataField === 'missedDoses') {
+        value = data[index]?.[dataField] || 0;
+      } else if (dataField === 'adherence') {
         value = data[index]?.adherence || 0;
       } else if (dataField === 'data') {
         value = data[index] || 0;
       } else {
         value = data[dataField][index] || 0;
       }
-      return [label, value];
+      return [moment(label).format('MMM D'), value];
     });
 
     const csvContent = [
@@ -1236,10 +976,10 @@ const Dashboard = () => {
                               <button
                                 onClick={() => downloadChartDataAsCSV(
                                   adherenceData,
-                                  adherenceData.map(entry => moment(entry.date).format('MMM D')),
+                                  adherenceData.map(entry => entry.date),
                                   'medication-adherence-data',
                                   'label',
-                                  'adherence'
+                                  'takenDoses'
                                 )}
                                 className="text-sm text-blue-600 hover:text-blue-950"
                               >
@@ -1373,7 +1113,7 @@ const Dashboard = () => {
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-600">Medication Adherence</p>
                     <p className="text-lg font-semibold text-gray-900">
-                      {adherencePercentage}%
+                      {adherencePercentage}% ({adherenceFraction})
                     </p>
                   </div>
                 </div>
@@ -1484,7 +1224,7 @@ const Dashboard = () => {
                   Medication Adherence (Last 7 Days)
                 </h2>
                 <p className="text-sm text-gray-600">
-                  Current: {adherencePercentage}%
+                  Today: {adherenceData.length > 0 ? `${adherenceData[0].takenDoses}/${adherenceData[0].totalDoses}` : "0/0"}
                 </p>
               </div>
               <div className="h-64 w-full">

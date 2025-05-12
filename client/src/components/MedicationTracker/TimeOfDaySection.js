@@ -52,6 +52,7 @@ const TabIndicator = styled.div`
 const SectionWrapper = styled.section`
   background-color: white;
   border-radius: 12px;
+  min-height: 45vh;
   box-shadow: 0 4px 12px ${({ theme }) => theme.colors.shadow};
   border: 1px solid ${({ theme }) => theme.colors.border};
   padding: ${({ theme }) => theme.spacing.large};

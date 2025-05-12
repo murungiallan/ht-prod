@@ -1,4 +1,4 @@
-import Exercise from "../models/exercise.js";
+import Exercise from "../models/exercise.models.js";
 import { db as firebaseDb } from "../server.js";
 import db from "../config/db.js";
 
