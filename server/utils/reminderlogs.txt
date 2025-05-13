@@ -7277,3 +7277,7 @@
 [2025-05-09 12:24:00] [INFO] Running reminder check at: 2025-05-09 12:24:00
 [2025-05-09 12:24:00] [INFO] Found 11 pending reminders
 [2025-05-09 12:24:00] [INFO] Reminder processing cycle completed
+[2025-05-12 22:37:14] [INFO] Email configuration detected: Using healthtrack.noreply@gmail.com
+[2025-05-12 22:37:15] [INFO] Reminder scheduler initialized successfully
+[2025-05-12 22:37:25] [INFO] Email configuration detected: Using healthtrack.noreply@gmail.com
+[2025-05-12 22:37:25] [INFO] Reminder scheduler initialized successfully
