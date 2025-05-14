@@ -14555,3 +14555,41 @@
 [2025-05-14 10:25:00] [INFO] Running reminder check at: 2025-05-14 10:25:00
 [2025-05-14 10:25:00] [INFO] Found 11 pending reminders
 [2025-05-14 10:25:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:26:00] [INFO] Running reminder check at: 2025-05-14 10:26:00
+[2025-05-14 10:26:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:26:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:27:00] [INFO] Running reminder check at: 2025-05-14 10:27:00
+[2025-05-14 10:27:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:27:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:28:00] [INFO] Running reminder check at: 2025-05-14 10:28:00
+[2025-05-14 10:28:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:28:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:29:00] [INFO] Running reminder check at: 2025-05-14 10:29:00
+[2025-05-14 10:29:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:29:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:30:00] [INFO] Running reminder check at: 2025-05-14 10:30:00
+[2025-05-14 10:30:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:30:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:31:00] [INFO] Running reminder check at: 2025-05-14 10:31:00
+[2025-05-14 10:31:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:31:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:32:00] [INFO] Running reminder check at: 2025-05-14 10:32:00
+[2025-05-14 10:32:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:32:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:33:00] [INFO] Running reminder check at: 2025-05-14 10:33:00
+[2025-05-14 10:33:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:33:00] [INFO] Reminder scheduled for processing: ID 35, Medication 21, Type daily
+[2025-05-14 10:33:00] [INFO] Processing reminder 1/1: ID 35
+[2025-05-14 10:33:00] [INFO] Starting to send reminder notification for user 1, medication 21
+[2025-05-14 10:33:00] [ERROR] No reminder found for user 1, medication 21, dose 0
+[2025-05-14 10:33:00] [ERROR] Failed to process reminder ID 35
+[2025-05-14 10:33:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:34:00] [INFO] Running reminder check at: 2025-05-14 10:34:00
+[2025-05-14 10:34:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:34:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:35:00] [INFO] Running reminder check at: 2025-05-14 10:35:00
+[2025-05-14 10:35:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:35:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:36:00] [INFO] Running reminder check at: 2025-05-14 10:36:00
+[2025-05-14 10:36:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:36:00] [INFO] Reminder processing cycle completed
