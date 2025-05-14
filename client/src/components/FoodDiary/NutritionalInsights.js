@@ -27,15 +27,15 @@ const NutritionalInsights = ({ foodLogs, selectedDate, eatingPattern }) => {
       transition={{ delay: 0.4 }}
       className="bg-white p-6 rounded-xl shadow-md"
     >
-      <h2 className="text-lg font-semibold mb-4 text-gray-700">Nutritional Insights</h2>
+      <h2 className="text-lg font-semibold mb-6 text-gray-700">Nutritional Insights</h2>
       <p className="mb-4 text-sm text-gray-600">
         Pattern: <span className="font-medium text-blue-600">{eatingPattern}</span>
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {["calories", "carbs", "protein", "fats"].map(nutrient => (
-          <div key={nutrient} className="p-3 bg-gray-50 rounded-lg text-center">
+          <div key={nutrient} className="p-6 bg-gray-50 rounded-lg text-center">
             <p className="text-xs text-gray-500 capitalize">{nutrient}</p>
-            <p className="text-sm font-medium">
+            <p className="text-sm font-semibold text-gray-950">
               {typeof calculateDailyTotals[nutrient] === "number" && !isNaN(calculateDailyTotals[nutrient])
                 ? `${calculateDailyTotals[nutrient].toFixed(1)} ${nutrient === "calories" ? "kcal" : "g"}`
                 : "N/A"}

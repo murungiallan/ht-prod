@@ -1139,37 +1139,51 @@ export const getExerciseStats = async (token) => {
 };
 
 // Food Diary API
-export const createFoodLog = async (foodLogData, token) => {
+export const createFoodLog = async (foodData, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  let imageUrl = null;
-  if (foodLogData.image) {
-    imageUrl = await uploadImage(foodLogData.image, user.uid);
+  let image_url = null;
+  if (foodData.get('image')) { // Check FormData for image
+    const imageFile = foodData.get('image');
+    const storageReference = storageRef(storage, `food_images/${user.uid}/${Date.now()}_${imageFile.name}`);
+    const snapshot = await uploadBytes(storageReference, imageFile);
+    image_url = await getDownloadURL(snapshot.ref);
   }
 
-  const response = await authFetch(
-    "/food-logs/add",
-    {
+  const foodEntry = {
+    userId: user.uid,
+    food_name: foodData.get('food_name'),
+    calories: parseFloat(foodData.get('calories')) || 0,
+    carbs: parseFloat(foodData.get('carbs')) || 0,
+    protein: parseFloat(foodData.get('protein')) || 0,
+    fats: parseFloat(foodData.get('fats')) || 0,
+    image_url,
+    date_logged: foodData.get('date_logged'),
+    meal_type: foodData.get('meal_type'),
+  };
+
+  try {
+    const response = await authFetch("/food-logs/add", {
       method: "POST",
-      body: JSON.stringify({ ...foodLogData, image: imageUrl }),
-    },
-    token
-  );
+      body: JSON.stringify(foodEntry), // Send as JSON
+    }, token);
 
-  const foodLogPath = `food_logs/${user.uid}/${response.id}`;
-  await retryWithBackoff(() =>
-    update(ref(database), { [foodLogPath]: response })
-  );
+    const foodId = response.id.toString();
+    const foodPath = `food_logs/${user.uid}/${foodId}`;
+    const firebaseEntry = {
+      ...foodEntry,
+      id: foodId,
+    };
 
-  return response;
+    await retryWithBackoff(() => update(ref(database), { [foodPath]: firebaseEntry }));
+    return response;
+  } catch (error) {
+    console.error("Error creating food log:", error);
+    throw new Error(error.message || "Failed to create food log");
+  }
 };
 
-const uploadImage = async (file, userId) => {
-  const storageRef = ref(storage, `food_images/${userId}/${Date.now()}_${file.name}`);
-  const snapshot = await uploadBytes(storageRef, file);
-  return getDownloadURL(snapshot.ref);
-};
 
 export const getUserFoodLogs = async (token) => {
   const user = auth.currentUser;
@@ -1249,21 +1263,36 @@ export const updateFoodLog = async (id, foodData, imageFile, token) => {
     formData.append("image", imageFile);
   }
 
-  const response = await fetch(`https://127.0.0.1:5000/api/food-logs/update/${id}`, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
-  });
+  try {
+    const response = await fetch(`https://127.0.0.1:5000/api/food-logs/update/${id}`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
 
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to update food log");
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to update food log");
+    }
+
+    //Check if data has changed before updating Firebase
+    const foodPath = `food_logs/${user.uid}/${id}`;
+    const snapshot = await get(ref(database, foodPath));
+    if (snapshot.exists()) {
+      const existingData = snapshot.val();
+      const hasChanges = JSON.stringify(existingData) !== JSON.stringify({ ...existingData, ...updatedData });  // Compare objects
+      if (hasChanges) {
+        updateFoodLogDebounced(user.uid, id, updatedData);
+      }
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error updating food log:", error);
+    throw error;
   }
-
-  updateFoodLogDebounced(user.uid, id, updatedData);
-  return data;
 };
 
 export const deleteFoodLog = async (id, token) => {
@@ -1312,8 +1341,14 @@ export const copyFoodLog = async (id, newDate, token) => {
 
 // USDA API Key
 const USDA_API_KEY = "DEMO_KEY";
+const searchCache = new Map();
 
 export const searchFoods = async (query) => {
+  const cacheKey = query.toLowerCase();
+  if (searchCache.has(cacheKey)) {
+    return searchCache.get(cacheKey);
+  }
+
   const proxyUrl = "https://api.nal.usda.gov/fdc/v1/foods/search";
   const url = `${proxyUrl}?api_key=${USDA_API_KEY}&query=${encodeURIComponent(query)}&pageSize=10`;
 
@@ -1325,30 +1360,31 @@ export const searchFoods = async (query) => {
       },
     });
 
-    console.log("USDA API Response Status:", response.status, response.statusText);
-    console.log("USDA API Response Headers:", response.headers.get("content-type"));
-
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("USDA API Error Response:", errorText);
       throw new Error(`USDA API error: ${response.status} ${response.statusText}`);
     }
 
     const contentType = response.headers.get("content-type");
     if (!contentType || !contentType.includes("application/json")) {
       const errorText = await response.text();
-      console.error("USDA API Non-JSON Response:", errorText);
       throw new Error("Response is not JSON");
     }
 
     const data = await response.json();
-    return data.foods.map(food => ({
+    const results = data.foods.map(food => ({
       food_name: food.description,
       calories: food.foodNutrients.find(n => n.nutrientName === "Energy")?.value || 0,
       carbs: food.foodNutrients.find(n => n.nutrientName === "Carbohydrate, by difference")?.value || 0,
       protein: food.foodNutrients.find(n => n.nutrientName === "Protein")?.value || 0,
       fats: food.foodNutrients.find(n => n.nutrientName === "Total lipid (fat)")?.value || 0,
     }));
+
+    if (searchCache.size > 500) {
+      searchCache.clear();
+    }
+    searchCache.set(cacheKey, results);
+    return results;
   } catch (error) {
     console.error("Error in searchFoods:", error.message);
     throw error;

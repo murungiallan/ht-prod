@@ -14,12 +14,12 @@ def predict_calories(csv_path, output_path):
         df.set_index('date', inplace=True)
         df = df['calories'].resample('D').sum().fillna(method='ffill')
 
-        # Pad data if fewer than 7 days
-        if len(df) < 7:
+        # Pad data if fewer than 3 days
+        if len(df) < 3:
             # Extend with mean calories
-            mean_calories = df.mean() if not df.empty else 2000
+            mean_calories = df.mean() if not df.empty else 1200
             last_date = df.index[-1] if not df.empty else pd.Timestamp.now().floor('D')
-            additional_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=7-len(df), freq='D')
+            additional_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=3-len(df), freq='D')
             additional_data = pd.Series([mean_calories] * (7-len(df)), index=additional_dates)
             df = pd.concat([df, additional_data])
 

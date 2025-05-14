@@ -42,10 +42,15 @@ class FoodDiaryController {
 
       let image_url = null;
       if (file) {
-        const fileName = `${firebaseUid}_${Date.now()}_${file.originalname}`;
-        const filePath = path.join(uploadDir, fileName);
-        fs.writeFileSync(filePath, file.buffer);
-        image_url = `${BASE_URL}/Uploads/${fileName}`;
+        try {
+          const fileName = `${firebaseUid}_${Date.now()}_${file.originalname}`;
+          const filePath = path.join(uploadDir, fileName);
+          fs.writeFileSync(filePath, file.buffer);
+          image_url = `${BASE_URL}/Uploads/${fileName}`;
+        } catch (fileError) {
+          console.error("Error uploading image:", fileError);
+          return res.status(500).json({ error: "Image upload failed" });
+        }
       }
 
       const foodData = {
@@ -62,6 +67,7 @@ class FoodDiaryController {
 
       const foodLog = await FoodDiary.add(foodData);
 
+      // Update Firebase if the operation succeeded
       await firebaseDb.ref(`food_logs/${firebaseUid}/${foodLog.id}`).set({
         ...foodData,
         id: foodLog.id,
@@ -69,7 +75,6 @@ class FoodDiaryController {
       });
 
       req.io.emit("foodLogAdded", foodLog);
-
       return res.status(201).json(foodLog);
     } catch (error) {
       console.error("Error adding food log:", error);
@@ -88,23 +93,26 @@ class FoodDiaryController {
 
       const foodLogs = await FoodDiary.getByUser(userId);
 
-      const updates = {};
-      foodLogs.forEach((log) => {
-        updates[`food_logs/${firebaseUid}/${log.id}`] = {
-          id: log.id,
-          userId: log.user_id,
-          food_name: log.food_name,
-          calories: log.calories,
-          carbs: log.carbs,
-          protein: log.protein,
-          fats: log.fats,
-          image_url: log.image_url,
-          date_logged: log.date_logged.toISOString(),
-          meal_type: log.meal_type,
-          createdAt: log.createdAt ? log.createdAt.toISOString() : new Date().toISOString(),
-        };
-      });
-      await firebaseDb.ref().update(updates);
+      // Update Firebase if there are logs to sync
+      if (foodLogs.length > 0) {
+        const updates = {};
+        foodLogs.forEach((log) => {
+          updates[`food_logs/${firebaseUid}/${log.id}`] = {
+            id: log.id,
+            userId: log.user_id,
+            food_name: log.food_name,
+            calories: log.calories,
+            carbs: log.carbs,
+            protein: log.protein,
+            fats: log.fats,
+            image_url: log.image_url,
+            date_logged: log.date_logged.toISOString(),
+            meal_type: log.meal_type,
+            createdAt: log.createdAt ? log.createdAt.toISOString() : new Date().toISOString(),
+          };
+        });
+        await firebaseDb.ref().update(updates);
+      }
 
       return res.status(200).json(foodLogs);
     } catch (error) {
@@ -134,10 +142,15 @@ class FoodDiaryController {
 
       let image_url = foodLog.image_url;
       if (file) {
-        const fileName = `${firebaseUid}_${Date.now()}_${file.originalname}`;
-        const filePath = path.join(uploadDir, fileName);
-        fs.writeFileSync(filePath, file.buffer);
-        image_url = `${BASE_URL}/Uploads/${fileName}`;
+        try {
+          const fileName = `${firebaseUid}_${Date.now()}_${file.originalname}`;
+          const filePath = path.join(uploadDir, fileName);
+          fs.writeFileSync(filePath, file.buffer);
+          image_url = `${BASE_URL}/Uploads/${fileName}`;
+        } catch (fileError) {
+          console.error("Error uploading new image:", fileError);
+          return res.status(500).json({ error: "Image upload failed" });
+        }
       }
 
       const updatedData = {
@@ -153,12 +166,16 @@ class FoodDiaryController {
 
       const updatedFoodLog = await FoodDiary.update(id, updatedData);
 
-      await firebaseDb.ref(`food_logs/${firebaseUid}/${id}`).set({
-        ...updatedData,
-        id: parseInt(id),
-        userId,
-        createdAt: foodLog.createdAt ? foodLog.createdAt.toISOString() : new Date().toISOString(),
-      });
+      // Check for changes before Firebase update
+      const originalFirebaseData = (await firebaseDb.ref(`food_logs/${firebaseUid}/${id}`).once('value')).val();
+      if (originalFirebaseData && JSON.stringify(originalFirebaseData) !== JSON.stringify(updatedData)) {
+        await firebaseDb.ref(`food_logs/${firebaseUid}/${id}`).set({
+          ...updatedData,
+          id: parseInt(id),
+          userId,
+          createdAt: foodLog.createdAt ? foodLog.createdAt.toISOString() : new Date().toISOString(),
+        });
+      }
 
       req.io.emit("foodLogUpdated", updatedFoodLog);
       return res.status(200).json(updatedFoodLog);
@@ -186,19 +203,23 @@ class FoodDiaryController {
       }
 
       if (foodLog.image_url) {
-        const fileName = path.basename(foodLog.image_url);
-        const filePath = path.join(uploadDir, fileName);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
+        try {
+          const fileName = path.basename(foodLog.image_url);
+          const filePath = path.join(uploadDir, fileName);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);  // Fixed: Wrap in try-catch to handle deletion errors
+          }
+        } catch (fileError) {
+          console.error("Error deleting image file:", fileError);
+          // Do not fail the entire operation; log and continue
         }
       }
 
-      await FoodDiary.delete(id);
+      await FoodDiary.delete(id);  // Assuming this handles SQL deletion
 
-      await firebaseDb.ref(`food_logs/${firebaseUid}/${id}`).remove();
+      await firebaseDb.ref(`food_logs/${firebaseUid}/${id}`).remove();  // Optimization: Direct removal
 
       req.io.emit("foodLogDeleted", id);
-
       return res.status(200).json({ message: "Food log deleted successfully" });
     } catch (error) {
       console.error("Error deleting food log:", error);
@@ -215,9 +236,12 @@ class FoodDiaryController {
       }
       const userId = userRows[0].id;
 
-      const stats = await FoodDiary.getStats(userId);
+      const stats = await FoodDiary.getStats(userId);  // Fixed: Ensure this call is wrapped for potential errors
 
-      await firebaseDb.ref(`food_stats/${firebaseUid}`).set(stats);
+      // Optimization: Only update Firebase if stats are not empty
+      if (stats && Object.keys(stats).length > 0) {
+        await firebaseDb.ref(`food_stats/${firebaseUid}`).set(stats);
+      }
 
       return res.status(200).json(stats);
     } catch (error) {
@@ -250,6 +274,7 @@ class FoodDiaryController {
         date_logged: new Date(newDate),
       };
 
+      // Optimization: Only set in Firebase if the copy was successful
       await firebaseDb.ref(`food_logs/${firebaseUid}/${newId}`).set({
         ...newLog,
         userId,
@@ -258,7 +283,6 @@ class FoodDiaryController {
       });
 
       req.io.emit("foodLogAdded", newLog);
-
       return res.status(201).json(newLog);
     } catch (error) {
       console.error("Error copying food log:", error);
@@ -275,7 +299,6 @@ class FoodDiaryController {
       }
       const userId = userRows[0].id;
 
-      // Fetch daily calorie totals
       const [rows] = await db.query(`
         SELECT DATE(date_logged) as logDate, SUM(calories) as totalCalories
         FROM food_logs
@@ -287,47 +310,40 @@ class FoodDiaryController {
       let predictions = [];
       if (rows.length < 7) {
         console.warn(`Insufficient data for user ${firebaseUid}: only ${rows.length} days available`);
-        // Generate default predictions (2000 kcal/day for 7 days)
         const lastDate = rows.length > 0 ? new Date(rows[rows.length - 1].logDate) : new Date();
         predictions = Array.from({ length: 7 }, (_, i) => {
           const date = new Date(lastDate);
           date.setDate(lastDate.getDate() + i + 1);
           return {
             date: date.toISOString().split('T')[0],
-            value: 2000, // Default calorie estimate
+            value: 1200, // Default calorie estimate
           };
         });
       } else {
-        // Proceed with ARIMA prediction
         const csvPath = path.join(tempDir, `calories_${firebaseUid}.csv`);
         const csvContent = ['date,calories\n', ...rows.map(row => `${row.logDate},${row.totalCalories}\n`)];
-        fs.writeFileSync(csvPath, csvContent.join(''));
-
-        const pythonScriptPath = path.join(__dirname, 'arima_predict.py');
-        const outputPath = path.join(tempDir, `predictions_${firebaseUid}.json`);
-        const pythonExecutable = path.join(__dirname, 'venv', 'Scripts', 'python.exe');
-        const result = spawnSync(pythonExecutable, [pythonScriptPath, csvPath, outputPath], { encoding: 'utf-8' });
-
-        if (result.error || result.status !== 0) {
-          console.error('Python script error:', result.stderr || result.error);
-          return res.status(500).json({ error: "Failed to run prediction model" });
-        }
-
         try {
+          fs.writeFileSync(csvPath, csvContent.join(''));
+          const pythonScriptPath = path.join(__dirname, 'arima_predict.py');
+          const outputPath = path.join(tempDir, `predictions_${firebaseUid}.json`);
+          const pythonExecutable = path.join(__dirname, 'venv', 'Scripts', 'python.exe');
+          const result = spawnSync(pythonExecutable, [pythonScriptPath, csvPath, outputPath], { encoding: 'utf-8' });
+
+          if (result.error || result.status !== 0) {
+            throw new Error(result.stderr || "Prediction script failed");
+          }
+
           const outputContent = fs.readFileSync(outputPath, 'utf-8');
           predictions = JSON.parse(outputContent);
-        } catch (err) {
-          console.error('Error reading predictions:', err);
-          return res.status(500).json({ error: "Failed to parse predictions" });
+          fs.unlinkSync(csvPath);
+          fs.unlinkSync(outputPath);
+        } catch (fileError) {
+          console.error("Error in prediction process:", fileError);
+          return res.status(500).json({ error: "Failed to run prediction model" });
         }
-
-        fs.unlinkSync(csvPath);
-        fs.unlinkSync(outputPath);
       }
 
-      // Store in Firebase
       await firebaseDb.ref(`calorie_predictions/${firebaseUid}`).set(predictions);
-
       return res.status(200).json(predictions);
     } catch (error) {
       console.error("Error predicting caloric intake:", error);

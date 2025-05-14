@@ -3,23 +3,12 @@ import { motion } from 'framer-motion';
 import moment from 'moment';
 import { toast } from 'react-hot-toast';
 import { copyFoodLog, deleteFoodLog } from '../../services/api';
+import { WiDaySunnyOvercast, WiDaySunny, WiDayWindy } from "react-icons/wi";
 
-// DailyFoodLogs component displays a table of food logs grouped by meal type for a selected date
 const DailyFoodLogs = ({ foodLogs, selectedDate, setFoodLogs, getUserToken, handleSessionExpired }) => {
   const [loading, setLoading] = useState(false);
 
-  // Initialization: Define table column widths
-  const columnWidths = {
-    food: 'w-40',
-    cal: 'w-20',
-    carbs: 'w-20',
-    protein: 'w-20',
-    fats: 'w-20',
-    img: 'w-20',
-    actions: 'w-32',
-  };
-
-  // Data Fetching: Handle deleting a food log
+  // Handle deleting a food log
   const handleDeleteFoodLog = useCallback(async (id) => {
     if (!id) {
       toast.error('Invalid food log ID');
@@ -40,7 +29,7 @@ const DailyFoodLogs = ({ foodLogs, selectedDate, setFoodLogs, getUserToken, hand
     }
   }, [getUserToken, handleSessionExpired, setFoodLogs]);
 
-  // Data Fetching: Handle copying a food log to the current date
+  // Handle copying a food log to the current date
   const handleCopyFoodLog = useCallback(async (log) => {
     if (!log || !log.id) {
       toast.error('Invalid food log data');
@@ -65,13 +54,13 @@ const DailyFoodLogs = ({ foodLogs, selectedDate, setFoodLogs, getUserToken, hand
     }
   }, [getUserToken, selectedDate, handleSessionExpired, setFoodLogs]);
 
-  // Utilities: Filter logs for the selected date
+  // Filter logs for the selected date
   const dailyLogs = useMemo(() => {
     if (!foodLogs) return [];
     return foodLogs.filter(log => moment(log.date_logged).isSame(selectedDate, 'day'));
   }, [foodLogs, selectedDate]);
 
-  // Utilities: Group logs by meal type
+  // Group logs by meal type
   const groupedLogs = useMemo(() => {
     try {
       return {
@@ -86,91 +75,194 @@ const DailyFoodLogs = ({ foodLogs, selectedDate, setFoodLogs, getUserToken, hand
     }
   }, [dailyLogs]);
 
+  // Calculate totals for each meal type
+  const mealTotals = useMemo(() => {
+    const calculateTotals = (logs) => {
+      return logs.reduce((acc, log) => {
+        return {
+          calories: acc.calories + (Number(log.calories) || 0),
+          carbs: acc.carbs + (Number(log.carbs) || 0),
+          protein: acc.protein + (Number(log.protein) || 0),
+          fats: acc.fats + (Number(log.fats) || 0),
+        };
+      }, { calories: 0, carbs: 0, protein: 0, fats: 0 });
+    };
+
+    return {
+      morning: calculateTotals(groupedLogs.morning),
+      afternoon: calculateTotals(groupedLogs.afternoon),
+      evening: calculateTotals(groupedLogs.evening),
+      daily: calculateTotals(dailyLogs),
+    };
+  }, [groupedLogs, dailyLogs]);
+
+  // Icons for each meal type
+  const mealIcons = {
+    morning: <WiDaySunnyOvercast style={{ fontSize: "1.2em", color: "#ffca28", marginRight: '4px' }} />,
+    afternoon: <WiDaySunny style={{ fontSize: "1.2em", color: "#ffca28", marginRight: '4px' }} />,
+    evening: <WiDayWindy style={{ fontSize: "1.2em", color: "#ffca28", marginRight: '4px' }} />
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.6, duration: 0.5 }}
-      className="bg-white p-6 rounded-xl shadow-md"
+      className="bg-white rounded-xl shadow-sm my-4 overflow-hidden"
     >
-      <h2 className="text-lg font-semibold mb-4 text-gray-700">
-        Daily Food Logs ({moment(selectedDate).format('MMM D, YYYY')})
-      </h2>
-      {Object.entries(groupedLogs).map(([type, logs]) => (
-        <div key={type} className="mb-6">
-          <h3 className="text-base font-medium capitalize mb-2 text-gray-700">{type}</h3>
-          {logs.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className={`p-3 text-left font-medium text-gray-600 ${columnWidths.food}`}>Food</th>
-                    <th className={`p-3 text-right font-medium text-gray-600 ${columnWidths.cal}`}>Cal</th>
-                    <th className={`p-3 text-right font-medium text-gray-600 ${columnWidths.carbs}`}>Carbs</th>
-                    <th className={`p-3 text-right font-medium text-gray-600 ${columnWidths.protein}`}>Prot</th>
-                    <th className={`p-3 text-right font-medium text-gray-600 ${columnWidths.fats}`}>Fats</th>
-                    <th className={`p-3 text-center font-medium text-gray-600 ${columnWidths.img}`}>Img</th>
-                    <th className={`p-3 text-center font-medium text-gray-600 ${columnWidths.actions}`}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {logs.map(log => (
-                    <tr key={log.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                      <td className={`p-3 ${columnWidths.food} truncate`} title={log.food_name || 'Unknown'}>
-                        {log.food_name || 'Unknown'}
-                      </td>
-                      <td className={`p-3 text-right ${columnWidths.cal}`}>{log.calories || '—'}</td>
-                      <td className={`p-3 text-right ${columnWidths.carbs}`}>{log.carbs || '—'}</td>
-                      <td className={`p-3 text-right ${columnWidths.protein}`}>{log.protein || '—'}</td>
-                      <td className={`p-3 text-right ${columnWidths.fats}`}>{log.fats || '—'}</td>
-                      <td className={`p-3 text-center ${columnWidths.img}`}>
-                        {log.image_url ? (
-                          <img
-                            src={log.image_url}
-                            alt={log.food_name || 'Food'}
-                            className="w-10 h-10 object-cover rounded mx-auto"
-                            onError={e => {
-                              e.target.onerror = null;
-                              e.target.src = 'https://via.placeholder.com/40?text=No+Image';
-                            }}
-                          />
-                        ) : (
-                          'N/A'
-                        )}
-                      </td>
-                      <td className={`p-3 text-center ${columnWidths.actions}`}>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyFoodLog(log)}
-                          className="mr-2 px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 transition disabled:opacity-50"
-                          disabled={loading}
-                          title="Copy to current date"
-                        >
-                          Copy
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteFoodLog(log.id)}
-                          className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition disabled:opacity-50"
-                          disabled={loading}
-                        >
-                          Del
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      <div className="border-b border-gray-100 px-6 py-4 flex justify-between items-center">
+        <h2 className="text-lg font-semibold text-gray-800">
+          Food Journal
+        </h2>
+        <span className="text-sm text-gray-500 font-medium">
+          {moment(selectedDate).format('dddd, MMM D, YYYY')}
+        </span>
+      </div>
+      
+      {dailyLogs.length === 0 ? (
+        <div className="text-center py-12 px-6">
+          <div className="text-gray-400 mb-2">📝</div>
+          <p className="text-gray-500 font-medium">No meals logged for today</p>
+          <p className="text-gray-400 text-sm mt-1">Your daily food entries will appear here</p>
+        </div>
+      ) : (
+        <>
+          {Object.entries(groupedLogs).map(([type, logs]) => (
+            <div key={type} className="border-b border-gray-100 last:border-b-0">
+              {logs.length > 0 && (
+                <>
+                  <div className="px-6 py-3 flex items-center justify-between bg-gray-50">
+                    <div className="flex items-center gap-1.5">
+                      <span className="mr-2">{mealIcons[type]}</span>
+                      <h3 className="text-sm font-semibold capitalize text-gray-700">{type}</h3>
+                    </div>
+                    <div className="flex space-x-4 text-xs text-gray-500">
+                      <div className="flex flex-col items-end">
+                        <span className="text-xs text-gray-400">Calories</span>
+                        <span className="font-medium">{mealTotals[type].calories}</span>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className="text-xs text-gray-400">Carbs</span>
+                        <span className="font-medium">{mealTotals[type].carbs}g</span>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className="text-xs text-gray-400">Protein</span>
+                        <span className="font-medium">{mealTotals[type].protein}g</span>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className="text-xs text-gray-400">Fats</span>
+                        <span className="font-medium">{mealTotals[type].fats}g</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="divide-y divide-gray-50">
+                    {logs.map(log => (
+                      <div key={log.id} className="px-6 py-3 flex items-center hover:bg-gray-50 transition-colors">
+                        {/* Food image */}
+                        <div className="mr-4">
+                          {log.image_url ? (
+                            <img
+                              src={log.image_url}
+                              alt={log.food_name || 'Food'}
+                              className="w-10 h-10 object-cover rounded-full border border-gray-200"
+                              onError={e => {
+                                e.target.onerror = null;
+                                e.target.src = 'https://via.placeholder.com/40?text=•';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">
+                              •
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Food name */}
+                        <div className="flex-grow">
+                          <h4 className="font-medium text-gray-800 truncate" title={log.food_name || 'Unknown'}>
+                            {log.food_name || 'Unknown'}
+                          </h4>
+                        </div>
+                        
+                        {/* Nutrition data */}
+                        <div className="flex space-x-5 mr-5">
+                          <div className="text-center">
+                            <div className="text-xs text-gray-500">{log.calories || '0'}</div>
+                            {/* <div className="text-xxs text-gray-400">kcal</div> */}
+                          </div>
+                          <div className="text-center">
+                            <div className="text-xs text-gray-500">{log.carbs || '0'}</div>
+                            {/* <div className="text-xxs text-gray-400">g</div> */}
+                          </div>
+                          <div className="text-center">
+                            <div className="text-xs text-gray-500">{log.protein || '0'}</div>
+                            {/* <div className="text-xxs text-gray-400">g</div> */}
+                          </div>
+                          <div className="text-center">
+                            <div className="text-xs text-gray-500">{log.fats || '0'}</div>
+                            {/* <div className="text-xxs text-gray-400">g</div> */}
+                          </div>
+                        </div>
+                        
+                        {/* Actions */}
+                        <div className="flex space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyFoodLog(log)}
+                            className="p-1.5 text-green-500 hover:bg-green-50 rounded-full transition-colors disabled:opacity-50"
+                            disabled={loading}
+                            title="Copy to current date"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteFoodLog(log.id)}
+                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50"
+                            disabled={loading}
+                            title="Delete"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
-          ) : (
-            <p className="text-gray-500 text-sm italic">No {type} meals logged</p>
-          )}
-        </div>
-      ))}
-      {dailyLogs.length === 0 && (
-        <div className="text-center py-4 text-gray-500 text-sm">
-          No logs for {moment(selectedDate).format('MMM D, YYYY')}
-        </div>
+          ))}
+          
+          {/* Daily summary */}
+          <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-medium text-gray-700">Daily Total</h3>
+              <div className="flex space-x-6">
+                <div>
+                  <span className="text-xs text-gray-500">Calories</span>
+                  <div className="text-sm font-medium text-gray-800">{mealTotals.daily.calories}</div>
+                </div>
+                <div>
+                  <span className="text-xs text-gray-500">Carbs</span>
+                  <div className="text-sm font-medium text-gray-800">{mealTotals.daily.carbs}g</div>
+                </div>
+                <div>
+                  <span className="text-xs text-gray-500">Protein</span>
+                  <div className="text-sm font-medium text-gray-800">{mealTotals.daily.protein}g</div>
+                </div>
+                <div>
+                  <span className="text-xs text-gray-500">Fats</span>
+                  <div className="text-sm font-medium text-gray-800">{mealTotals.daily.fats}g</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </motion.div>
   );

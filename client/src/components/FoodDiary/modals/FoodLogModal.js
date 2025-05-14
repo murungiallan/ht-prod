@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { createFoodLog, searchFoods } from '../../../services/api';
 
-// FoodLogModal component for adding new food logs
 const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessionExpired }) => {
   const [foodInput, setFoodInput] = useState({
     name: '',
@@ -18,8 +17,9 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
   const [foodSuggestions, setFoodSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [suggestionSelected, setSuggestionSelected] = useState(false); // New state to track selection
+  const [lastQuery, setLastQuery] = useState(''); // Track the last searched query
 
-  // Initialization
   const resetForm = () => {
     setFoodInput({
       name: '',
@@ -32,9 +32,10 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
     });
     setImage(null);
     setFoodSuggestions([]);
+    setSuggestionSelected(false); // Reset on form clear
+    setLastQuery(''); // Reset last query
   };
 
-  // Data Fetching
   const searchFoodSuggestions = useCallback(
     async (query) => {
       if (!query || query.length < 2) {
@@ -44,8 +45,9 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
       try {
         setSearchLoading(true);
         const token = await getUserToken();
-        const results = await searchFoods(query, token);
+        const results = await searchFoods(query);
         setFoodSuggestions(results || []);
+        setLastQuery(query); // Update the last query
       } catch (err) {
         console.error('Error fetching food suggestions:', err);
         toast.error('Failed to fetch food suggestions');
@@ -57,7 +59,6 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
     [getUserToken, handleSessionExpired]
   );
 
-  // Event Handlers
   const handleSelectFood = (food) => {
     setFoodInput({
       ...foodInput,
@@ -68,6 +69,16 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
       fats: food.fats || '',
     });
     setFoodSuggestions([]);
+    setSuggestionSelected(true); // Mark as selected
+  };
+
+  const handleInputChange = (e) => {
+    const newName = e.target.value;
+    setFoodInput(prev => ({ ...prev, name: newName }));
+    // If the user types a new query different from the last one, allow searching
+    if (newName !== lastQuery) {
+      setSuggestionSelected(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -76,7 +87,7 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
       toast.error('Food name is required');
       return;
     }
-  
+
     try {
       setLoading(true);
       const token = await getUserToken();
@@ -89,10 +100,10 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
       formData.append('meal_type', foodInput.mealType);
       formData.append('date_logged', foodInput.dateLogged.toISOString());
       if (image) formData.append('image', image);
-  
-      console.log('Submitting food log:', { foodInput, image }); // Debug log
+
+      console.log('Submitting food log:', { foodInput, image });
       const newLog = await createFoodLog(formData, token);
-      console.log('Received new log:', newLog); // Debug log
+      console.log('Received new log:', newLog);
       if (!newLog || !newLog.id) {
         throw new Error('Invalid response from server');
       }
@@ -105,17 +116,19 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
       toast.error(`Failed to add food log: ${err.message || 'Unknown error'}`);
       if (err.code === 'auth/id-token-expired') handleSessionExpired();
     } finally {
-      setLoading(false); // Ensure loading is cleared
+      setLoading(false);
     }
   };
 
-  // Effects
   useEffect(() => {
+    if (suggestionSelected) {
+      return; // Skip search if a suggestion is selected
+    }
     const debounceSearch = setTimeout(() => {
       searchFoodSuggestions(foodInput.name);
     }, 300);
     return () => clearTimeout(debounceSearch);
-  }, [foodInput.name, searchFoodSuggestions]);
+  }, [foodInput.name, searchFoodSuggestions, suggestionSelected]);
 
   if (!isOpen) return null;
 
@@ -142,7 +155,7 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
               <input
                 type="text"
                 value={foodInput.name}
-                onChange={(e) => setFoodInput(prev => ({ ...prev, name: e.target.value }))}
+                onChange={handleInputChange} // Use the new handler
                 className="w-full p-3 border rounded-lg border-gray-200 focus:ring-2 focus:ring-blue-500 transition"
                 placeholder="Search or enter food..."
                 disabled={loading}
@@ -224,9 +237,19 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
                 type="submit"
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
                 disabled={loading}
-              >
-                Add Log
-              </button>
+                >
+                {loading ? (
+                    <span className="flex items-center">
+                    <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Adding...
+                    </span>
+                ) : (
+                    'Add Log'
+                )}
+                </button>
             </div>
           </form>
         </motion.div>

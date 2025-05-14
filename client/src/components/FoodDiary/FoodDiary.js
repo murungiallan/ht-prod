@@ -56,6 +56,14 @@ const FoodDiary = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const isMounted = useRef(true);
+  const recentActionRef = useRef(null); // Track recent UI actions to prevent duplicate socket updates
+
+  // Event Handlers
+  const handleSessionExpired = useCallback(() => {
+    if (!isMounted.current) return;
+    logout();
+    navigate('/login', { replace: true });
+  }, [logout, navigate]);
 
   // Initialization
   const getUserToken = async () => {
@@ -84,6 +92,7 @@ const FoodDiary = () => {
         protein: parseFloat(log.protein) || 0,
         fats: parseFloat(log.fats) || 0,
       }));
+      // Replace foodLogs with validatedLogs to avoid duplicates
       setFoodLogs(validatedLogs.sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged)));
       const validatedStats = foodStats.map(stat => ({
         ...stat,
@@ -113,14 +122,8 @@ const FoodDiary = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, handleSessionExpired]);
 
-  // Event Handlers
-  const handleSessionExpired = useCallback(() => {
-    if (!isMounted.current) return;
-    logout();
-    navigate('/login', { replace: true });
-  }, [logout, navigate]);
 
   const handleRetry = useCallback(async () => {
     if (!lastFailedAction) return;
@@ -211,8 +214,12 @@ const FoodDiary = () => {
             protein: parseFloat(log.protein) || 0,
             fats: parseFloat(log.fats) || 0,
           };
+          // Skip if this action was already handled by the UI or if log exists
+          if (recentActionRef.current === `add-${validatedLog.id}` || foodLogs.some(l => l.id === validatedLog.id)) {
+            recentActionRef.current = null;
+            return;
+          }
           setFoodLogs(prev => [validatedLog, ...prev].sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged)));
-          toast.success('Food log added!');
         } catch (err) {
           console.error('Error handling foodLogAdded:', err);
           toast.error('Failed to update food log (added)');
@@ -228,8 +235,15 @@ const FoodDiary = () => {
             protein: parseFloat(log.protein) || 0,
             fats: parseFloat(log.fats) || 0,
           };
-          setFoodLogs(prev => prev.map(item => item.id === log.id ? validatedLog : item).sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged)));
-          toast.success('Food log updated!');
+          // Skip if this action was already handled by the UI
+          if (recentActionRef.current === `update-${validatedLog.id}`) {
+            recentActionRef.current = null;
+            return;
+          }
+          if (foodLogs.some(l => l.id === validatedLog.id)) {
+            setFoodLogs(prev => prev.map(item => item.id === validatedLog.id ? validatedLog : item).sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged)));
+            // Do not show toast for socket updates
+          }
         } catch (err) {
           console.error('Error handling foodLogUpdated:', err);
           toast.error('Failed to update food log (updated)');
@@ -238,8 +252,15 @@ const FoodDiary = () => {
       foodLogDeleted: (id) => {
         if (!isMounted.current) return;
         try {
-          setFoodLogs(prev => prev.filter(item => item.id !== parseInt(id)));
-          toast.success('Food log deleted!');
+          // Skip if this action was already handled by the UI
+          if (recentActionRef.current === `delete-${id}`) {
+            recentActionRef.current = null;
+            return;
+          }
+          if (foodLogs.some(l => l.id === parseInt(id))) {
+            setFoodLogs(prev => prev.filter(item => item.id !== parseInt(id)));
+            // Do not show toast for socket updates
+          }
         } catch (err) {
           console.error('Error handling foodLogDeleted:', err);
           toast.error('Failed to update food log (deleted)');
@@ -255,7 +276,7 @@ const FoodDiary = () => {
         Object.entries(handlers).forEach(([event, handler]) => socket.off(event, handler));
       }
     };
-  }, [socket, getSocket]);
+  }, [socket, getSocket]); // Removed foodLogs from dependencies
 
   // Render
   if (loading) {
@@ -268,7 +289,7 @@ const FoodDiary = () => {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen p-4 sm:p-6 lg:p-8 bg-gray-50">
+      <div className="min-h-screen p-4 sm:p-6 lg:p-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-6">
             <motion.div
@@ -316,19 +337,19 @@ const FoodDiary = () => {
           )}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             <div className="lg:col-span-1">
-              <CalendarCard selectedDate={selectedDate} setSelectedDate={setSelectedDate} />
+              <CalendarCard selectedDate={selectedDate} setSelectedDate={setSelectedDate} foodLogs={foodLogs} />
             </div>
             <div className="lg:col-span-2 space-y-6">
+              <NutritionalInsights
+                foodLogs={foodLogs}
+                selectedDate={selectedDate}
+                eatingPattern={eatingPattern}
+              />
               <FilterSummary
                 filterPeriod={filterPeriod}
                 setFilterPeriod={setFilterPeriod}
                 foodLogs={foodLogs}
                 selectedDate={selectedDate}
-              />
-              <NutritionalInsights
-                foodLogs={foodLogs}
-                selectedDate={selectedDate}
-                eatingPattern={eatingPattern}
               />
             </div>
           </div>
@@ -339,6 +360,7 @@ const FoodDiary = () => {
             setFoodLogs={setFoodLogs}
             getUserToken={getUserToken}
             handleSessionExpired={handleSessionExpired}
+            recentActionRef={recentActionRef} // Pass recentActionRef to track UI actions
           />
           <FoodLogModal
             isOpen={isModalOpen}
@@ -346,6 +368,7 @@ const FoodDiary = () => {
             getUserToken={getUserToken}
             setFoodLogs={setFoodLogs}
             handleSessionExpired={handleSessionExpired}
+            recentActionRef={recentActionRef} // Pass recentActionRef to track UI actions
           />
           <div
             className="fixed bottom-4 right-4 z-50"

@@ -17,6 +17,10 @@ const TabsContainer = styled.div`
 
 const Tab = styled.button`
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  justify-content: center;
   padding: ${({ theme }) => theme.spacing.small} 0;
   background: none;
   border: none;
