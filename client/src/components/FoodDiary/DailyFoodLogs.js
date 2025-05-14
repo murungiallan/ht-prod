@@ -10,10 +10,7 @@ const DailyFoodLogs = ({ foodLogs, selectedDate, setFoodLogs, getUserToken, hand
 
   // Handle deleting a food log
   const handleDeleteFoodLog = useCallback(async (id) => {
-    if (!id) {
-      toast.error('Invalid food log ID');
-      return;
-    }
+    if (!id) return toast.error('Invalid food log ID');
     try {
       setLoading(true);
       const token = await getUserToken();
@@ -22,7 +19,6 @@ const DailyFoodLogs = ({ foodLogs, selectedDate, setFoodLogs, getUserToken, hand
       toast.success('Food log deleted!');
     } catch (err) {
       toast.error('Failed to delete food log');
-      console.error('Error deleting food log:', err);
       if (err.code === 'auth/id-token-expired') handleSessionExpired();
     } finally {
       setLoading(false);
@@ -31,23 +27,18 @@ const DailyFoodLogs = ({ foodLogs, selectedDate, setFoodLogs, getUserToken, hand
 
   // Handle copying a food log to the current date
   const handleCopyFoodLog = useCallback(async (log) => {
-    if (!log || !log.id) {
-      toast.error('Invalid food log data');
-      return;
-    }
+    if (!log?.id) return toast.error('Invalid food log');
     try {
       setLoading(true);
       const token = await getUserToken();
       await copyFoodLog(log.id, selectedDate.toISOString(), token);
-      setFoodLogs(prev =>
-        [...prev, { ...log, date_logged: selectedDate.toISOString() }].sort(
-          (a, b) => new Date(b.date_logged) - new Date(a.date_logged)
-        )
-      );
+      setFoodLogs(prev => [...prev, {
+        ...log,
+        date_logged: selectedDate.toISOString()
+      }]);
       toast.success('Food log copied!');
     } catch (err) {
       toast.error('Failed to copy food log');
-      console.error('Error copying food log:', err);
       if (err.code === 'auth/id-token-expired') handleSessionExpired();
     } finally {
       setLoading(false);

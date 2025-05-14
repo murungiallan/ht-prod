@@ -37,6 +37,7 @@ const ErrorBoundary = ({ children }) => {
   return children;
 };
 
+
 // FoodDiary component orchestrates the food tracking interface
 const FoodDiary = () => {
   const { user, logout } = useContext(AuthContext);
@@ -74,6 +75,7 @@ const FoodDiary = () => {
     }
   };
 
+ 
   // Data Fetching
   const fetchData = useCallback(async () => {
     if (!user || !isMounted.current) return;
