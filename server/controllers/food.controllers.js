@@ -8,10 +8,11 @@ import { spawn } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, '../../');
 
 // Directory to store uploaded images and temporary files
-const uploadDir = path.join(__dirname, '../../Uploads');
-const tempDir = path.join(__dirname, '../../Temp');
+const uploadDir = path.join(projectRoot, 'Uploads');
+const tempDir = path.join(projectRoot, 'Temp');
 
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -22,9 +23,6 @@ if (!fs.existsSync(tempDir)) {
 
 // Base URL for accessing uploaded images
 const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
-
-// Project root relative to controllers directory
-const projectRoot = path.join(__dirname, '../..');
 
 class FoodDiaryController {
   static async addFoodLog(req, res) {
@@ -40,20 +38,17 @@ class FoodDiaryController {
       const file = req.file;
 
       if (!food_name || !calories || !meal_type) {
-        return res.status(400).json({ error: "Food name, calories, and meal type are required" });
+        return res.status(404).json({ error: "Food name, calories, and meal type are required" });
       }
 
       let image_url = null;
-      if (file) {
-        try {
-          const fileName = `${firebaseUid}_${Date.now()}_${file.originalname}`;
-          const filePath = path.join(uploadDir, fileName);
-          fs.writeFileSync(filePath, file.buffer);
-          image_url = `${BASE_URL}/Uploads/${fileName}`;
-        } catch (fileError) {
-          console.error("Error uploading image:", fileError);
-          return res.status(500).json({ error: "Image upload failed" });
-        }
+      if (file && file.buffer) {
+        const fileName = `${firebaseUid}_${Date.now()}_${file.originalname.replace(/\s/g, '_')}`;
+        const filePath = path.join(uploadDir, fileName);
+        fs.writeFileSync(filePath, file.buffer);
+        image_url = `${BASE_URL}/Uploads/${fileName}`;
+      } else if (file && !file.buffer) {
+        console.warn("File uploaded but buffer is missing, skipping image processing");
       }
 
       const foodData = {
@@ -143,15 +138,19 @@ class FoodDiaryController {
 
       let image_url = foodLog.image_url;
       if (file) {
-        try {
-          const fileName = `${firebaseUid}_${Date.now()}_${file.originalname}`;
-          const filePath = path.join(uploadDir, fileName);
-          fs.writeFileSync(filePath, file.buffer);
-          image_url = `${BASE_URL}/Uploads/${fileName}`;
-        } catch (fileError) {
-          console.error("Error uploading new image:", fileError);
-          return res.status(500).json({ error: "Image upload failed" });
+        // Delete old image if it exists
+        if (foodLog.image_url) {
+          const oldFileName = path.basename(foodLog.image_url);
+          const oldFilePath = path.join(uploadDir, oldFileName);
+          if (fs.existsSync(oldFilePath)) {
+            fs.unlinkSync(oldFilePath);
+          }
         }
+        // Save new image from memory to filesystem
+        const fileName = `${firebaseUid}_${Date.now()}_${file.originalname.replace(/\s/g, '_')}`;
+        const filePath = path.join(uploadDir, fileName);
+        fs.writeFileSync(filePath, file.buffer);
+        image_url = `${BASE_URL}/Uploads/${fileName}`;
       }
 
       const updatedData = {
@@ -317,12 +316,11 @@ class FoodDiaryController {
         });
       } else {
         const csvPath = path.join(tempDir, `calories_${firebaseUid}.csv`);
-        // Format dates as YYYY-MM-DD
         const csvContent = [
           'date,calories\n',
           ...rows.map(row => {
             const date = new Date(row.logDate);
-            const formattedDate = date.toISOString().split('T')[0]; // YYYY-MM-DD
+            const formattedDate = date.toISOString().split('T')[0];
             return `${formattedDate},${row.totalCalories}\n`;
           })
         ].join('');

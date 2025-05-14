@@ -11,7 +11,6 @@ import { getAuth } from "firebase-admin/auth";
 import dotenv from "dotenv";
 import serviceAccount from "./service-account-key.json" with { type: "json" };
 import routes from "./routes/index.js";
-import multer from "multer";
 
 dotenv.config();
 
@@ -42,15 +41,14 @@ const server = https.createServer(options, app);
 const io = new Server(server, {
   cors: {
     origin: "*",
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
   },
 });
 
 // Socket.IO authentication middleware
-// Track error counts to prevent memory leaks
 const errorLogs = new Map();
-const ERROR_LOG_LIMIT = 100; // Maximum errors to log per IP
-const CLEANUP_INTERVAL = 15 * 60 * 1000; // Run cleanup every 15 minutes
+const ERROR_LOG_LIMIT = 100;
+const CLEANUP_INTERVAL = 15 * 60 * 1000;
 
 io.use(async (socket, next) => {
   try {
@@ -67,18 +65,14 @@ io.use(async (socket, next) => {
     socket.user = decodedToken;
     next();
   } catch (error) {
-    // Log the error but limit how many I store
     const clientIP = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
-    
-    // Initialize or increment error count for this IP
     const currentCount = errorLogs.get(clientIP) || 0;
-    
-    // Only log if under limit to prevent memory leaks
+
     if (currentCount < ERROR_LOG_LIMIT) {
       errorLogs.set(clientIP, currentCount + 1);
       console.error("Error verifying token in Socket.IO:", error);
     }
-    
+
     if (error.code === "auth/id-token-expired") {
       return next(new Error("Authentication error: Token expired"));
     }
@@ -89,28 +83,34 @@ io.use(async (socket, next) => {
   }
 });
 
-// Periodically clean up the error logs to prevent memory leaks
 setInterval(() => {
   errorLogs.clear();
 }, CLEANUP_INTERVAL);
 
-// Set up Multer for file uploads
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 5 * 1024 * 1024, // Limit file size to 5MB
-  },
-});
+// Middleware to apply body parsing conditionally
+const applyBodyParsing = (req, res, next) => {
+  const contentType = req.get('Content-Type') || '';
+  if (contentType.startsWith('multipart/form-data')) {
+    // Skip JSON and URL-encoded parsing for multipart requests
+    return next();
+  }
+  // Apply JSON and URL-encoded parsing for non-multipart requests
+  json({ limit: '10mb' })(req, res, (err) => {
+    if (err) return next(err);
+    express.urlencoded({ limit: '10mb', extended: true })(req, res, next);
+  });
+};
 
-app.use(cors({ 
+// Apply middleware
+app.use(cors({
   origin: ["https://127.0.0.1:5000", "http://127.0.0.1:3000"],
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
-app.use(json());
+app.use(applyBodyParsing);
 
 // Serve the uploads directory as static to access images
-app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
+app.use("/Uploads", express.static(path.join(__dirname, "..", "Uploads")));
 
 // Middleware to attach Socket.IO to req and handle content type for CSS
 app.use((req, res, next) => {
@@ -121,18 +121,15 @@ app.use((req, res, next) => {
   next();
 });
 
-// Apply Multer middleware for routes that handle file uploads
-app.use("/api/food_logs", upload.single("image"), routes);
-// Use routes for other endpoints
+// Use main routes
 app.use("/api", routes);
 
+// Serve client build
 const clientPath = path.join(__dirname, "..", "client", "build");
-
 app.use(express.static(clientPath));
 app.get('/', (req, res) => {
   res.send('Now using https..');
 });
-
 app.get("*", (req, res) => {
   res.sendFile(path.join(clientPath, "index.html"));
 });
