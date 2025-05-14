@@ -1,16 +1,33 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Line } from 'react-chartjs-2';
-import { Chart as ChartJS, LineElement, PointElement, LinearScale, CategoryScale, BarController, BarElement } from 'chart.js';
+import { Chart as ChartJS, LineElement, PointElement, LinearScale, CategoryScale, BarController, BarElement, registerables } from 'chart.js';
 import moment from 'moment';
 
-// Register Chart.js components
-ChartJS.register(LineElement, PointElement, LinearScale, CategoryScale, BarController, BarElement);
+// Register all Chart.js components
+ChartJS.register(...registerables);
+
+// ErrorBoundary component to catch and handle errors
+class ErrorBoundary extends React.Component {
+  state = { hasError: false };
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <div className="flex items-center justify-center h-full text-gray-500 text-sm">Error loading chart data. Please try again later.</div>;
+    }
+    return this.props.children;
+  }
+}
 
 // NutritionalTrends component displays two charts: one for calories and predictions, another for macros
 const NutritionalTrends = ({ stats, caloriePredictions }) => {
   const caloriesChartRef = useRef(null);
   const macrosChartRef = useRef(null);
+  const isMounted = useRef(false);
 
   // Data Processing: Generate chart data for calories and macros separately
   const { caloriesChartData, macrosChartData } = useMemo(() => {
@@ -22,7 +39,6 @@ const NutritionalTrends = ({ stats, caloriePredictions }) => {
     }
 
     try {
-      // Aggregate stats by date
       const aggregatedStats = stats.reduce((acc, stat) => {
         const date = moment(stat.logDate).format('MMM D');
         if (!acc[date]) {
@@ -42,14 +58,12 @@ const NutritionalTrends = ({ stats, caloriePredictions }) => {
         return acc;
       }, {});
 
-      // Calculate totals per day
       const historicalLabels = Object.keys(aggregatedStats).sort((a, b) => moment(a, 'MMM D').diff(moment(b, 'MMM D')));
       const historicalCalories = historicalLabels.map(label => aggregatedStats[label].totalCalories);
       const historicalCarbs = historicalLabels.map(label => aggregatedStats[label].totalCarbs);
       const historicalProtein = historicalLabels.map(label => aggregatedStats[label].totalProtein);
       const historicalFats = historicalLabels.map(label => aggregatedStats[label].totalFats);
 
-      // Prediction data for calories
       const lastDate = historicalLabels.length > 0 ? moment(historicalLabels[historicalLabels.length - 1], 'MMM D') : moment();
       const predictionLabels = [];
       const predictionValues = caloriePredictions.map(pred => parseFloat(pred.value) || 0);
@@ -58,7 +72,6 @@ const NutritionalTrends = ({ stats, caloriePredictions }) => {
         predictionLabels.push(lastDate.clone().add(i, 'days').format('MMM D'));
       }
 
-      // Combine labels for calories chart (historical + predictions)
       const caloriesChartData = {
         labels: [...historicalLabels, ...predictionLabels],
         datasets: [
@@ -88,7 +101,6 @@ const NutritionalTrends = ({ stats, caloriePredictions }) => {
         ],
       };
 
-      // Labels for macros chart (historical only, no predictions)
       const macrosChartData = {
         labels: historicalLabels,
         datasets: [
@@ -129,7 +141,6 @@ const NutritionalTrends = ({ stats, caloriePredictions }) => {
     }
   }, [stats, caloriePredictions]);
 
-  // Utilities: Define chart options for calories (line) chart
   const caloriesChartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
@@ -170,7 +181,6 @@ const NutritionalTrends = ({ stats, caloriePredictions }) => {
     },
   }), []);
 
-  // Utilities: Define chart options for macros (bar) chart
   const macrosChartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
@@ -211,23 +221,22 @@ const NutritionalTrends = ({ stats, caloriePredictions }) => {
     },
   }), []);
 
-  // Cleanup chart instances on unmount or data change
+  // Initialize and cleanup chart instances
   useEffect(() => {
+    isMounted.current = true;
     return () => {
-      if (caloriesChartRef.current) {
-        const chartInstance = ChartJS.getChart(caloriesChartRef.current);
-        chartInstance?.destroy();
+      isMounted.current = false;
+      if (caloriesChartRef.current && ChartJS.getChart(caloriesChartRef.current)) {
+        ChartJS.getChart(caloriesChartRef.current).destroy();
       }
-      if (macrosChartRef.current) {
-        const chartInstance = ChartJS.getChart(macrosChartRef.current);
-        chartInstance?.destroy();
+      if (macrosChartRef.current && ChartJS.getChart(macrosChartRef.current)) {
+        ChartJS.getChart(macrosChartRef.current).destroy();
       }
     };
   }, [stats, caloriePredictions]);
 
   return (
     <div className="charts-container flex flex-col sm:flex-row gap-6">
-      {/* Calories Chart */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -239,21 +248,22 @@ const NutritionalTrends = ({ stats, caloriePredictions }) => {
           Predicted calories (dashed line) are based on ARIMA forecasting for the next 7 days.
         </p>
         <div className="h-64 sm:h-80">
-          {caloriesChartData.labels.length > 0 ? (
-            <Line
-              ref={caloriesChartRef}
-              data={caloriesChartData}
-              options={caloriesChartOptions}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-500 text-sm">
-              No caloric data available for this period
-            </div>
-          )}
+          <ErrorBoundary>
+            {caloriesChartData.labels.length > 0 && isMounted.current ? (
+              <Line
+                ref={caloriesChartRef}
+                data={caloriesChartData}
+                options={caloriesChartOptions}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+                No caloric data available for this period
+              </div>
+            )}
+          </ErrorBoundary>
         </div>
       </motion.div>
 
-      {/* Macros Chart */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -265,17 +275,19 @@ const NutritionalTrends = ({ stats, caloriePredictions }) => {
           Daily totals for Carbs, Protein, and Fats.
         </p>
         <div className="h-64 sm:h-80">
-          {macrosChartData.labels.length > 0 ? (
-            <Line
-              ref={macrosChartRef}
-              data={macrosChartData}
-              options={macrosChartOptions}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-500 text-sm">
-              No macronutrient data available for this period
-            </div>
-          )}
+          <ErrorBoundary>
+            {macrosChartData.labels.length > 0 && isMounted.current ? (
+              <Line
+                ref={macrosChartRef}
+                data={macrosChartData}
+                options={macrosChartOptions}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+                No macronutrient data available for this period
+              </div>
+            )}
+          </ErrorBoundary>
         </div>
       </motion.div>
     </div>

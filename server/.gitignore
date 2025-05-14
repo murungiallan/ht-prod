@@ -22,3 +22,5 @@ yarn-debug.log*
 yarn-error.log*
 
 utils/
+seedData.js
+reminderlogs.txt

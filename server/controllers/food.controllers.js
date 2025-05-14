@@ -23,6 +23,9 @@ if (!fs.existsSync(tempDir)) {
 // Base URL for accessing uploaded images
 const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
 
+// Project root relative to controllers directory
+const projectRoot = path.join(__dirname, '../..');
+
 class FoodDiaryController {
   static async addFoodLog(req, res) {
     try {
@@ -67,7 +70,6 @@ class FoodDiaryController {
 
       const foodLog = await FoodDiary.add(foodData);
 
-      // Update Firebase if the operation succeeded
       await firebaseDb.ref(`food_logs/${firebaseUid}/${foodLog.id}`).set({
         ...foodData,
         id: foodLog.id,
@@ -93,7 +95,6 @@ class FoodDiaryController {
 
       const foodLogs = await FoodDiary.getByUser(userId);
 
-      // Update Firebase if there are logs to sync
       if (foodLogs.length > 0) {
         const updates = {};
         foodLogs.forEach((log) => {
@@ -166,7 +167,6 @@ class FoodDiaryController {
 
       const updatedFoodLog = await FoodDiary.update(id, updatedData);
 
-      // Check for changes before Firebase update
       const originalFirebaseData = (await firebaseDb.ref(`food_logs/${firebaseUid}/${id}`).once('value')).val();
       if (originalFirebaseData && JSON.stringify(originalFirebaseData) !== JSON.stringify(updatedData)) {
         await firebaseDb.ref(`food_logs/${firebaseUid}/${id}`).set({
@@ -207,17 +207,15 @@ class FoodDiaryController {
           const fileName = path.basename(foodLog.image_url);
           const filePath = path.join(uploadDir, fileName);
           if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);  // Fixed: Wrap in try-catch to handle deletion errors
+            fs.unlinkSync(filePath);
           }
         } catch (fileError) {
           console.error("Error deleting image file:", fileError);
-          // Do not fail the entire operation; log and continue
         }
       }
 
-      await FoodDiary.delete(id);  // Assuming this handles SQL deletion
-
-      await firebaseDb.ref(`food_logs/${firebaseUid}/${id}`).remove();  // Optimization: Direct removal
+      await FoodDiary.delete(id);
+      await firebaseDb.ref(`food_logs/${firebaseUid}/${id}`).remove();
 
       req.io.emit("foodLogDeleted", id);
       return res.status(200).json({ message: "Food log deleted successfully" });
@@ -236,9 +234,8 @@ class FoodDiaryController {
       }
       const userId = userRows[0].id;
 
-      const stats = await FoodDiary.getStats(userId);  // Fixed: Ensure this call is wrapped for potential errors
+      const stats = await FoodDiary.getStats(userId);
 
-      // Optimization: Only update Firebase if stats are not empty
       if (stats && Object.keys(stats).length > 0) {
         await firebaseDb.ref(`food_stats/${firebaseUid}`).set(stats);
       }
@@ -274,7 +271,6 @@ class FoodDiaryController {
         date_logged: new Date(newDate),
       };
 
-      // Optimization: Only set in Firebase if the copy was successful
       await firebaseDb.ref(`food_logs/${firebaseUid}/${newId}`).set({
         ...newLog,
         userId,
@@ -321,26 +317,62 @@ class FoodDiaryController {
         });
       } else {
         const csvPath = path.join(tempDir, `calories_${firebaseUid}.csv`);
-        const csvContent = ['date,calories\n', ...rows.map(row => `${row.logDate},${row.totalCalories}\n`)];
-        try {
-          fs.writeFileSync(csvPath, csvContent.join(''));
-          const pythonScriptPath = path.join(__dirname, 'arima_predict.py');
-          const outputPath = path.join(tempDir, `predictions_${firebaseUid}.json`);
-          const pythonExecutable = path.join(__dirname, 'venv', 'Scripts', 'python.exe');
-          const result = spawnSync(pythonExecutable, [pythonScriptPath, csvPath, outputPath], { encoding: 'utf-8' });
+        // Format dates as YYYY-MM-DD
+        const csvContent = [
+          'date,calories\n',
+          ...rows.map(row => {
+            const date = new Date(row.logDate);
+            const formattedDate = date.toISOString().split('T')[0]; // YYYY-MM-DD
+            return `${formattedDate},${row.totalCalories}\n`;
+          })
+        ].join('');
+        fs.writeFileSync(csvPath, csvContent);
 
-          if (result.error || result.status !== 0) {
-            throw new Error(result.stderr || "Prediction script failed");
-          }
+        const pythonScriptPath = path.join(__dirname, 'arima_predict.py');
+        const outputPath = path.join(tempDir, `predictions_${firebaseUid}.json`);
 
-          const outputContent = fs.readFileSync(outputPath, 'utf-8');
-          predictions = JSON.parse(outputContent);
-          fs.unlinkSync(csvPath);
-          fs.unlinkSync(outputPath);
-        } catch (fileError) {
-          console.error("Error in prediction process:", fileError);
-          return res.status(500).json({ error: "Failed to run prediction model" });
+        let pythonExecutable = path.join(projectRoot, '.venv', 'Scripts', 'python.exe');
+        if (!fs.existsSync(pythonExecutable)) {
+          console.warn(`Python executable not found at ${pythonExecutable}. Trying system Python...`);
+          pythonExecutable = 'python';
         }
+
+        const result = spawn(pythonExecutable, [pythonScriptPath, csvPath, outputPath]);
+
+        let pythonOutput = '';
+        let pythonError = '';
+
+        result.stdout.on('data', (data) => {
+          pythonOutput += data.toString();
+        });
+
+        result.stderr.on('data', (data) => {
+          pythonError += data.toString();
+        });
+
+        const predictionPromise = new Promise((resolve, reject) => {
+          result.on('close', (code) => {
+            if (code === 0) {
+              try {
+                const outputContent = fs.readFileSync(outputPath, 'utf-8');
+                predictions = JSON.parse(outputContent);
+                fs.unlinkSync(csvPath);
+                fs.unlinkSync(outputPath);
+                resolve();
+              } catch (parseError) {
+                reject(new Error(`Failed to parse prediction output: ${parseError.message}`));
+              }
+            } else {
+              reject(new Error(`Prediction script failed with code ${code}: ${pythonError}`));
+            }
+          });
+
+          result.on('error', (err) => {
+            reject(new Error(`Spawn error: ${err.message}`));
+          });
+        });
+
+        await predictionPromise;
       }
 
       await firebaseDb.ref(`calorie_predictions/${firebaseUid}`).set(predictions);
