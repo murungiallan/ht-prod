@@ -14259,3 +14259,268 @@
 [2025-05-14 08:48:00] [INFO] Running reminder check at: 2025-05-14 08:48:00
 [2025-05-14 08:48:00] [INFO] Found 11 pending reminders
 [2025-05-14 08:48:00] [INFO] Reminder processing cycle completed
+[2025-05-14 08:49:00] [INFO] Running reminder check at: 2025-05-14 08:49:00
+[2025-05-14 08:49:00] [INFO] Found 11 pending reminders
+[2025-05-14 08:49:00] [INFO] Reminder processing cycle completed
+[2025-05-14 08:50:00] [INFO] Running reminder check at: 2025-05-14 08:50:00
+[2025-05-14 08:50:00] [INFO] Found 11 pending reminders
+[2025-05-14 08:50:00] [INFO] Reminder processing cycle completed
+[2025-05-14 08:51:00] [INFO] Running reminder check at: 2025-05-14 08:51:00
+[2025-05-14 08:51:00] [INFO] Found 11 pending reminders
+[2025-05-14 08:51:00] [INFO] Reminder processing cycle completed
+[2025-05-14 08:52:00] [INFO] Running reminder check at: 2025-05-14 08:52:00
+[2025-05-14 08:52:00] [INFO] Found 11 pending reminders
+[2025-05-14 08:52:00] [INFO] Reminder processing cycle completed
+[2025-05-14 08:53:00] [INFO] Running reminder check at: 2025-05-14 08:53:00
+[2025-05-14 08:53:00] [INFO] Found 11 pending reminders
+[2025-05-14 08:53:00] [INFO] Reminder processing cycle completed
+[2025-05-14 08:54:00] [INFO] Running reminder check at: 2025-05-14 08:54:00
+[2025-05-14 08:54:00] [INFO] Found 11 pending reminders
+[2025-05-14 08:54:00] [INFO] Reminder processing cycle completed
+[2025-05-14 08:55:00] [INFO] Running reminder check at: 2025-05-14 08:55:00
+[2025-05-14 08:55:00] [INFO] Found 11 pending reminders
+[2025-05-14 08:55:00] [INFO] Reminder processing cycle completed
+[2025-05-14 08:56:00] [INFO] Running reminder check at: 2025-05-14 08:56:00
+[2025-05-14 08:56:00] [INFO] Found 11 pending reminders
+[2025-05-14 08:56:00] [INFO] Reminder processing cycle completed
+[2025-05-14 08:57:00] [INFO] Running reminder check at: 2025-05-14 08:57:00
+[2025-05-14 08:57:00] [INFO] Found 11 pending reminders
+[2025-05-14 08:57:00] [INFO] Reminder processing cycle completed
+[2025-05-14 08:58:00] [INFO] Running reminder check at: 2025-05-14 08:58:00
+[2025-05-14 08:58:00] [INFO] Found 11 pending reminders
+[2025-05-14 08:58:00] [INFO] Reminder processing cycle completed
+[2025-05-14 08:59:00] [INFO] Running reminder check at: 2025-05-14 08:59:00
+[2025-05-14 08:59:00] [INFO] Found 11 pending reminders
+[2025-05-14 08:59:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:00:00] [INFO] Running reminder check at: 2025-05-14 09:00:00
+[2025-05-14 09:00:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:00:00] [INFO] Reminder scheduled for processing: ID 30, Medication 21, Type daily
+[2025-05-14 09:00:00] [INFO] Processing reminder 1/1: ID 30
+[2025-05-14 09:00:00] [INFO] Starting to send reminder notification for user 1, medication 21
+[2025-05-14 09:00:00] [ERROR] No reminder found for user 1, medication 21, dose 0
+[2025-05-14 09:00:00] [ERROR] Failed to process reminder ID 30
+[2025-05-14 09:00:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:01:00] [INFO] Running reminder check at: 2025-05-14 09:01:00
+[2025-05-14 09:01:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:01:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:02:00] [INFO] Running reminder check at: 2025-05-14 09:02:00
+[2025-05-14 09:02:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:02:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:04:00] [INFO] Running reminder check at: 2025-05-14 09:04:00
+[2025-05-14 09:04:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:04:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:05:00] [INFO] Running reminder check at: 2025-05-14 09:05:00
+[2025-05-14 09:05:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:05:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:06:00] [INFO] Running reminder check at: 2025-05-14 09:06:00
+[2025-05-14 09:06:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:06:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:07:00] [INFO] Running reminder check at: 2025-05-14 09:07:00
+[2025-05-14 09:07:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:07:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:08:00] [INFO] Running reminder check at: 2025-05-14 09:08:00
+[2025-05-14 09:08:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:08:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:09:00] [INFO] Running reminder check at: 2025-05-14 09:09:00
+[2025-05-14 09:09:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:09:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:10:00] [INFO] Running reminder check at: 2025-05-14 09:10:00
+[2025-05-14 09:10:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:10:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:11:00] [INFO] Running reminder check at: 2025-05-14 09:11:00
+[2025-05-14 09:11:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:11:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:12:00] [INFO] Running reminder check at: 2025-05-14 09:12:00
+[2025-05-14 09:12:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:12:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:13:00] [INFO] Running reminder check at: 2025-05-14 09:13:00
+[2025-05-14 09:13:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:13:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:14:00] [INFO] Running reminder check at: 2025-05-14 09:14:00
+[2025-05-14 09:14:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:14:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:15:00] [INFO] Running reminder check at: 2025-05-14 09:15:00
+[2025-05-14 09:15:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:15:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:16:00] [INFO] Running reminder check at: 2025-05-14 09:16:00
+[2025-05-14 09:16:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:16:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:17:00] [INFO] Running reminder check at: 2025-05-14 09:17:00
+[2025-05-14 09:17:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:17:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:18:00] [INFO] Running reminder check at: 2025-05-14 09:18:00
+[2025-05-14 09:18:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:18:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:19:00] [INFO] Running reminder check at: 2025-05-14 09:19:00
+[2025-05-14 09:19:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:19:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:21:00] [INFO] Running reminder check at: 2025-05-14 09:21:00
+[2025-05-14 09:21:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:21:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:22:00] [INFO] Running reminder check at: 2025-05-14 09:22:00
+[2025-05-14 09:22:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:22:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:23:00] [INFO] Running reminder check at: 2025-05-14 09:23:00
+[2025-05-14 09:23:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:23:00] [INFO] Reminder scheduled for processing: ID 32, Medication 21, Type daily
+[2025-05-14 09:23:00] [INFO] Processing reminder 1/1: ID 32
+[2025-05-14 09:23:00] [INFO] Starting to send reminder notification for user 1, medication 21
+[2025-05-14 09:23:00] [ERROR] No reminder found for user 1, medication 21, dose 0
+[2025-05-14 09:23:00] [ERROR] Failed to process reminder ID 32
+[2025-05-14 09:23:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:24:00] [INFO] Running reminder check at: 2025-05-14 09:24:00
+[2025-05-14 09:24:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:24:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:25:00] [INFO] Running reminder check at: 2025-05-14 09:25:00
+[2025-05-14 09:25:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:25:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:26:00] [INFO] Running reminder check at: 2025-05-14 09:26:00
+[2025-05-14 09:26:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:26:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:27:00] [INFO] Running reminder check at: 2025-05-14 09:27:00
+[2025-05-14 09:27:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:27:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:28:00] [INFO] Running reminder check at: 2025-05-14 09:28:00
+[2025-05-14 09:28:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:28:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:29:00] [INFO] Running reminder check at: 2025-05-14 09:29:00
+[2025-05-14 09:29:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:29:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:30:00] [INFO] Running reminder check at: 2025-05-14 09:30:00
+[2025-05-14 09:30:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:30:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:31:00] [INFO] Running reminder check at: 2025-05-14 09:31:00
+[2025-05-14 09:31:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:31:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:32:00] [INFO] Running reminder check at: 2025-05-14 09:32:00
+[2025-05-14 09:32:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:32:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:33:00] [INFO] Running reminder check at: 2025-05-14 09:33:00
+[2025-05-14 09:33:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:33:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:34:00] [INFO] Running reminder check at: 2025-05-14 09:34:00
+[2025-05-14 09:34:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:34:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:35:00] [INFO] Running reminder check at: 2025-05-14 09:35:00
+[2025-05-14 09:35:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:35:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:36:00] [INFO] Running reminder check at: 2025-05-14 09:36:00
+[2025-05-14 09:36:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:36:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:37:00] [INFO] Running reminder check at: 2025-05-14 09:37:00
+[2025-05-14 09:37:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:37:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:38:00] [INFO] Running reminder check at: 2025-05-14 09:38:00
+[2025-05-14 09:38:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:38:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:39:00] [INFO] Running reminder check at: 2025-05-14 09:39:00
+[2025-05-14 09:39:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:39:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:40:00] [INFO] Running reminder check at: 2025-05-14 09:40:00
+[2025-05-14 09:40:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:40:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:41:00] [INFO] Running reminder check at: 2025-05-14 09:41:00
+[2025-05-14 09:41:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:41:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:42:00] [INFO] Running reminder check at: 2025-05-14 09:42:00
+[2025-05-14 09:42:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:42:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:43:00] [INFO] Running reminder check at: 2025-05-14 09:43:00
+[2025-05-14 09:43:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:43:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:44:00] [INFO] Running reminder check at: 2025-05-14 09:44:00
+[2025-05-14 09:44:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:44:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:45:00] [INFO] Running reminder check at: 2025-05-14 09:45:00
+[2025-05-14 09:45:01] [INFO] Found 11 pending reminders
+[2025-05-14 09:45:01] [INFO] Reminder processing cycle completed
+[2025-05-14 09:46:00] [INFO] Running reminder check at: 2025-05-14 09:46:00
+[2025-05-14 09:46:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:46:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:47:00] [INFO] Running reminder check at: 2025-05-14 09:47:00
+[2025-05-14 09:47:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:47:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:48:00] [INFO] Running reminder check at: 2025-05-14 09:48:00
+[2025-05-14 09:48:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:48:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:49:00] [INFO] Running reminder check at: 2025-05-14 09:49:00
+[2025-05-14 09:49:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:49:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:50:00] [INFO] Running reminder check at: 2025-05-14 09:50:00
+[2025-05-14 09:50:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:50:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:51:00] [INFO] Running reminder check at: 2025-05-14 09:51:00
+[2025-05-14 09:51:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:51:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:52:00] [INFO] Running reminder check at: 2025-05-14 09:52:00
+[2025-05-14 09:52:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:52:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:53:00] [INFO] Running reminder check at: 2025-05-14 09:53:00
+[2025-05-14 09:53:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:53:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:54:00] [INFO] Running reminder check at: 2025-05-14 09:54:00
+[2025-05-14 09:54:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:54:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:55:00] [INFO] Running reminder check at: 2025-05-14 09:55:00
+[2025-05-14 09:55:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:55:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:56:00] [INFO] Running reminder check at: 2025-05-14 09:56:00
+[2025-05-14 09:56:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:56:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:57:00] [INFO] Running reminder check at: 2025-05-14 09:57:00
+[2025-05-14 09:57:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:57:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:58:00] [INFO] Running reminder check at: 2025-05-14 09:58:00
+[2025-05-14 09:58:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:58:00] [INFO] Reminder processing cycle completed
+[2025-05-14 09:59:00] [INFO] Running reminder check at: 2025-05-14 09:59:00
+[2025-05-14 09:59:00] [INFO] Found 11 pending reminders
+[2025-05-14 09:59:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:00:00] [INFO] Running reminder check at: 2025-05-14 10:00:00
+[2025-05-14 10:00:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:00:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:01:00] [INFO] Running reminder check at: 2025-05-14 10:01:00
+[2025-05-14 10:01:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:01:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:02:00] [INFO] Running reminder check at: 2025-05-14 10:02:00
+[2025-05-14 10:02:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:02:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:03:00] [INFO] Running reminder check at: 2025-05-14 10:03:00
+[2025-05-14 10:03:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:03:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:04:00] [INFO] Running reminder check at: 2025-05-14 10:04:00
+[2025-05-14 10:04:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:04:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:05:00] [INFO] Running reminder check at: 2025-05-14 10:05:00
+[2025-05-14 10:05:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:05:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:06:00] [INFO] Running reminder check at: 2025-05-14 10:06:00
+[2025-05-14 10:06:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:06:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:07:00] [INFO] Running reminder check at: 2025-05-14 10:07:00
+[2025-05-14 10:07:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:07:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:08:00] [INFO] Running reminder check at: 2025-05-14 10:08:00
+[2025-05-14 10:08:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:08:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:09:00] [INFO] Running reminder check at: 2025-05-14 10:09:00
+[2025-05-14 10:09:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:09:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:10:00] [INFO] Running reminder check at: 2025-05-14 10:10:00
+[2025-05-14 10:10:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:10:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:11:00] [INFO] Running reminder check at: 2025-05-14 10:11:00
+[2025-05-14 10:11:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:11:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:12:00] [INFO] Running reminder check at: 2025-05-14 10:12:00
+[2025-05-14 10:12:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:12:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:13:00] [INFO] Running reminder check at: 2025-05-14 10:13:00
+[2025-05-14 10:13:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:13:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:14:00] [INFO] Running reminder check at: 2025-05-14 10:14:00
+[2025-05-14 10:14:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:14:00] [INFO] Reminder processing cycle completed
+[2025-05-14 10:15:00] [INFO] Running reminder check at: 2025-05-14 10:15:00
+[2025-05-14 10:15:00] [INFO] Found 11 pending reminders
+[2025-05-14 10:15:00] [INFO] Reminder processing cycle completed

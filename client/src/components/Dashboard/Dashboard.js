@@ -10,18 +10,22 @@ import {
   getExerciseStats,
   getUserExercises,
   saveWeeklyGoals,
-  getWeeklyGoals
+  getWeeklyGoals,
+  getUserFoodLogs,
+  getFoodStats,
 } from "../../services/api";
-import { Line } from 'react-chartjs-2';
-import { Chart as ChartJS, LineElement, PointElement, LinearScale, Title, Tooltip, Legend, TimeScale, Filler, CategoryScale } from 'chart.js';
+import { Line, Bar } from 'react-chartjs-2';
+import { Chart as ChartJS, LineElement, PointElement, LinearScale, Title, Tooltip, Legend, TimeScale, Filler, CategoryScale, BarElement, BarController } from 'chart.js';
 import 'chartjs-adapter-moment';
 import moment from 'moment';
 import { motion, AnimatePresence } from 'framer-motion';
 import annotationPlugin from 'chartjs-plugin-annotation';
-import WeeklyActivity from './WeeklyActivity';
 import { toast } from 'react-hot-toast';
+import { getMedicationChartData } from './Charts/medicationChartData';
+import { getExerciseChartData } from './Charts/exerciseChartData';
+import { getFoodChartData } from './Charts/foodChartData';
 
-ChartJS.register(LineElement, PointElement, LinearScale, Title, Tooltip, Legend, TimeScale, Filler, CategoryScale, annotationPlugin);
+ChartJS.register(LineElement, PointElement, LinearScale, Title, Tooltip, Legend, TimeScale, Filler, CategoryScale, BarElement, BarController, annotationPlugin);
 
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -59,9 +63,15 @@ const ErrorMessage = ({ message, onRetry }) => (
   </div>
 );
 
-const GoalsModal = ({ isOpen, onClose, onSave }) => {
+const GoalsModal = ({ isOpen, onClose, onSave, suggestedFoodGoal }) => {
   const [foodGoal, setFoodGoal] = useState('');
   const [exerciseGoal, setExerciseGoal] = useState('');
+
+  useEffect(() => {
+    if (suggestedFoodGoal && !foodGoal) {
+      setFoodGoal(suggestedFoodGoal.toString());
+    }
+  }, [suggestedFoodGoal, foodGoal]);
 
   const handleSubmit = () => {
     if (!foodGoal || !exerciseGoal) {
@@ -83,6 +93,9 @@ const GoalsModal = ({ isOpen, onClose, onSave }) => {
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Weekly Food Calorie Goal (kcal)
+            {suggestedFoodGoal && !foodGoal && (
+              <span className="text-sm text-gray-500 ml-2">(Suggested: {suggestedFoodGoal} kcal)</span>
+            )}
           </label>
           <input
             type="number"
@@ -123,6 +136,74 @@ const GoalsModal = ({ isOpen, onClose, onSave }) => {
   );
 };
 
+const PeriodFilter = ({ period, setPeriod }) => {
+  const periods = [
+    "Last 7 Days",
+    "Last 14 Days",
+    "Last 28 Days"
+  ];
+
+  return (
+    <div className="relative">
+      <select
+        value={period}
+        onChange={(e) => setPeriod(e.target.value)}
+        className="appearance-none w-full bg-white border border-gray-300 rounded-lg py-2 pl-3 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        {periods.map((p) => (
+          <option key={p} value={p}>{p}</option>
+        ))}
+      </select>
+      <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+    </div>
+  );
+};
+
+const getDateRange = (period) => {
+  const today = moment().startOf('day');
+  let startDate;
+  let days;
+
+  switch (period) {
+    case "Last 7 Days":
+      startDate = moment(today).subtract(6, 'days');
+      days = 7;
+      break;
+    case "This Week":
+      startDate = moment(today).startOf('week');
+      days = moment(today).diff(startDate, 'days') + 1;
+      break;
+    case "Last Week":
+      startDate = moment(today).subtract(1, 'weeks').startOf('week');
+      days = 7;
+      break;
+    case "Last 14 Days":
+      startDate = moment(today).subtract(13, 'days');
+      days = 14;
+      break;
+    case "Last 30 Days":
+      startDate = moment(today).subtract(29, 'days');
+      days = 30;
+      break;
+    case "Last 1 Year":
+      startDate = moment(today).subtract(1, 'years');
+      days = 365;
+      break;
+    case "All Time":
+      startDate = moment(today).subtract(10, 'years');
+      days = moment(today).diff(startDate, 'days') + 1;
+      break;
+    default:
+      startDate = moment(today).subtract(6, 'days');
+      days = 7;
+  }
+  return { startDate, days };
+};
+
 const Dashboard = () => {
   const { user, loading: authLoading, logout } = useContext(AuthContext);
   const { socket } = useSocket();
@@ -134,6 +215,8 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [exerciseStats, setExerciseStats] = useState({ totalDuration: 0 });
   const [exercises, setExercises] = useState([]);
+  const [foodLogs, setFoodLogs] = useState([]);
+  const [foodStats, setFoodStats] = useState([]);
   const [weeklyData, setWeeklyData] = useState({
     calories: [],
     duration: [],
@@ -145,12 +228,15 @@ const Dashboard = () => {
   const [hasNewActivity, setHasNewActivity] = useState(false);
   const [weeklyGoals, setWeeklyGoals] = useState({ weekly_food_calorie_goal: null, weekly_exercise_calorie_goal: null });
   const [showGoalsModal, setShowGoalsModal] = useState(false);
+  const [period, setPeriod] = useState("Last 7 Days");
+  const [suggestedFoodGoal, setSuggestedFoodGoal] = useState(null);
   const notificationsRef = useRef(null);
   const settingsRef = useRef(null);
 
   // Chart refs for accessing chart instances
   const medicationChartRef = useRef(null);
   const foodChartRef = useRef(null);
+  const macrosChartRef = useRef(null);
   const calorieChartRef = useRef(null);
   const durationChartRef = useRef(null);
   const sessionsChartRef = useRef(null);
@@ -176,19 +262,32 @@ const Dashboard = () => {
           }
         }
 
-        // Fetch medications
-        const userMedications = await getUserMedications(token);
-        if (!isMounted) return;
-        setMedications(userMedications || []);
-
-        // Fetch medication history and exercises
-        const [history, userExercises] = await Promise.all([
+        // Fetch medications, exercises, and food logs
+        const [userMedications, history, userExercises, userFoodLogs, foodStatsData] = await Promise.all([
+          getUserMedications(token),
           getTakenMedicationHistory(),
           getUserExercises(token),
+          getUserFoodLogs(token),
+          getFoodStats(token),
         ]);
         if (!isMounted) return;
+        console.log("Fetched Exercises:", userExercises);
+        console.log("Fetched Medications:", userMedications);
+        console.log("Fetched Medication History:", history);
+        console.log("Fetched Food Logs:", userFoodLogs);
+        console.log("Fetched Food Stats:", foodStatsData);
+        setMedications(userMedications || []);
         setExercises(userExercises || []);
-        
+        setFoodLogs(userFoodLogs || []);
+        setFoodStats(foodStatsData || []);
+
+        // Calculate suggested food goal based on foodLogs
+        const totalCalories = userFoodLogs.reduce((sum, log) => sum + (Number(log.calories) || 0), 0);
+        const daysLogged = new Set(userFoodLogs.map(log => moment(log.date_logged).startOf('day').toISOString())).size;
+        const avgDailyCalories = daysLogged > 0 ? totalCalories / daysLogged : 0;
+        const suggestedWeeklyGoal = avgDailyCalories * 7;
+        setSuggestedFoodGoal(suggestedWeeklyGoal > 0 ? Math.round(suggestedWeeklyGoal) : 14000);
+
         // Compute recent activities
         const medicationActivities = history.map((entry) => ({
           type: 'medication',
@@ -203,7 +302,14 @@ const Dashboard = () => {
           timestamp: recentExercise.date_logged,
         }] : [];
 
-        const combinedActivities = [...medicationActivities, ...exerciseActivity]
+        const recentFoodLog = userFoodLogs && userFoodLogs.length > 0 ? userFoodLogs[0] : null;
+        const foodActivity = recentFoodLog ? [{
+          type: 'food',
+          description: `Logged ${recentFoodLog.food_name} (${recentFoodLog.calories} kcal) on ${moment(recentFoodLog.date_logged).format('MMM D, YYYY')}`,
+          timestamp: recentFoodLog.date_logged,
+        }] : [];
+
+        const combinedActivities = [...medicationActivities, ...exerciseActivity, ...foodActivity]
           .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
           .slice(0, 5);
         if (!isMounted) return;
@@ -225,8 +331,8 @@ const Dashboard = () => {
           totalDuration: exerciseStats?.totalDuration || 0,
         });
 
-        // Compute weekly data for charts
-        computeWeeklyData(userExercises || []);
+        // Compute chart data
+        computeChartData(userExercises || [], userFoodLogs || [], foodStatsData || []);
       } catch (err) {
         if (!isMounted) return;
         setFetchError("Failed to load dashboard data");
@@ -245,7 +351,7 @@ const Dashboard = () => {
     return () => {
       isMounted = false;
     };
-  }, [user, authLoading, logout]);
+  }, [user, authLoading, logout, period]);
 
   useEffect(() => {
     if (!socket || !user) return;
@@ -272,7 +378,14 @@ const Dashboard = () => {
           timestamp: recentExercise.date_logged,
         }] : [];
 
-        const combinedActivities = [...medicationActivities, ...exerciseActivity]
+        const recentFoodLog = foodLogs.length > 0 ? foodLogs[0] : null;
+        const foodActivity = recentFoodLog ? [{
+          type: 'food',
+          description: `Logged ${recentFoodLog.food_name} (${recentFoodLog.calories} kcal) on ${moment(recentFoodLog.date_logged).format('MMM D, YYYY')}`,
+          timestamp: recentFoodLog.date_logged,
+        }] : [];
+
+        const combinedActivities = [...medicationActivities, ...exerciseActivity, ...foodActivity]
           .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
           .slice(0, 5);
         setRecentActivities(combinedActivities);
@@ -296,7 +409,7 @@ const Dashboard = () => {
       try {
         const updatedExercises = [newExercise, ...exercises].sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged));
         setExercises(updatedExercises);
-        computeWeeklyData(updatedExercises);
+        computeChartData(updatedExercises, foodLogs, foodStats);
 
         const history = await getTakenMedicationHistory();
         const medicationActivities = history.map((entry) => ({
@@ -311,7 +424,14 @@ const Dashboard = () => {
           timestamp: newExercise.date_logged,
         }];
 
-        const combinedActivities = [...medicationActivities, ...exerciseActivity]
+        const recentFoodLog = foodLogs.length > 0 ? foodLogs[0] : null;
+        const foodActivity = recentFoodLog ? [{
+          type: 'food',
+          description: `Logged ${recentFoodLog.food_name} (${recentFoodLog.calories} kcal) on ${moment(recentFoodLog.date_logged).format('MMM D, YYYY')}`,
+          timestamp: recentFoodLog.date_logged,
+        }] : [];
+
+        const combinedActivities = [...medicationActivities, ...exerciseActivity, ...foodActivity]
           .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
           .slice(0, 5);
         setRecentActivities(combinedActivities);
@@ -332,7 +452,7 @@ const Dashboard = () => {
       try {
         const updatedExercises = exercises.filter((exercise) => exercise.id !== id);
         setExercises(updatedExercises);
-        computeWeeklyData(updatedExercises);
+        computeChartData(updatedExercises, foodLogs, foodStats);
 
         const history = await getTakenMedicationHistory();
         const medicationActivities = history.map((entry) => ({
@@ -348,7 +468,14 @@ const Dashboard = () => {
           timestamp: recentExercise.date_logged,
         }] : [];
 
-        const combinedActivities = [...medicationActivities, ...exerciseActivity]
+        const recentFoodLog = foodLogs.length > 0 ? foodLogs[0] : null;
+        const foodActivity = recentFoodLog ? [{
+          type: 'food',
+          description: `Logged ${recentFoodLog.food_name} (${recentFoodLog.calories} kcal) on ${moment(recentFoodLog.date_logged).format('MMM D, YYYY')}`,
+          timestamp: recentFoodLog.date_logged,
+        }] : [];
+
+        const combinedActivities = [...medicationActivities, ...exerciseActivity, ...foodActivity]
           .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
           .slice(0, 5);
         setRecentActivities(combinedActivities);
@@ -371,7 +498,7 @@ const Dashboard = () => {
           .map((exercise) => (exercise.id === updatedExercise.id ? updatedExercise : exercise))
           .sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged));
         setExercises(updatedExercises);
-        computeWeeklyData(updatedExercises);
+        computeChartData(updatedExercises, foodLogs, foodStats);
 
         const history = await getTakenMedicationHistory();
         const medicationActivities = history.map((entry) => ({
@@ -386,7 +513,14 @@ const Dashboard = () => {
           timestamp: updatedExercise.date_logged,
         }];
 
-        const combinedActivities = [...medicationActivities, ...exerciseActivity]
+        const recentFoodLog = foodLogs.length > 0 ? foodLogs[0] : null;
+        const foodActivity = recentFoodLog ? [{
+          type: 'food',
+          description: `Logged ${recentFoodLog.food_name} (${recentFoodLog.calories} kcal) on ${moment(recentFoodLog.date_logged).format('MMM D, YYYY')}`,
+          timestamp: recentFoodLog.date_logged,
+        }] : [];
+
+        const combinedActivities = [...medicationActivities, ...exerciseActivity, ...foodActivity]
           .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
           .slice(0, 5);
         setRecentActivities(combinedActivities);
@@ -403,10 +537,58 @@ const Dashboard = () => {
       }
     };
 
+    const handleFoodLogAdded = async (newFoodLog) => {
+      try {
+        const updatedFoodLogs = [newFoodLog, ...foodLogs].sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged));
+        setFoodLogs(updatedFoodLogs);
+        const token = await auth.currentUser.getIdToken(true);
+        const updatedFoodStats = await getFoodStats(token);
+        setFoodStats(updatedFoodStats);
+        computeChartData(exercises, updatedFoodLogs, updatedFoodStats);
+
+        // Recalculate suggested food goal
+        const totalCalories = updatedFoodLogs.reduce((sum, log) => sum + (Number(log.calories) || 0), 0);
+        const daysLogged = new Set(updatedFoodLogs.map(log => moment(log.date_logged).startOf('day').toISOString())).size;
+        const avgDailyCalories = daysLogged > 0 ? totalCalories / daysLogged : 0;
+        const suggestedWeeklyGoal = avgDailyCalories * 7;
+        setSuggestedFoodGoal(suggestedWeeklyGoal > 0 ? Math.round(suggestedWeeklyGoal) : 14000);
+
+        const history = await getTakenMedicationHistory();
+        const medicationActivities = history.map((entry) => ({
+          type: 'medication',
+          description: `Logged ${entry.medication_name} on ${moment(entry.date).format('MMM D, YYYY')} at ${moment(entry.takenAt).format('h:mm A')}`,
+          timestamp: entry.takenAt,
+        }));
+
+        const recentExercise = exercises.length > 0 ? exercises[0] : null;
+        const exerciseActivity = recentExercise ? [{
+          type: 'exercise',
+          description: `Logged ${recentExercise.activity} (${recentExercise.duration} min) on ${moment(recentExercise.date_logged).format('MMM D, YYYY')}`,
+          timestamp: recentExercise.date_logged,
+        }] : [];
+
+        const foodActivity = [{
+          type: 'food',
+          description: `Logged ${newFoodLog.food_name} (${newFoodLog.calories} kcal) on ${moment(newFoodLog.date_logged).format('MMM D, YYYY')}`,
+          timestamp: newFoodLog.date_logged,
+        }];
+
+        const combinedActivities = [...medicationActivities, ...exerciseActivity, ...foodActivity]
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+          .slice(0, 5);
+        setRecentActivities(combinedActivities);
+
+        setHasNewActivity(true);
+      } catch (err) {
+        console.error("Error in handleFoodLogAdded:", err);
+      }
+    };
+
     socket.on("medicationUpdated", handleMedicationUpdate);
     socket.on("exerciseAdded", handleExerciseAdded);
     socket.on("exerciseDeleted", handleExerciseDeleted);
     socket.on("exerciseUpdated", handleExerciseUpdated);
+    socket.on("foodLogAdded", handleFoodLogAdded);
     socket.on("error", (error) => {
       console.error("Socket error:", error.message);
     });
@@ -416,9 +598,10 @@ const Dashboard = () => {
       socket.off("exerciseAdded", handleExerciseAdded);
       socket.off("exerciseDeleted", handleExerciseDeleted);
       socket.off("exerciseUpdated", handleExerciseUpdated);
+      socket.off("foodLogAdded", handleFoodLogAdded);
       socket.off("error");
     };
-  }, [socket, user, exercises, medications]);
+  }, [socket, user, exercises, foodLogs, foodStats]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -455,6 +638,7 @@ const Dashboard = () => {
         weekly_food_calorie_goal: foodGoal,
         weekly_exercise_calorie_goal: exerciseGoal,
       });
+      setSuggestedFoodGoal(null);
     } catch (err) {
       console.error("Error saving weekly goals:", err);
       alert("Failed to save goals. Please try again.");
@@ -462,12 +646,30 @@ const Dashboard = () => {
   };
 
   const calculateAdherenceData = (meds, history) => {
-    const days = 7;
-    const adherenceByDay = [];
-    const today = moment().local().startOf('day'); // May 8, 2025
+    const today = moment().local().startOf('day');
+    let days;
+    switch (period) {
+      case "Last 7 Days":
+        days = 7;
+        break;
+      case "Last 14 Days":
+        days = 14;
+        break;
+      case "Last 28 Days":
+        days = 28;
+        break;
+      default:
+        days = 7;
+    }
 
-    for (let i = days - 1; i >= 0; i--) {
-      const date = moment(today).subtract(i, 'days').startOf('day');
+    const adherenceByDay = [];
+    const startDate = moment(today).subtract(days - 1, 'days').startOf('day');
+
+    let currentDate = moment(startDate);
+    const endDate = moment(today);
+
+    while (currentDate <= endDate) {
+      const date = currentDate.clone().startOf('day');
       let totalDoses = 0;
       let takenDoses = 0;
 
@@ -475,18 +677,17 @@ const Dashboard = () => {
         meds.forEach((med) => {
           const dosesForDate = med.doses && med.doses[date.format('YYYY-MM-DD')];
           if (dosesForDate && Array.isArray(dosesForDate)) {
-            totalDoses += dosesForDate.length; // Count all scheduled doses for the day
-            takenDoses += dosesForDate.filter(dose => dose.taken).length; // Count only taken doses
+            totalDoses += dosesForDate.length;
+            takenDoses += dosesForDate.filter(dose => dose.taken).length;
           }
         });
       }
 
-      // Supplement with history for taken doses
       const historyTaken = history && history.length > 0 ? history.filter((entry) => {
         const entryDate = moment(entry.date).startOf('day');
         return entryDate.isSame(date, 'day');
       }).length : 0;
-      takenDoses = Math.max(takenDoses, historyTaken); // Use the higher count to avoid undercounting
+      takenDoses = Math.max(takenDoses, historyTaken);
 
       const missedDoses = totalDoses - takenDoses;
 
@@ -496,6 +697,8 @@ const Dashboard = () => {
         missedDoses,
         totalDoses
       });
+
+      currentDate.add(1, 'day');
     }
 
     return adherenceByDay;
@@ -517,41 +720,21 @@ const Dashboard = () => {
     return { percentage, fraction };
   };
 
-  const overallAdherence = calculateOverallAdherence(adherenceData);
-  const adherencePercentage = overallAdherence.percentage;
-  const adherenceFraction = overallAdherence.fraction;
+  const computeChartData = (exercisesToCompute, foodLogsToCompute, foodStatsToCompute) => {
+    const { startDate, days } = getDateRange(period);
 
-  const computeWeeklyData = (exercisesToCompute) => {
-    if (!exercisesToCompute || exercisesToCompute.length === 0) {
-      setWeeklyData({
-        calories: [],
-        duration: [],
-        sessions: [],
-        labels: [],
-      });
-      return;
-    }
-
-    // Normalize today to midnight
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Create array of last 7 days
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i);
-      date.setHours(0, 0, 0, 0);
+    const dateRange = Array.from({ length: days }, (_, i) => {
+      const date = new Date(startDate);
+      date.setDate(startDate.toDate().getDate() + i);
       return date;
-    }).reverse();
+    });
 
-    // Format dates for comparison and labels
-    const formattedDates = last7Days.map(date => ({
+    const formattedDates = dateRange.map(date => ({
       dateObj: date,
-      dateString: date.toISOString().split('T')[0], // YYYY-MM-DD for reference
-      shortDay: date.toLocaleDateString("en-US", { weekday: "short" })
+      dateString: date.toISOString().split('T')[0],
+      shortDay: moment(date).format('MMM D'),
     }));
 
-    // Calculate data for each day
     const caloriesData = formattedDates.map(({ dateObj }) => {
       const dailyExercises = exercisesToCompute.filter(ex => {
         if (!ex.date_logged) return false;
@@ -589,6 +772,10 @@ const Dashboard = () => {
       labels: formattedDates.map(date => date.shortDay),
     });
   };
+
+  const overallAdherence = calculateOverallAdherence(adherenceData);
+  const adherencePercentage = overallAdherence.percentage;
+  const adherenceFraction = overallAdherence.fraction;
 
   const chartOptions = {
     responsive: true,
@@ -644,13 +831,7 @@ const Dashboard = () => {
         },
       },
       x: {
-        type: 'time',
-        time: {
-          unit: 'day',
-          displayFormats: {
-            day: 'MMM D',
-          },
-        },
+        type: 'category',
         ticks: {
           font: {
             size: 12,
@@ -665,40 +846,16 @@ const Dashboard = () => {
     },
   };
 
-  const chartData = {
-    datasets: [
-      {
-        label: 'Taken Doses',
-        data: adherenceData.map((entry) => ({
-          x: entry.date,
-          y: entry.takenDoses,
-        })),
-        borderColor: 'rgba(34, 197, 94, 1)', // Green for taken
-        backgroundColor: 'rgba(34, 197, 94, 0.2)',
-        fill: true,
-        tension: 0.4,
-        pointRadius: 4,
-      },
-      {
-        label: 'Missed Doses',
-        data: adherenceData.map((entry) => ({
-          x: entry.date,
-          y: entry.missedDoses,
-        })),
-        borderColor: 'rgba(239, 68, 68, 1)', // Red for missed
-        backgroundColor: 'rgba(239, 68, 68, 0.2)',
-        fill: true,
-        tension: 0.4,
-        pointRadius: 4,
-      },
-    ],
-  };
+  const medicationChartData = getMedicationChartData(adherenceData, period);
+  const exerciseChartData = getExerciseChartData(weeklyData, period, weeklyGoals);
+  const { foodChartData, macrosChartData } = getFoodChartData(foodLogs, foodStats, period, weeklyGoals);
 
   const medicationChartOptions = {
     ...chartOptions,
     scales: {
       y: {
         ...chartOptions.scales.y,
+        stacked: true,
         title: {
           display: true,
           text: 'Number of Doses',
@@ -708,9 +865,12 @@ const Dashboard = () => {
           },
           color: "#6B7280",
         },
+        suggestedMin: 0,
+        suggestedMax: Math.max(...adherenceData.map(d => d.totalDoses)) * 1.1,
       },
       x: {
         ...chartOptions.scales.x,
+        stacked: true,
       },
     },
     plugins: {
@@ -720,8 +880,8 @@ const Dashboard = () => {
         callbacks: {
           label: (context) => {
             const label = context.dataset.label;
-            const value = context.raw.y;
-            const total = adherenceData.find(entry => moment(entry.date).isSame(context.raw.x, 'day'))?.totalDoses || 0;
+            const value = context.raw;
+            const total = adherenceData.find(entry => moment(entry.date).format('MMM D') === context.label)?.totalDoses || 0;
             return `${label}: ${value} (Total: ${total})`;
           },
         },
@@ -729,25 +889,12 @@ const Dashboard = () => {
     },
   };
 
-  const foodChartData = {
-    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    datasets: [
-      {
-        label: "Food Intake (kcal)",
-        data: [1800, 1750, 1900, 1650, 2000, 1850, 1700],
-        borderColor: "rgba(34, 197, 94, 1)",
-        backgroundColor: "rgba(34, 197, 94, 0.2)",
-        fill: true,
-        tension: 0.4,
-      },
-    ],
-  };
-
   const foodChartOptions = {
     ...chartOptions,
     scales: {
       y: {
         ...chartOptions.scales.y,
+        stacked: true,
         title: {
           display: true,
           text: 'Calories (kcal)',
@@ -757,10 +904,14 @@ const Dashboard = () => {
           },
           color: "#6B7280",
         },
+        suggestedMin: 0,
+        suggestedMax: Math.max(
+          ...foodChartData.datasets.flatMap(ds => ds.data)
+        ) * 1.1,
       },
       x: {
         ...chartOptions.scales.x,
-        type: 'category', // Use category scale for days of week
+        stacked: true,
       },
     },
     plugins: {
@@ -769,14 +920,14 @@ const Dashboard = () => {
         annotations: {
           goalLine: {
             type: 'line',
-            yMin: weeklyGoals.weekly_food_calorie_goal ? weeklyGoals.weekly_food_calorie_goal / 7 : 2000,
-            yMax: weeklyGoals.weekly_food_calorie_goal ? weeklyGoals.weekly_food_calorie_goal / 7 : 2000,
+            yMin: weeklyGoals.weekly_food_calorie_goal ? weeklyGoals.weekly_food_calorie_goal / (weeklyData.labels.length || 7) : 2000,
+            yMax: weeklyGoals.weekly_food_calorie_goal ? weeklyGoals.weekly_food_calorie_goal / (weeklyData.labels.length || 7) : 2000,
             borderColor: 'rgba(34, 197, 94, 0.5)',
             borderWidth: 2,
             borderDash: [5, 5],
             label: {
               content: weeklyGoals.weekly_food_calorie_goal 
-                ? `Goal: ~${Math.round(weeklyGoals.weekly_food_calorie_goal / 7)} kcal/day`
+                ? `Goal: ~${Math.round(weeklyGoals.weekly_food_calorie_goal / (weeklyData.labels.length || 7))} kcal/day`
                 : 'Goal: 2,000 kcal/day',
               enabled: true,
               position: 'end',
@@ -792,15 +943,131 @@ const Dashboard = () => {
     },
   };
 
+  const macrosChartOptions = {
+    ...chartOptions,
+    scales: {
+      y: {
+        ...chartOptions.scales.y,
+        stacked: true,
+        title: {
+          display: true,
+          text: 'Amount (g)',
+          font: {
+            size: 14,
+            family: "'Inter', sans-serif",
+          },
+          color: "#6B7280",
+        },
+      },
+      x: {
+        ...chartOptions.scales.x,
+        stacked: true,
+      },
+    },
+  };
+
+  const caloriesChartOptions = {
+    ...chartOptions,
+    scales: {
+      y: {
+        ...chartOptions.scales.y,
+        title: {
+          display: true,
+          text: 'Calories (kcal)',
+          font: {
+            size: 14,
+            family: "'Inter', sans-serif",
+          },
+          color: "#6B7280",
+        },
+        suggestedMin: 0,
+      },
+      x: {
+        ...chartOptions.scales.x,
+      },
+    },
+    plugins: {
+      ...chartOptions.plugins,
+      annotation: {
+        annotations: {
+          goalLine: {
+            type: 'line',
+            yMin: weeklyGoals.weekly_exercise_calorie_goal ? weeklyGoals.weekly_exercise_calorie_goal / (weeklyData.labels.length || 7) : 500,
+            yMax: weeklyGoals.weekly_exercise_calorie_goal ? weeklyGoals.weekly_exercise_calorie_goal / (weeklyData.labels.length || 7) : 500,
+            borderColor: 'rgba(239, 68, 68, 0.5)',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            label: {
+              content: weeklyGoals.weekly_exercise_calorie_goal 
+                ? `Goal: ~${Math.round(weeklyGoals.weekly_exercise_calorie_goal / (weeklyData.labels.length || 7))} kcal/day`
+                : 'Goal: ~500 kcal/day',
+              enabled: true,
+              position: 'end',
+              backgroundColor: 'rgba(239, 68, 68, 0.8)',
+              color: 'white',
+              font: {
+                size: 10,
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+
+  const durationChartOptions = {
+    ...chartOptions,
+    scales: {
+      y: {
+        ...chartOptions.scales.y,
+        title: {
+          display: true,
+          text: 'Duration (min)',
+          font: {
+            size: 14,
+            family: "'Inter', sans-serif",
+          },
+          color: "#6B7280",
+        },
+        suggestedMin: 0,
+      },
+      x: {
+        ...chartOptions.scales.x,
+      },
+    },
+  };
+
+  const sessionsChartOptions = {
+    ...chartOptions,
+    scales: {
+      y: {
+        ...chartOptions.scales.y,
+        title: {
+          display: true,
+          text: 'Sessions',
+          font: {
+            size: 14,
+            family: "'Inter', sans-serif",
+          },
+          color: "#6B7280",
+        },
+        suggestedMin: 0,
+      },
+      x: {
+        ...chartOptions.scales.x,
+      },
+    },
+  };
+
   const handleNotificationClick = () => {
     setShowNotifications(!showNotifications);
-    setShowSettings(false); // Close settings if open
+    setShowSettings(false);
     setHasNewActivity(false);
   };
 
   const handleSettingsClick = () => {
     setShowSettings(!showSettings);
-    setShowNotifications(false); // Close notifications if open
+    setShowNotifications(false);
   };
 
   const downloadChartImage = (chartRef, fileName) => {
@@ -813,25 +1080,23 @@ const Dashboard = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      toast.success(`${fileName}.png downloaded!`);
     } else {
-      alert("Chart is not available for download.");
+      toast.error("Chart is not available for download.");
     }
   };
 
   const downloadChartDataAsCSV = (data, labels, fileName, labelField = 'label', dataField = 'data') => {
     if (!data || !labels) {
-      alert("No data available to download.");
+      toast.error("No data available to download.");
       return;
     }
 
-    // Prepare CSV content
     const headers = ['Date', dataField.charAt(0).toUpperCase() + dataField.slice(1)];
     const rows = labels.map((label, index) => {
       let value;
       if (dataField === 'takenDoses' || dataField === 'missedDoses') {
         value = data[index]?.[dataField] || 0;
-      } else if (dataField === 'adherence') {
-        value = data[index]?.adherence || 0;
       } else if (dataField === 'data') {
         value = data[index] || 0;
       } else {
@@ -845,7 +1110,6 @@ const Dashboard = () => {
       ...rows.map(row => row.join(','))
     ].join('\n');
 
-    // Create a downloadable file
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -855,6 +1119,7 @@ const Dashboard = () => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    toast.success(`${fileName}.csv downloaded!`);
   };
 
   if (authLoading || isLoading) {
@@ -869,8 +1134,8 @@ const Dashboard = () => {
     return <ErrorMessage message={fetchError} onRetry={() => window.location.reload()} />;
   }
 
-  const foodIntakeAverage = foodChartData.datasets[0].data.reduce((a, b) => a + b, 0) / foodChartData.labels.length;
   const totalFoodIntake = foodChartData.datasets[0].data.reduce((a, b) => a + b, 0);
+  const foodIntakeAverage = totalFoodIntake / foodChartData.labels.length;
   const totalCaloriesBurned = weeklyData.calories.reduce((a, b) => a + b, 0);
 
   return (
@@ -879,6 +1144,7 @@ const Dashboard = () => {
         isOpen={showGoalsModal}
         onClose={() => setShowGoalsModal(false)}
         onSave={handleSaveGoals}
+        suggestedFoodGoal={suggestedFoodGoal}
       />
       <div className="w-full">
         <header className="mb-6 sm:mb-8 relative px-2 sm:px-0">
@@ -890,7 +1156,9 @@ const Dashboard = () => {
               <p className="text-gray-500 mt-1 text-sm">Your health overview at a glance</p>
             </div>
             <div className="flex items-center space-x-2">
-              {/* Notifications Icon */}
+              <div className="w-40">
+                <PeriodFilter period={period} setPeriod={setPeriod} />
+              </div>
               <div className="relative">
                 <button
                   onClick={handleNotificationClick}
@@ -918,7 +1186,7 @@ const Dashboard = () => {
                             recentActivities.map((activity, index) => (
                               <li key={index} className="text-sm flex items-center justify-between text-gray-600">
                                 <div className="flex items-center">
-                                  <span className={`w-2 h-2 rounded-full mr-2 ${activity.type === 'medication' ? 'bg-blue-500' : 'bg-teal-500'}`}></span>
+                                  <span className={`w-2 h-2 rounded-full mr-2 ${activity.type === 'medication' ? 'bg-blue-500' : activity.type === 'exercise' ? 'bg-teal-500' : 'bg-green-500'}`}></span>
                                   <span>{activity.description}</span>
                                 </div>
                                 <span className="text-gray-400 text-xs">
@@ -941,7 +1209,6 @@ const Dashboard = () => {
                   )}
                 </AnimatePresence>
               </div>
-              {/* Settings Icon */}
               <div className="relative">
                 <button
                   onClick={handleSettingsClick}
@@ -963,7 +1230,6 @@ const Dashboard = () => {
                       <div className="p-4">
                         <h3 className="text-sm font-semibold text-gray-800 mb-3">Download Charts</h3>
                         <ul className="space-y-2">
-                          {/* Medication Adherence Chart */}
                           <li>
                             <div className="text-sm font-medium text-gray-700">Medication Adherence</div>
                             <div className="flex space-x-2 mt-1">
@@ -976,7 +1242,7 @@ const Dashboard = () => {
                               <button
                                 onClick={() => downloadChartDataAsCSV(
                                   adherenceData,
-                                  adherenceData.map(entry => entry.date),
+                                  adherenceData.map(entry => moment(entry.date).format('MMM D')),
                                   'medication-adherence-data',
                                   'label',
                                   'takenDoses'
@@ -987,7 +1253,6 @@ const Dashboard = () => {
                               </button>
                             </div>
                           </li>
-                          {/* Food Intake Chart */}
                           <li>
                             <div className="text-sm font-medium text-gray-700">Food Calorie Intake</div>
                             <div className="flex space-x-2 mt-1">
@@ -999,7 +1264,7 @@ const Dashboard = () => {
                               </button>
                               <button
                                 onClick={() => downloadChartDataAsCSV(
-                                  foodChartData.datasets[0],
+                                  foodChartData.datasets[0].data,
                                   foodChartData.labels,
                                   'food-intake-data'
                                 )}
@@ -1009,7 +1274,27 @@ const Dashboard = () => {
                               </button>
                             </div>
                           </li>
-                          {/* Weekly Activity: Calories */}
+                          <li>
+                            <div className="text-sm font-medium text-gray-700">Macronutrients</div>
+                            <div className="flex space-x-2 mt-1">
+                              <button
+                                onClick={() => downloadChartImage(macrosChartRef, 'macros-chart')}
+                                className="text-sm text-blue-600 hover:text-blue-950"
+                              >
+                                Image (PNG)
+                              </button>
+                              <button
+                                onClick={() => downloadChartDataAsCSV(
+                                  macrosChartData.datasets[0].data,
+                                  macrosChartData.labels,
+                                  'macros-data'
+                                )}
+                                className="text-sm text-blue-600 hover:text-blue-950"
+                              >
+                                Data (CSV)
+                              </button>
+                            </div>
+                          </li>
                           <li>
                             <div className="text-sm font-medium text-gray-700">Calories Burned - Exercise</div>
                             <div className="flex space-x-2 mt-1">
@@ -1021,11 +1306,9 @@ const Dashboard = () => {
                               </button>
                               <button
                                 onClick={() => downloadChartDataAsCSV(
-                                  weeklyData,
+                                  weeklyData.calories,
                                   weeklyData.labels,
-                                  'calories-burned-data',
-                                  'label',
-                                  'calories'
+                                  'calories-burned-data'
                                 )}
                                 className="text-sm text-blue-600 hover:text-blue-950"
                               >
@@ -1033,7 +1316,6 @@ const Dashboard = () => {
                               </button>
                             </div>
                           </li>
-                          {/* Weekly Activity: Duration */}
                           <li>
                             <div className="text-sm font-medium text-gray-700">Duration - Exercise</div>
                             <div className="flex space-x-2 mt-1">
@@ -1045,11 +1327,9 @@ const Dashboard = () => {
                               </button>
                               <button
                                 onClick={() => downloadChartDataAsCSV(
-                                  weeklyData,
+                                  weeklyData.duration,
                                   weeklyData.labels,
-                                  'duration-data',
-                                  'label',
-                                  'duration'
+                                  'duration-data'
                                 )}
                                 className="text-sm text-blue-600 hover:text-blue-950"
                               >
@@ -1057,7 +1337,6 @@ const Dashboard = () => {
                               </button>
                             </div>
                           </li>
-                          {/* Weekly Activity: Sessions */}
                           <li>
                             <div className="text-sm font-medium text-gray-700">Sessions - Exercise</div>
                             <div className="flex space-x-2 mt-1">
@@ -1069,11 +1348,9 @@ const Dashboard = () => {
                               </button>
                               <button
                                 onClick={() => downloadChartDataAsCSV(
-                                  weeklyData,
+                                  weeklyData.sessions,
                                   weeklyData.labels,
-                                  'sessions-data',
-                                  'label',
-                                  'sessions'
+                                  'sessions-data'
                                 )}
                                 className="text-sm text-blue-600 hover:text-blue-950"
                               >
@@ -1098,7 +1375,6 @@ const Dashboard = () => {
         </header>
 
         <div className="space-y-6 w-full">
-          {/* Goals Overview Section */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1106,7 +1382,6 @@ const Dashboard = () => {
             className="w-full transition-shadow duration-300"
           >
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              {/* Medication Adherence Progress Bar */}
               <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:border-blue-200 transition-colors duration-200">
                 <div className="flex items-center mb-4">
                   <FaPills className="text-blue-600 text-xl mr-3" />
@@ -1120,8 +1395,7 @@ const Dashboard = () => {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Goal: 80%</span>
-                    <span className={adherencePercentage >= 80 ? "text-green-500 font-medium" : "text-red-500 font-medium"}>
-                    </span>
+                    <span className={adherencePercentage >= 80 ? "text-green-500 font-medium" : "text-red-500 font-medium"}></span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2.5">
                     <div
@@ -1134,7 +1408,6 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Food Calorie Goal Card */}
               <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:border-green-200 transition-colors duration-200">
                 <div className="flex items-center mb-4">
                   <FaUtensils className="text-green-600 text-xl mr-3" />
@@ -1143,13 +1416,15 @@ const Dashboard = () => {
                     <p className="text-lg font-semibold text-gray-900">
                       {weeklyGoals.weekly_food_calorie_goal !== null
                         ? `${weeklyGoals.weekly_food_calorie_goal} kcal`
-                        : "Not set"}
+                        : suggestedFoodGoal
+                          ? `${suggestedFoodGoal} kcal (Suggested)`
+                          : "Not set"}
                     </p>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Current: {totalFoodIntake} kcal</span>
+                    <span className="text-gray-600">Current: {totalFoodIntake.toFixed(0)} kcal</span>
                     {weeklyGoals.weekly_food_calorie_goal !== null && (
                       <span className={totalFoodIntake >= weeklyGoals.weekly_food_calorie_goal ? "text-red-500 font-medium" : "text-green-500 font-medium"}>
                         {totalFoodIntake >= weeklyGoals.weekly_food_calorie_goal
@@ -1157,13 +1432,19 @@ const Dashboard = () => {
                           : ` (${((totalFoodIntake / weeklyGoals.weekly_food_calorie_goal) * 100).toFixed(1)}% of goal)`}
                       </span>
                     )}
+                    {suggestedFoodGoal && weeklyGoals.weekly_food_calorie_goal === null && (
+                      <span className="text-gray-500">({((totalFoodIntake / suggestedFoodGoal) * 100).toFixed(1)}% of suggested)</span>
+                    )}
                   </div>
-                  {weeklyGoals.weekly_food_calorie_goal !== null && (
+                  {(weeklyGoals.weekly_food_calorie_goal !== null || suggestedFoodGoal) && (
                     <div className="w-full bg-gray-200 rounded-full h-2.5">
                       <div
                         className="bg-green-500 h-2.5 rounded-full transition-all duration-500"
                         style={{
-                          width: `${Math.min((totalFoodIntake / weeklyGoals.weekly_food_calorie_goal) * 100, 100)}%`,
+                          width: `${Math.min(
+                            (totalFoodIntake / (weeklyGoals.weekly_food_calorie_goal || suggestedFoodGoal || 1)) * 100,
+                            100
+                          )}%`,
                         }}
                       ></div>
                     </div>
@@ -1171,7 +1452,6 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Exercise Calorie Goal Card */}
               <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:border-red-200 transition-colors duration-200">
                 <div className="flex items-center mb-4">
                   <FaRunning className="text-red-600 text-xl mr-3" />
@@ -1186,7 +1466,7 @@ const Dashboard = () => {
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Current: {totalCaloriesBurned} kcal</span>
+                    <span className="text-gray-600">Current: {totalCaloriesBurned.toFixed(0)} kcal</span>
                     {weeklyGoals.weekly_exercise_calorie_goal !== null && (
                       <span className={totalCaloriesBurned >= weeklyGoals.weekly_exercise_calorie_goal ? "text-green-500 font-medium" : "text-red-500 font-medium"}>
                         {totalCaloriesBurned >= weeklyGoals.weekly_exercise_calorie_goal
@@ -1210,9 +1490,7 @@ const Dashboard = () => {
             </div>
           </motion.div>
 
-          {/* Medication and Food Charts in a Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 w-full">
-            {/* Medication Adherence Chart */}
             <motion.div 
               className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 w-full"
               initial={{ opacity: 0, y: 20 }}
@@ -1221,15 +1499,15 @@ const Dashboard = () => {
             >
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold text-gray-800">
-                  Medication Adherence (Last 7 Days)
+                  Medication Adherence ({period})
                 </h2>
                 <p className="text-sm text-gray-600">
-                  Today: {adherenceData.length > 0 ? `${adherenceData[0].takenDoses}/${adherenceData[0].totalDoses}` : "0/0"}
+                  Today: {adherenceData.length > 0 ? `${adherenceData[adherenceData.length - 1].takenDoses}/${adherenceData[adherenceData.length - 1].totalDoses}` : "0/0"}
                 </p>
               </div>
               <div className="h-64 w-full">
                 {adherenceData.length > 0 ? (
-                  <Line ref={medicationChartRef} data={chartData} options={medicationChartOptions} />
+                  <Bar ref={medicationChartRef} data={medicationChartData} options={medicationChartOptions} />
                 ) : (
                   <div className="flex items-center justify-center h-full">
                     <p className="text-gray-500">No adherence data available</p>
@@ -1238,7 +1516,6 @@ const Dashboard = () => {
               </div>
             </motion.div>
 
-            {/* Food Intake Chart */}
             <motion.div 
               className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 w-full"
               initial={{ opacity: 0, y: 20 }}
@@ -1247,27 +1524,133 @@ const Dashboard = () => {
             >
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold text-gray-800">
-                  Food Intake (Last 7 Days)
+                  Food Intake ({period})
                 </h2>
                 <p className="text-sm text-gray-600">
                   Average: {foodIntakeAverage.toFixed(0)} kcal
                 </p>
               </div>
               <div className="h-64 w-full">
-                <Line ref={foodChartRef} data={foodChartData} options={foodChartOptions} />
+                {foodChartData.labels.length > 0 ? (
+                  <Line ref={foodChartRef} data={foodChartData} options={foodChartOptions} />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-gray-500">No food intake data available</p>
+                  </div>
+                )}
               </div>
             </motion.div>
           </div>
 
-          {/* Weekly Exercise Activity (Full Width) */}
-          <div className="w-full">
-            <WeeklyActivity 
-              weeklyData={weeklyData} 
-              chartOptions={chartOptions} 
-              calorieChartRef={calorieChartRef}
-              durationChartRef={durationChartRef}
-              sessionsChartRef={sessionsChartRef}
-            />
+          <motion.div 
+            className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 w-full"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.8 }}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">
+                Macronutrient Trends ({period})
+              </h2>
+            </div>
+            <div className="h-64 w-full">
+              {macrosChartData.labels.length > 0 ? (
+                <Bar ref={macrosChartRef} data={macrosChartData} options={macrosChartOptions} />
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-gray-500">No macronutrient data available</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 w-full">
+            <motion.div 
+              className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 w-full"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 1.0 }}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold text-gray-800">
+                  Calories Burned ({period})
+                </h2>
+                <p className="text-sm text-gray-600">
+                  Total: {weeklyData.calories?.reduce((a, b) => a + b, 0) || 0} kcal
+                </p>
+              </div>
+              <div className="h-64 w-full">
+                {exerciseChartData?.calories?.data?.datasets?.[0]?.data?.some(val => val > 0) ? (
+                  <Line 
+                    ref={calorieChartRef} 
+                    data={exerciseChartData.calories.data} 
+                    options={caloriesChartOptions} 
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-gray-500">No calorie data available</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+
+            <motion.div 
+              className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 w-full"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 1.2 }}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold text-gray-800">
+                  Exercise Duration ({period})
+                </h2>
+                <p className="text-sm text-gray-600">
+                  Total: {weeklyData.duration?.reduce((a, b) => a + b, 0) || 0} min
+                </p>
+              </div>
+              <div className="h-64 w-full">
+                {exerciseChartData?.duration?.data?.datasets?.[0]?.data?.some(val => val > 0) ? (
+                  <Line 
+                    ref={durationChartRef} 
+                    data={exerciseChartData.duration.data} 
+                    options={durationChartOptions} 
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-gray-500">No duration data available</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+
+            <motion.div 
+              className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 w-full"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 1.4 }}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold text-gray-800">
+                  Exercise Sessions ({period})
+                </h2>
+                <p className="text-sm text-gray-600">
+                  Total: {weeklyData.sessions?.reduce((a, b) => a + b, 0) || 0}
+                </p>
+              </div>
+              <div className="h-64 w-full">
+                {exerciseChartData?.sessions?.data?.datasets?.[0]?.data?.some(val => val > 0) ? (
+                  <Bar 
+                    ref={sessionsChartRef} 
+                    data={exerciseChartData.sessions.data} 
+                    options={sessionsChartOptions} 
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-gray-500">No session data available</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
           </div>
         </div>
       </div>
