@@ -1,7 +1,7 @@
 import axios from "axios";
 import { auth, database } from "../firebase/config.js";
-import { ref, update, get, push, query, orderByChild, limitToLast } from "firebase/database";
-import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, update, get, push } from "firebase/database";
+import { ref as storageRef, getStorage, uploadBytes, getDownloadURL, uploadBytesResumable, deleteObject } from "firebase/storage";
 import { storage } from "../firebase/config.js";
 import { debounce } from "lodash";
 
@@ -30,10 +30,14 @@ const retryWithBackoff = async (operation, maxAttempts = 3, baseDelay = 1000) =>
 // Helper function to make authenticated requests
 const authFetch = async (endpoint, options = {}, token) => {
   const headers = {
-    "Content-Type": "application/json",
     ...options.headers,
     Authorization: `Bearer ${token}`,
   };
+
+  // Avoid setting Content-Type for FormData to let the browser handle it
+  if (!(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
 
   try {
     const response = await fetch(`https://127.0.0.1:5000/api${endpoint}`, {
@@ -1139,40 +1143,40 @@ export const getExerciseStats = async (token) => {
 };
 
 // Food Diary API
-export const createFoodLog = async (foodData, token) => {
+export const createFoodLog = async (foodData, token, onProgress = () => {}) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  let image_url = null;
-  if (foodData.get('image')) { // Check FormData for image
-    const imageFile = foodData.get('image');
-    const storageReference = storageRef(storage, `food_images/${user.uid}/${Date.now()}_${imageFile.name}`);
-    const snapshot = await uploadBytes(storageReference, imageFile);
-    image_url = await getDownloadURL(snapshot.ref);
+  const formData = new FormData();
+  formData.append('food_name', foodData.get('food_name'));
+  formData.append('calories', parseFloat(foodData.get('calories')) || 0);
+  formData.append('carbs', parseFloat(foodData.get('carbs')) || 0);
+  formData.append('protein', parseFloat(foodData.get('protein')) || 0);
+  formData.append('fats', parseFloat(foodData.get('fats')) || 0);
+  formData.append('date_logged', foodData.get('date_logged'));
+  formData.append('meal_type', foodData.get('meal_type'));
+  if (foodData.get('image')) {
+    formData.append('image', foodData.get('image'));
   }
-
-  const foodEntry = {
-    userId: user.uid,
-    food_name: foodData.get('food_name'),
-    calories: parseFloat(foodData.get('calories')) || 0,
-    carbs: parseFloat(foodData.get('carbs')) || 0,
-    protein: parseFloat(foodData.get('protein')) || 0,
-    fats: parseFloat(foodData.get('fats')) || 0,
-    image_url,
-    date_logged: foodData.get('date_logged'),
-    meal_type: foodData.get('meal_type'),
-  };
 
   try {
     const response = await authFetch("/food-logs/add", {
       method: "POST",
-      body: JSON.stringify(foodEntry), // Send as JSON
+      body: formData,
     }, token);
 
     const foodId = response.id.toString();
     const foodPath = `food_logs/${user.uid}/${foodId}`;
     const firebaseEntry = {
-      ...foodEntry,
+      userId: user.uid,
+      food_name: response.food_name,
+      calories: response.calories,
+      carbs: response.carbs,
+      protein: response.protein,
+      fats: response.fats,
+      image_url: response.image_url,
+      date_logged: response.date_logged,
+      meal_type: response.meal_type,
       id: foodId,
     };
 
@@ -1235,60 +1239,45 @@ export const updateFoodLog = async (id, foodData, imageFile, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  let image_url = foodData.image_url;
-  if (imageFile) {
-    const storageReference = storageRef(storage, `food_images/${user.uid}/${Date.now()}_${imageFile.name}`);
-    const snapshot = await uploadBytes(storageReference, imageFile);
-    image_url = await getDownloadURL(snapshot);
-  }
-
-  const updatedData = {
-    food_name: foodData.food_name,
-    calories: foodData.calories,
-    carbs: foodData.carbs,
-    protein: foodData.protein,
-    fats: foodData.fats,
-    image_url,
-    date_logged: foodData.date_logged,
-    meal_type: foodData.meal_type,
-  };
-
   const formData = new FormData();
-  Object.keys(updatedData).forEach(key => {
-    if (updatedData[key] !== null && updatedData[key] !== undefined) {
-      formData.append(key, updatedData[key]);
-    }
-  });
+  formData.append('food_name', foodData.food_name);
+  formData.append('calories', foodData.calories);
+  formData.append('carbs', foodData.carbs);
+  formData.append('protein', foodData.protein);
+  formData.append('fats', foodData.fats);
+  formData.append('date_logged', foodData.date_logged);
+  formData.append('meal_type', foodData.meal_type);
   if (imageFile) {
-    formData.append("image", imageFile);
+    formData.append('image', imageFile);
   }
 
   try {
-    const response = await fetch(`https://127.0.0.1:5000/api/food-logs/update/${id}`, {
+    const response = await authFetch(`/food-logs/update/${id}`, {
       method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
       body: formData,
-    });
+    }, token);
 
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || "Failed to update food log");
-    }
-
-    //Check if data has changed before updating Firebase
     const foodPath = `food_logs/${user.uid}/${id}`;
     const snapshot = await get(ref(database, foodPath));
     if (snapshot.exists()) {
       const existingData = snapshot.val();
-      const hasChanges = JSON.stringify(existingData) !== JSON.stringify({ ...existingData, ...updatedData });  // Compare objects
+      const hasChanges = JSON.stringify(existingData) !== JSON.stringify({
+        ...existingData,
+        food_name: response.food_name,
+        calories: response.calories,
+        carbs: response.carbs,
+        protein: response.protein,
+        fats: response.fats,
+        image_url: response.image_url,
+        date_logged: response.date_logged,
+        meal_type: response.meal_type,
+      });
       if (hasChanges) {
-        updateFoodLogDebounced(user.uid, id, updatedData);
+        updateFoodLogDebounced(user.uid, id, response);
       }
     }
 
-    return data;
+    return response;
   } catch (error) {
     console.error("Error updating food log:", error);
     throw error;

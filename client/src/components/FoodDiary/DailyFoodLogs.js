@@ -5,7 +5,7 @@ import { toast } from 'react-hot-toast';
 import { copyFoodLog, deleteFoodLog } from '../../services/api';
 import { WiDaySunnyOvercast, WiDaySunny, WiDayWindy } from "react-icons/wi";
 
-const DailyFoodLogs = ({ foodLogs, selectedDate, setFoodLogs, getUserToken, handleSessionExpired }) => {
+const DailyFoodLogs = ({ foodLogs, selectedDate, setFoodLogs, getUserToken, handleSessionExpired, onOpenFoodDetails }) => {
   const [loading, setLoading] = useState(false);
 
   // Handle deleting a food log
@@ -99,7 +99,7 @@ const DailyFoodLogs = ({ foodLogs, selectedDate, setFoodLogs, getUserToken, hand
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.6, duration: 0.5 }}
-      className="bg-white rounded-xl shadow-sm my-4 overflow-hidden"
+      className="bg-white rounded-xl shadow-sm my-4 overflow-hidden relative"
     >
       <div className="border-b border-gray-100 px-6 py-4 flex justify-between items-center">
         <h2 className="text-lg font-semibold text-gray-800">
@@ -149,7 +149,11 @@ const DailyFoodLogs = ({ foodLogs, selectedDate, setFoodLogs, getUserToken, hand
                   
                   <div className="divide-y divide-gray-50">
                     {logs.map(log => (
-                      <div key={log.id} className="px-6 py-3 flex items-center hover:bg-gray-50 transition-colors">
+                      <div
+                        key={log.id}
+                        className="px-6 py-3 flex items-center hover:bg-gray-50 transition-colors cursor-pointer"
+                        onClick={() => onOpenFoodDetails(log)} // Trigger modal from parent
+                      >
                         {/* Food image */}
                         <div className="mr-4">
                           {log.image_url ? (
@@ -180,19 +184,15 @@ const DailyFoodLogs = ({ foodLogs, selectedDate, setFoodLogs, getUserToken, hand
                         <div className="flex space-x-5 mr-5">
                           <div className="text-center">
                             <div className="text-xs text-gray-500">{log.calories || '0'}</div>
-                            {/* <div className="text-xxs text-gray-400">kcal</div> */}
                           </div>
                           <div className="text-center">
                             <div className="text-xs text-gray-500">{log.carbs || '0'}</div>
-                            {/* <div className="text-xxs text-gray-400">g</div> */}
                           </div>
                           <div className="text-center">
                             <div className="text-xs text-gray-500">{log.protein || '0'}</div>
-                            {/* <div className="text-xxs text-gray-400">g</div> */}
                           </div>
                           <div className="text-center">
                             <div className="text-xs text-gray-500">{log.fats || '0'}</div>
-                            {/* <div className="text-xxs text-gray-400">g</div> */}
                           </div>
                         </div>
                         
@@ -200,7 +200,10 @@ const DailyFoodLogs = ({ foodLogs, selectedDate, setFoodLogs, getUserToken, hand
                         <div className="flex space-x-2">
                           <button
                             type="button"
-                            onClick={() => handleCopyFoodLog(log)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyFoodLog(log);
+                            }}
                             className="p-1.5 text-green-500 hover:bg-green-50 rounded-full transition-colors disabled:opacity-50"
                             disabled={loading}
                             title="Copy to current date"
@@ -211,7 +214,10 @@ const DailyFoodLogs = ({ foodLogs, selectedDate, setFoodLogs, getUserToken, hand
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDeleteFoodLog(log.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteFoodLog(log.id);
+                            }}
                             className="p-1.5 text-red-500 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50"
                             disabled={loading}
                             title="Delete"

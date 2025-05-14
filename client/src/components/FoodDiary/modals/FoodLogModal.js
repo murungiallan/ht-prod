@@ -16,9 +16,10 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
   const [image, setImage] = useState(null);
   const [foodSuggestions, setFoodSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [suggestionSelected, setSuggestionSelected] = useState(false); // New state to track selection
-  const [lastQuery, setLastQuery] = useState(''); // Track the last searched query
+  const [suggestionSelected, setSuggestionSelected] = useState(false);
+  const [lastQuery, setLastQuery] = useState('');
 
   const resetForm = () => {
     setFoodInput({
@@ -32,8 +33,9 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
     });
     setImage(null);
     setFoodSuggestions([]);
-    setSuggestionSelected(false); // Reset on form clear
-    setLastQuery(''); // Reset last query
+    setSuggestionSelected(false);
+    setLastQuery('');
+    setUploadProgress(0);
   };
 
   const searchFoodSuggestions = useCallback(
@@ -47,7 +49,7 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
         const token = await getUserToken();
         const results = await searchFoods(query);
         setFoodSuggestions(results || []);
-        setLastQuery(query); // Update the last query
+        setLastQuery(query);
       } catch (err) {
         console.error('Error fetching food suggestions:', err);
         toast.error('Failed to fetch food suggestions');
@@ -69,16 +71,37 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
       fats: food.fats || '',
     });
     setFoodSuggestions([]);
-    setSuggestionSelected(true); // Mark as selected
+    setSuggestionSelected(true);
   };
 
   const handleInputChange = (e) => {
     const newName = e.target.value;
     setFoodInput(prev => ({ ...prev, name: newName }));
-    // If the user types a new query different from the last one, allow searching
     if (newName !== lastQuery) {
       setSuggestionSelected(false);
     }
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Please upload a valid image (JPEG, PNG, GIF).');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      toast.error('Image size must be less than 5MB.');
+      return;
+    }
+
+    setImage(file);
+    setUploadProgress(0); // Reset progress when a new image is selected
   };
 
   const handleSubmit = async (e) => {
@@ -101,19 +124,27 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
       formData.append('date_logged', foodInput.dateLogged.toISOString());
       if (image) formData.append('image', image);
 
-      console.log('Submitting food log:', { foodInput, image });
-      const newLog = await createFoodLog(formData, token);
-      console.log('Received new log:', newLog);
+      const newLog = await createFoodLog(formData, token, (progress) => {
+        setUploadProgress(progress); // Update progress during upload
+      });
+
       if (!newLog || !newLog.id) {
         throw new Error('Invalid response from server');
       }
+
       setFoodLogs(prev => [newLog, ...prev].sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged)));
-      toast.success('Food log added!');
+      toast.success('Food log added successfully!');
       resetForm();
       onClose();
     } catch (err) {
       console.error('Error creating food log:', err.message, err.stack);
-      toast.error(`Failed to add food log: ${err.message || 'Unknown error'}`);
+      let errorMessage = err.message || 'Unknown error';
+      if (err.message.includes('Unauthorized')) {
+        errorMessage = 'Authentication failed. Please log in again.';
+      } else if (err.message.includes('Failed to upload image')) {
+        errorMessage = 'Failed to upload image. Please try again.';
+      }
+      toast.error(`Failed to add food log: ${errorMessage}`);
       if (err.code === 'auth/id-token-expired') handleSessionExpired();
     } finally {
       setLoading(false);
@@ -122,7 +153,7 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
 
   useEffect(() => {
     if (suggestionSelected) {
-      return; // Skip search if a suggestion is selected
+      return;
     }
     const debounceSearch = setTimeout(() => {
       searchFoodSuggestions(foodInput.name);
@@ -145,7 +176,7 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
           initial={{ y: 50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 50, opacity: 0 }}
-          className="bg-white p-6 rounded-xl shadow-lg w-full max-w-lg max-h-150 overflow-y-auto scrollbar-hide no-scrollbar"
+          className="bg-white p-6 rounded-xl shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto scrollbar-hide no-scrollbar"
           onClick={(e) => e.stopPropagation()}
         >
           <h2 className="text-xl font-semibold mb-4 text-gray-800">Log a Meal</h2>
@@ -155,7 +186,7 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
               <input
                 type="text"
                 value={foodInput.name}
-                onChange={handleInputChange} // Use the new handler
+                onChange={handleInputChange}
                 className="w-full p-3 border rounded-lg border-gray-200 focus:ring-2 focus:ring-blue-500 transition"
                 placeholder="Search or enter food..."
                 disabled={loading}
@@ -218,11 +249,22 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
               <label className="block text-sm font-medium text-gray-600">Image (optional)</label>
               <input
                 type="file"
-                onChange={(e) => setImage(e.target.files[0])}
+                onChange={handleImageChange}
                 className="w-full p-3 border rounded-lg border-gray-200"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/gif"
                 disabled={loading}
               />
+              {image && uploadProgress > 0 && uploadProgress < 100 && (
+                <div className="mt-2">
+                  <p className="text-sm text-gray-600">Uploading: {Math.round(uploadProgress)}%</p>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div
+                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="flex justify-end space-x-4">
               <button
@@ -237,19 +279,19 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
                 type="submit"
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
                 disabled={loading}
-                >
+              >
                 {loading ? (
-                    <span className="flex items-center">
+                  <span className="flex items-center">
                     <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
                     Adding...
-                    </span>
+                  </span>
                 ) : (
-                    'Add Log'
+                  'Add Log'
                 )}
-                </button>
+              </button>
             </div>
           </form>
         </motion.div>

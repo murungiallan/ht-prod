@@ -1186,7 +1186,7 @@ const Dashboard = () => {
                             recentActivities.map((activity, index) => (
                               <li key={index} className="text-sm flex items-center justify-between text-gray-600">
                                 <div className="flex items-center">
-                                  <span className={`w-2 h-2 rounded-full mr-2 ${activity.type === 'medication' ? 'bg-blue-500' : activity.type === 'exercise' ? 'bg-teal-500' : 'bg-green-500'}`}></span>
+                                  <span className={`w-2 h-2 rounded-full mr-2 ${activity.type === 'medication' ? 'bg-blue-500' : activity.type === 'exercise' ? 'bg-green-500' : 'bg-yellow-500'}`}></span>
                                   <span>{activity.description}</span>
                                 </div>
                                 <span className="text-gray-400 text-xs">

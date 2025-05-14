@@ -5,16 +5,18 @@ import { getUserFoodLogs, getFoodStats, clusterEatingPatterns, predictCaloricInt
 import { toast } from 'react-hot-toast';
 import { auth } from '../../firebase/config';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import CalendarCard from './CalendarCard';
 import FilterSummary from './FilterSummary';
 import NutritionalInsights from './NutritionalInsights';
 import NutritionalTrends from './NutritionalTrends';
 import DailyFoodLogs from './DailyFoodLogs';
 import FoodLogModal from './modals/FoodLogModal';
+import moment from 'moment';
+import { WiDaySunnyOvercast, WiDaySunny, WiDayWindy } from "react-icons/wi";
 
 // ErrorBoundary component to catch rendering errors
-const ErrorBoundary = ({ children }) => {
+const ErrorBoundary = ({ children, fallbackMessage = "Something went wrong" }) => {
   const [hasError, setHasError] = useState(false);
   const [error, setError] = useState(null);
 
@@ -29,8 +31,8 @@ const ErrorBoundary = ({ children }) => {
 
   if (hasError) {
     return (
-      <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-4 rounded-lg mb-6">
-        <p className="text-base font-medium">Something went wrong: {error?.message || 'Unknown error'}</p>
+      <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-4 rounded-lg">
+        <p className="text-base font-medium">{fallbackMessage}: {error?.message || 'Unknown error'}</p>
       </div>
     );
   }
@@ -54,6 +56,7 @@ const FoodDiary = () => {
   const [eatingPattern, setEatingPattern] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [selectedFoodLog, setSelectedFoodLog] = useState(null);
   const isMounted = useRef(true);
   const recentActionRef = useRef(null);
 
@@ -142,6 +145,21 @@ const FoodDiary = () => {
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
+  };
+
+  const handleOpenFoodDetails = (log) => {
+    setSelectedFoodLog(log);
+  };
+
+  const handleCloseFoodDetails = () => {
+    setSelectedFoodLog(null);
+  };
+
+  // Icons for each meal type
+  const mealIcons = {
+    morning: <WiDaySunnyOvercast style={{ fontSize: "1.2em", color: "#ffca28", marginRight: '4px' }} />,
+    afternoon: <WiDaySunny style={{ fontSize: "1.2em", color: "#ffca28", marginRight: '4px' }} />,
+    evening: <WiDayWindy style={{ fontSize: "1.2em", color: "#ffca28", marginRight: '4px' }} />
   };
 
   useEffect(() => {
@@ -264,7 +282,7 @@ const FoodDiary = () => {
         Object.entries(handlers).forEach(([event, handler]) => socket.off(event, handler));
       }
     };
-  }, [socket, getSocket]);
+  }, [socket, getSocket, foodLogs]);
 
   // Calculate daily summary based on selectedDate and foodLogs
   const getDailySummary = () => {
@@ -297,7 +315,7 @@ const FoodDiary = () => {
   }
 
   return (
-    <ErrorBoundary>
+    <ErrorBoundary fallbackMessage="An error occurred in the Food Diary">
       <div className="min-h-screen p-4 sm:p-6 lg:p-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-6">
@@ -359,7 +377,7 @@ const FoodDiary = () => {
                 setFilterPeriod={setFilterPeriod}
                 foodLogs={foodLogs}
                 selectedDate={selectedDate}
-                dailySummary={dailySummary} // Pass calculated summary
+                dailySummary={dailySummary}
               />
             </div>
           </div>
@@ -370,7 +388,7 @@ const FoodDiary = () => {
             setFoodLogs={setFoodLogs}
             getUserToken={getUserToken}
             handleSessionExpired={handleSessionExpired}
-            recentActionRef={recentActionRef}
+            onOpenFoodDetails={handleOpenFoodDetails}
           />
           <FoodLogModal
             isOpen={isModalOpen}
@@ -380,6 +398,101 @@ const FoodDiary = () => {
             handleSessionExpired={handleSessionExpired}
             recentActionRef={recentActionRef}
           />
+
+          {/* Food Details Modal */}
+          <ErrorBoundary fallbackMessage="Failed to display food details">
+            <AnimatePresence>
+              {selectedFoodLog && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                  onClick={handleCloseFoodDetails}
+                >
+                  <motion.div
+                    initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                    transition={{ duration: 0.3 }}
+                    className="bg-white rounded-xl shadow-lg max-w-md w-full p-6 relative"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Close Button */}
+                    <button
+                      onClick={handleCloseFoodDetails}
+                      className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors"
+                      aria-label="Close modal"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+
+                    {/* Modal Content */}
+                    <div className="flex flex-col items-center">
+                      {/* Food Image */}
+                      <div className="mb-4">
+                        {selectedFoodLog.image_url ? (
+                          <img
+                            src={selectedFoodLog.image_url}
+                            alt={selectedFoodLog.food_name || 'Food'}
+                            className="w-32 h-32 object-cover rounded-full border border-gray-200 shadow-sm"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = 'https://via.placeholder.com/128?text=•';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-32 h-32 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-4xl shadow-sm">
+                            •
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Food Name */}
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2 text-center">
+                        {selectedFoodLog.food_name || 'Unknown'}
+                      </h3>
+
+                      {/* Meal Type and Date */}
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="text-sm text-gray-500 capitalize flex items-center">
+                          {mealIcons[selectedFoodLog.meal_type]}
+                          {selectedFoodLog.meal_type}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          {moment(selectedFoodLog.date_logged).format('MMM D, YYYY h:mm A')}
+                        </span>
+                      </div>
+
+                      {/* Nutritional Information */}
+                      <div className="grid grid-cols-2 gap-4 w-full bg-gray-50 p-4 rounded-lg shadow-inner">
+                        <div className="text-center">
+                          <span className="block text-xs text-gray-500">Calories</span>
+                          <span className="text-lg font-medium text-gray-800">{selectedFoodLog.calories || '0'} kcal</span>
+                        </div>
+                        <div className="text-center">
+                          <span className="block text-xs text-gray-500">Carbs</span>
+                          <span className="text-lg font-medium text-gray-800">{selectedFoodLog.carbs || '0'}g</span>
+                        </div>
+                        <div className="text-center">
+                          <span className="block text-xs text-gray-500">Protein</span>
+                          <span className="text-lg font-medium text-gray-800">{selectedFoodLog.protein || '0'}g</span>
+                        </div>
+                        <div className="text-center">
+                          <span className="block text-xs text-gray-500">Fats</span>
+                          <span className="text-lg font-medium text-gray-800">{selectedFoodLog.fats || '0'}g</span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </ErrorBoundary>
+
           <div
             className="fixed bottom-4 right-4 z-50"
             onMouseEnter={() => setIsHelpOpen(true)}
