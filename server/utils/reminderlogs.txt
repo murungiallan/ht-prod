@@ -14529,3 +14529,200 @@
 [2025-05-14 10:16:00] [INFO] Reminder processing cycle completed
 [2025-05-14 10:21:17] [INFO] Email configuration detected: Using healthtrack.noreply@gmail.com
 [2025-05-14 10:21:17] [INFO] Reminder scheduler initialized successfully
+[2025-05-14 16:44:18] [INFO] Email configuration detected: Using healthtrack.noreply@gmail.com
+[2025-05-14 16:44:18] [INFO] Reminder scheduler initialized successfully
+[2025-05-14 16:45:00] [INFO] Running reminder check at: 2025-05-14 16:45:00
+[2025-05-14 16:45:00] [ERROR] Error in reminder cron job: Table 'healthtrack_db.reminders' doesn't exist
+[2025-05-14 16:45:00] [ERROR] Error: Table 'healthtrack_db.reminders' doesn't exist
+    at PromisePool.query (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at Task._execution (file:///C:/Users/starr/Documents/GitHub/Health-Tracker-App/server/controllers/reminder.controllers.js:840:41)
+    at Task.execute (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\task.js:17:25)
+    at ScheduledTask.now (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:38:33)
+    at Scheduler.<anonymous> (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:25:18)
+    at Scheduler.emit (node:events:518:28)
+    at Timeout.matchTime [as _onTimeout] (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduler.js:30:26)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[2025-05-14 16:46:00] [INFO] Running reminder check at: 2025-05-14 16:46:00
+[2025-05-14 16:46:00] [ERROR] Error in reminder cron job: Table 'healthtrack_db.reminders' doesn't exist
+[2025-05-14 16:46:00] [ERROR] Error: Table 'healthtrack_db.reminders' doesn't exist
+    at PromisePool.query (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at Task._execution (file:///C:/Users/starr/Documents/GitHub/Health-Tracker-App/server/controllers/reminder.controllers.js:840:41)
+    at Task.execute (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\task.js:17:25)
+    at ScheduledTask.now (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:38:33)
+    at Scheduler.<anonymous> (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:25:18)
+    at Scheduler.emit (node:events:518:28)
+    at Timeout.matchTime [as _onTimeout] (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduler.js:30:26)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[2025-05-14 16:47:00] [INFO] Running reminder check at: 2025-05-14 16:47:00
+[2025-05-14 16:47:00] [ERROR] Error in reminder cron job: Table 'healthtrack_db.reminders' doesn't exist
+[2025-05-14 16:47:00] [ERROR] Error: Table 'healthtrack_db.reminders' doesn't exist
+    at PromisePool.query (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at Task._execution (file:///C:/Users/starr/Documents/GitHub/Health-Tracker-App/server/controllers/reminder.controllers.js:840:41)
+    at Task.execute (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\task.js:17:25)
+    at ScheduledTask.now (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:38:33)
+    at Scheduler.<anonymous> (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:25:18)
+    at Scheduler.emit (node:events:518:28)
+    at Timeout.matchTime [as _onTimeout] (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduler.js:30:26)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[2025-05-14 16:48:00] [INFO] Running reminder check at: 2025-05-14 16:48:00
+[2025-05-14 16:48:00] [ERROR] Error in reminder cron job: Table 'healthtrack_db.reminders' doesn't exist
+[2025-05-14 16:48:00] [ERROR] Error: Table 'healthtrack_db.reminders' doesn't exist
+    at PromisePool.query (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at Task._execution (file:///C:/Users/starr/Documents/GitHub/Health-Tracker-App/server/controllers/reminder.controllers.js:840:41)
+    at Task.execute (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\task.js:17:25)
+    at ScheduledTask.now (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:38:33)
+    at Scheduler.<anonymous> (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:25:18)
+    at Scheduler.emit (node:events:518:28)
+    at Timeout.matchTime [as _onTimeout] (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduler.js:30:26)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[2025-05-14 16:49:00] [INFO] Running reminder check at: 2025-05-14 16:49:00
+[2025-05-14 16:49:00] [ERROR] Error in reminder cron job: Table 'healthtrack_db.reminders' doesn't exist
+[2025-05-14 16:49:00] [ERROR] Error: Table 'healthtrack_db.reminders' doesn't exist
+    at PromisePool.query (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at Task._execution (file:///C:/Users/starr/Documents/GitHub/Health-Tracker-App/server/controllers/reminder.controllers.js:840:41)
+    at Task.execute (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\task.js:17:25)
+    at ScheduledTask.now (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:38:33)
+    at Scheduler.<anonymous> (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:25:18)
+    at Scheduler.emit (node:events:518:28)
+    at Timeout.matchTime [as _onTimeout] (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduler.js:30:26)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[2025-05-14 16:50:00] [INFO] Running reminder check at: 2025-05-14 16:50:00
+[2025-05-14 16:50:00] [ERROR] Error in reminder cron job: Table 'healthtrack_db.reminders' doesn't exist
+[2025-05-14 16:50:00] [ERROR] Error: Table 'healthtrack_db.reminders' doesn't exist
+    at PromisePool.query (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at Task._execution (file:///C:/Users/starr/Documents/GitHub/Health-Tracker-App/server/controllers/reminder.controllers.js:840:41)
+    at Task.execute (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\task.js:17:25)
+    at ScheduledTask.now (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:38:33)
+    at Scheduler.<anonymous> (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:25:18)
+    at Scheduler.emit (node:events:518:28)
+    at Timeout.matchTime [as _onTimeout] (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduler.js:30:26)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[2025-05-14 16:51:00] [INFO] Running reminder check at: 2025-05-14 16:51:00
+[2025-05-14 16:51:00] [ERROR] Error in reminder cron job: Table 'healthtrack_db.reminders' doesn't exist
+[2025-05-14 16:51:00] [ERROR] Error: Table 'healthtrack_db.reminders' doesn't exist
+    at PromisePool.query (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at Task._execution (file:///C:/Users/starr/Documents/GitHub/Health-Tracker-App/server/controllers/reminder.controllers.js:840:41)
+    at Task.execute (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\task.js:17:25)
+    at ScheduledTask.now (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:38:33)
+    at Scheduler.<anonymous> (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:25:18)
+    at Scheduler.emit (node:events:518:28)
+    at Timeout.matchTime [as _onTimeout] (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduler.js:30:26)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[2025-05-14 16:52:00] [INFO] Running reminder check at: 2025-05-14 16:52:00
+[2025-05-14 16:52:00] [ERROR] Error in reminder cron job: Table 'healthtrack_db.reminders' doesn't exist
+[2025-05-14 16:52:00] [ERROR] Error: Table 'healthtrack_db.reminders' doesn't exist
+    at PromisePool.query (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at Task._execution (file:///C:/Users/starr/Documents/GitHub/Health-Tracker-App/server/controllers/reminder.controllers.js:840:41)
+    at Task.execute (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\task.js:17:25)
+    at ScheduledTask.now (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:38:33)
+    at Scheduler.<anonymous> (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:25:18)
+    at Scheduler.emit (node:events:518:28)
+    at Timeout.matchTime [as _onTimeout] (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduler.js:30:26)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[2025-05-14 16:53:00] [INFO] Running reminder check at: 2025-05-14 16:53:00
+[2025-05-14 16:53:00] [ERROR] Error in reminder cron job: Table 'healthtrack_db.reminders' doesn't exist
+[2025-05-14 16:53:00] [ERROR] Error: Table 'healthtrack_db.reminders' doesn't exist
+    at PromisePool.query (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at Task._execution (file:///C:/Users/starr/Documents/GitHub/Health-Tracker-App/server/controllers/reminder.controllers.js:840:41)
+    at Task.execute (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\task.js:17:25)
+    at ScheduledTask.now (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:38:33)
+    at Scheduler.<anonymous> (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:25:18)
+    at Scheduler.emit (node:events:518:28)
+    at Timeout.matchTime [as _onTimeout] (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduler.js:30:26)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[2025-05-14 16:54:00] [INFO] Running reminder check at: 2025-05-14 16:54:00
+[2025-05-14 16:54:00] [ERROR] Error in reminder cron job: Table 'healthtrack_db.reminders' doesn't exist
+[2025-05-14 16:54:00] [ERROR] Error: Table 'healthtrack_db.reminders' doesn't exist
+    at PromisePool.query (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at Task._execution (file:///C:/Users/starr/Documents/GitHub/Health-Tracker-App/server/controllers/reminder.controllers.js:840:41)
+    at Task.execute (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\task.js:17:25)
+    at ScheduledTask.now (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:38:33)
+    at Scheduler.<anonymous> (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:25:18)
+    at Scheduler.emit (node:events:518:28)
+    at Timeout.matchTime [as _onTimeout] (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduler.js:30:26)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[2025-05-14 16:55:00] [INFO] Running reminder check at: 2025-05-14 16:55:00
+[2025-05-14 16:55:00] [ERROR] Error in reminder cron job: Table 'healthtrack_db.reminders' doesn't exist
+[2025-05-14 16:55:00] [ERROR] Error: Table 'healthtrack_db.reminders' doesn't exist
+    at PromisePool.query (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at Task._execution (file:///C:/Users/starr/Documents/GitHub/Health-Tracker-App/server/controllers/reminder.controllers.js:840:41)
+    at Task.execute (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\task.js:17:25)
+    at ScheduledTask.now (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:38:33)
+    at Scheduler.<anonymous> (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:25:18)
+    at Scheduler.emit (node:events:518:28)
+    at Timeout.matchTime [as _onTimeout] (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduler.js:30:26)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[2025-05-14 16:56:00] [INFO] Running reminder check at: 2025-05-14 16:56:00
+[2025-05-14 16:56:00] [ERROR] Error in reminder cron job: Table 'healthtrack_db.reminders' doesn't exist
+[2025-05-14 16:56:00] [ERROR] Error: Table 'healthtrack_db.reminders' doesn't exist
+    at PromisePool.query (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at Task._execution (file:///C:/Users/starr/Documents/GitHub/Health-Tracker-App/server/controllers/reminder.controllers.js:840:41)
+    at Task.execute (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\task.js:17:25)
+    at ScheduledTask.now (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:38:33)
+    at Scheduler.<anonymous> (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:25:18)
+    at Scheduler.emit (node:events:518:28)
+    at Timeout.matchTime [as _onTimeout] (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduler.js:30:26)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[2025-05-14 16:57:00] [INFO] Running reminder check at: 2025-05-14 16:57:00
+[2025-05-14 16:57:00] [ERROR] Error in reminder cron job: Table 'healthtrack_db.reminders' doesn't exist
+[2025-05-14 16:57:00] [ERROR] Error: Table 'healthtrack_db.reminders' doesn't exist
+    at PromisePool.query (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at Task._execution (file:///C:/Users/starr/Documents/GitHub/Health-Tracker-App/server/controllers/reminder.controllers.js:840:41)
+    at Task.execute (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\task.js:17:25)
+    at ScheduledTask.now (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:38:33)
+    at Scheduler.<anonymous> (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:25:18)
+    at Scheduler.emit (node:events:518:28)
+    at Timeout.matchTime [as _onTimeout] (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduler.js:30:26)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[2025-05-14 16:58:00] [INFO] Running reminder check at: 2025-05-14 16:58:00
+[2025-05-14 16:58:00] [ERROR] Error in reminder cron job: Table 'healthtrack_db.reminders' doesn't exist
+[2025-05-14 16:58:00] [ERROR] Error: Table 'healthtrack_db.reminders' doesn't exist
+    at PromisePool.query (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at Task._execution (file:///C:/Users/starr/Documents/GitHub/Health-Tracker-App/server/controllers/reminder.controllers.js:840:41)
+    at Task.execute (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\task.js:17:25)
+    at ScheduledTask.now (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:38:33)
+    at Scheduler.<anonymous> (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:25:18)
+    at Scheduler.emit (node:events:518:28)
+    at Timeout.matchTime [as _onTimeout] (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduler.js:30:26)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[2025-05-14 16:59:00] [INFO] Running reminder check at: 2025-05-14 16:59:00
+[2025-05-14 16:59:00] [ERROR] Error in reminder cron job: Table 'healthtrack_db.reminders' doesn't exist
+[2025-05-14 16:59:00] [ERROR] Error: Table 'healthtrack_db.reminders' doesn't exist
+    at PromisePool.query (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at Task._execution (file:///C:/Users/starr/Documents/GitHub/Health-Tracker-App/server/controllers/reminder.controllers.js:840:41)
+    at Task.execute (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\task.js:17:25)
+    at ScheduledTask.now (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:38:33)
+    at Scheduler.<anonymous> (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduled-task.js:25:18)
+    at Scheduler.emit (node:events:518:28)
+    at Timeout.matchTime [as _onTimeout] (C:\Users\starr\Documents\GitHub\Health-Tracker-App\server\node_modules\node-cron\src\scheduler.js:30:26)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[2025-05-14 17:00:00] [INFO] Running reminder check at: 2025-05-14 17:00:00
+[2025-05-14 17:00:00] [INFO] Found 104 pending reminders
+[2025-05-14 17:00:00] [INFO] Reminder processing cycle completed
+[2025-05-14 17:01:00] [INFO] Running reminder check at: 2025-05-14 17:01:00
+[2025-05-14 17:01:00] [INFO] Found 104 pending reminders
+[2025-05-14 17:01:00] [INFO] Reminder processing cycle completed
+[2025-05-14 17:02:00] [INFO] Running reminder check at: 2025-05-14 17:02:00
+[2025-05-14 17:02:00] [INFO] Found 104 pending reminders
+[2025-05-14 17:02:00] [INFO] Reminder processing cycle completed
+[2025-05-14 17:03:00] [INFO] Running reminder check at: 2025-05-14 17:03:00
+[2025-05-14 17:03:00] [INFO] Found 104 pending reminders
+[2025-05-14 17:03:00] [INFO] Reminder processing cycle completed
+[2025-05-14 17:04:00] [INFO] Running reminder check at: 2025-05-14 17:04:00
+[2025-05-14 17:04:00] [INFO] Found 104 pending reminders
+[2025-05-14 17:04:00] [INFO] Reminder processing cycle completed
