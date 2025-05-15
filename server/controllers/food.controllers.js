@@ -33,24 +33,26 @@ class FoodDiaryController {
         return res.status(404).json({ error: "User not found in the database" });
       }
       const userId = userRows[0].id;
-
+  
       const { food_name, calories, carbs, protein, fats, date_logged, meal_type } = req.body;
       const file = req.file;
-
+  
       if (!food_name || !calories || !meal_type) {
         return res.status(404).json({ error: "Food name, calories, and meal type are required" });
       }
-
+  
       let image_url = null;
+      let image_data = null;
       if (file && file.buffer) {
         const fileName = `${firebaseUid}_${Date.now()}_${file.originalname.replace(/\s/g, '_')}`;
         const filePath = path.join(uploadDir, fileName);
         fs.writeFileSync(filePath, file.buffer);
         image_url = `${BASE_URL}/Uploads/${fileName}`;
+        image_data = `data:image/jpeg;base64,${file.buffer.toString('base64')}`; // Convert to base64
       } else if (file && !file.buffer) {
         console.warn("File uploaded but buffer is missing, skipping image processing");
       }
-
+  
       const foodData = {
         userId,
         food_name,
@@ -58,21 +60,35 @@ class FoodDiaryController {
         carbs: carbs ? parseFloat(carbs) : null,
         protein: protein ? parseFloat(protein) : null,
         fats: fats ? parseFloat(fats) : null,
-        image_url,
+        image_url, // Still store in MySQL for reference
         date_logged: date_logged ? new Date(date_logged) : new Date(),
         meal_type,
       };
-
+  
       const foodLog = await FoodDiary.add(foodData);
-
+  
       await firebaseDb.ref(`food_logs/${firebaseUid}/${foodLog.id}`).set({
-        ...foodData,
         id: foodLog.id,
+        userId,
+        food_name,
+        calories: foodLog.calories,
+        carbs: foodLog.carbs,
+        protein: foodLog.protein,
+        fats: foodLog.fats,
+        image_data, // Store base64 data in Firebase
+        date_logged: foodLog.date_logged.toISOString(),
+        meal_type,
         createdAt: new Date().toISOString(),
       });
-
-      req.io.emit("foodLogAdded", foodLog);
-      return res.status(201).json(foodLog);
+  
+      const foodLogWithImageData = {
+        ...foodLog,
+        image_url: undefined, // Remove from response
+        image_data, // Include base64 data in response
+      };
+  
+      req.io.emit("foodLogAdded", foodLogWithImageData);
+      return res.status(201).json(foodLogWithImageData);
     } catch (error) {
       console.error("Error adding food log:", error);
       return res.status(500).json({ error: "Failed to add food log" });
@@ -90,9 +106,34 @@ class FoodDiaryController {
 
       const foodLogs = await FoodDiary.getByUser(userId);
 
-      if (foodLogs.length > 0) {
+      // Process each food log to replace image_url with image_data (base64)
+      const processedLogs = await Promise.all(
+        foodLogs.map(async (log) => {
+          let imageData = null;
+          if (log.image_url) {
+            try {
+              const fileName = path.basename(log.image_url);
+              const filePath = path.join(uploadDir, fileName);
+              if (fs.existsSync(filePath)) {
+                const fileBuffer = fs.readFileSync(filePath);
+                imageData = `data:image/jpeg;base64,${fileBuffer.toString('base64')}`;
+              }
+            } catch (err) {
+              console.error(`Error reading image for log ${log.id}:`, err);
+              imageData = null; // If image reading fails, set to null
+            }
+          }
+          return {
+            ...log,
+            image_url: undefined, // Remove the URL
+            image_data: imageData, // Add base64 image data
+          };
+        })
+      );
+
+      if (processedLogs.length > 0) {
         const updates = {};
-        foodLogs.forEach((log) => {
+        processedLogs.forEach((log) => {
           updates[`food_logs/${firebaseUid}/${log.id}`] = {
             id: log.id,
             userId: log.user_id,
@@ -101,7 +142,7 @@ class FoodDiaryController {
             carbs: log.carbs,
             protein: log.protein,
             fats: log.fats,
-            image_url: log.image_url,
+            image_data: log.image_data, // Include base64 data in Firebase
             date_logged: log.date_logged.toISOString(),
             meal_type: log.meal_type,
             createdAt: log.createdAt ? log.createdAt.toISOString() : new Date().toISOString(),
@@ -110,7 +151,7 @@ class FoodDiaryController {
         await firebaseDb.ref().update(updates);
       }
 
-      return res.status(200).json(foodLogs);
+      return res.status(200).json(processedLogs);
     } catch (error) {
       console.error("Error getting food logs:", error);
       return res.status(500).json({ error: "Failed to get food logs" });
@@ -125,18 +166,19 @@ class FoodDiaryController {
         return res.status(404).json({ error: "User not found in the database" });
       }
       const userId = userRows[0].id;
-
+  
       const { id } = req.params;
       const { food_name, calories, carbs, protein, fats, date_logged, meal_type } = req.body;
       const file = req.file;
-
+  
       const foodLogs = await FoodDiary.getByUser(userId);
       const foodLog = foodLogs.find((log) => log.id === parseInt(id));
       if (!foodLog) {
         return res.status(404).json({ error: "Food log not found or unauthorized" });
       }
-
+  
       let image_url = foodLog.image_url;
+      let image_data = null;
       if (file) {
         // Delete old image if it exists
         if (foodLog.image_url) {
@@ -146,38 +188,64 @@ class FoodDiaryController {
             fs.unlinkSync(oldFilePath);
           }
         }
-        // Save new image from memory to filesystem
+        // Save new image
         const fileName = `${firebaseUid}_${Date.now()}_${file.originalname.replace(/\s/g, '_')}`;
         const filePath = path.join(uploadDir, fileName);
         fs.writeFileSync(filePath, file.buffer);
         image_url = `${BASE_URL}/Uploads/${fileName}`;
+        image_data = `data:image/jpeg;base64,${file.buffer.toString('base64')}`; // Convert to base64
+      } else {
+        // If no new image is uploaded, try to read the existing image
+        if (foodLog.image_url) {
+          const fileName = path.basename(foodLog.image_url);
+          const filePath = path.join(uploadDir, fileName);
+          if (fs.existsSync(filePath)) {
+            const fileBuffer = fs.readFileSync(filePath);
+            image_data = `data:image/jpeg;base64,${fileBuffer.toString('base64')}`;
+          }
+        }
       }
-
+  
       const updatedData = {
         food_name: food_name || foodLog.food_name,
         calories: calories ? parseFloat(calories) : foodLog.calories,
         carbs: carbs ? parseFloat(carbs) : foodLog.carbs,
         protein: protein ? parseFloat(protein) : foodLog.protein,
         fats: fats ? parseFloat(fats) : foodLog.fats,
-        image_url,
+        image_url, // Update in MySQL
         date_logged: date_logged ? new Date(date_logged) : foodLog.date_logged,
         meal_type: meal_type || foodLog.meal_type,
       };
-
+  
       const updatedFoodLog = await FoodDiary.update(id, updatedData);
-
+  
+      const updatedFirebaseData = {
+        id: parseInt(id),
+        userId,
+        food_name: updatedData.food_name,
+        calories: updatedData.calories,
+        carbs: updatedData.carbs,
+        protein: updatedData.protein,
+        fats: updatedData.fats,
+        image_data, // Store base64 data in Firebase
+        date_logged: updatedData.date_logged.toISOString(),
+        meal_type: updatedData.meal_type,
+        createdAt: foodLog.createdAt ? foodLog.createdAt.toISOString() : new Date().toISOString(),
+      };
+  
       const originalFirebaseData = (await firebaseDb.ref(`food_logs/${firebaseUid}/${id}`).once('value')).val();
-      if (originalFirebaseData && JSON.stringify(originalFirebaseData) !== JSON.stringify(updatedData)) {
-        await firebaseDb.ref(`food_logs/${firebaseUid}/${id}`).set({
-          ...updatedData,
-          id: parseInt(id),
-          userId,
-          createdAt: foodLog.createdAt ? foodLog.createdAt.toISOString() : new Date().toISOString(),
-        });
+      if (originalFirebaseData && JSON.stringify(originalFirebaseData) !== JSON.stringify(updatedFirebaseData)) {
+        await firebaseDb.ref(`food_logs/${firebaseUid}/${id}`).set(updatedFirebaseData);
       }
-
-      req.io.emit("foodLogUpdated", updatedFoodLog);
-      return res.status(200).json(updatedFoodLog);
+  
+      const updatedFoodLogWithImageData = {
+        ...updatedFoodLog,
+        image_url: undefined, // Remove from response
+        image_data, // Include base64 data in response
+      };
+  
+      req.io.emit("foodLogUpdated", updatedFoodLogWithImageData);
+      return res.status(200).json(updatedFoodLogWithImageData);
     } catch (error) {
       console.error("Error updating food log:", error);
       return res.status(500).json({ error: "Failed to update food log" });
@@ -254,31 +322,54 @@ class FoodDiaryController {
         return res.status(404).json({ error: "User not found in the database" });
       }
       const userId = userRows[0].id;
-
+  
       const { id, newDate } = req.body;
       const foodLogs = await FoodDiary.getByUser(userId);
       const foodLog = foodLogs.find((log) => log.id === parseInt(id));
-
+  
       if (!foodLog) {
         return res.status(404).json({ error: "Food log not found or unauthorized" });
       }
-
+  
+      let image_data = null;
+      if (foodLog.image_url) {
+        const fileName = path.basename(foodLog.image_url);
+        const filePath = path.join(uploadDir, fileName);
+        if (fs.existsSync(filePath)) {
+          const fileBuffer = fs.readFileSync(filePath);
+          image_data = `data:image/jpeg;base64,${fileBuffer.toString('base64')}`;
+        }
+      }
+  
       const newId = await FoodDiary.copyEntry(id, new Date(newDate));
       const newLog = {
         ...foodLog,
         id: newId,
         date_logged: new Date(newDate),
       };
-
+  
       await firebaseDb.ref(`food_logs/${firebaseUid}/${newId}`).set({
-        ...newLog,
+        id: newId,
         userId,
+        food_name: newLog.food_name,
+        calories: newLog.calories,
+        carbs: newLog.carbs,
+        protein: newLog.protein,
+        fats: newLog.fats,
+        image_data, // Store base64 data in Firebase
         date_logged: newLog.date_logged.toISOString(),
+        meal_type: newLog.meal_type,
         createdAt: new Date().toISOString(),
       });
-
-      req.io.emit("foodLogAdded", newLog);
-      return res.status(201).json(newLog);
+  
+      const newLogWithImageData = {
+        ...newLog,
+        image_url: undefined, // Remove from response
+        image_data, // Include base64 data in response
+      };
+  
+      req.io.emit("foodLogAdded", newLogWithImageData);
+      return res.status(201).json(newLogWithImageData);
     } catch (error) {
       console.error("Error copying food log:", error);
       return res.status(500).json({ error: "Failed to copy food log" });

@@ -1174,7 +1174,7 @@ export const createFoodLog = async (foodData, token, onProgress = () => {}) => {
       carbs: response.carbs,
       protein: response.protein,
       fats: response.fats,
-      image_url: response.image_url,
+      image_data: response.image_data || null, // Use image_data from server
       date_logged: response.date_logged,
       meal_type: response.meal_type,
       id: foodId,
@@ -1207,7 +1207,7 @@ export const getUserFoodLogs = async (token) => {
       carbs: foodLog.carbs,
       protein: foodLog.protein,
       fats: foodLog.fats,
-      image_url: foodLog.image_url,
+      image_data: foodLog.image_data || null, // Use image_data from server, default to null
       date_logged: foodLog.date_logged,
       meal_type: foodLog.meal_type,
     };
@@ -1268,12 +1268,15 @@ export const updateFoodLog = async (id, foodData, imageFile, token) => {
         carbs: response.carbs,
         protein: response.protein,
         fats: response.fats,
-        image_url: response.image_url,
+        image_data: response.image_data || null, // Use image_data from server
         date_logged: response.date_logged,
         meal_type: response.meal_type,
       });
       if (hasChanges) {
-        updateFoodLogDebounced(user.uid, id, response);
+        updateFoodLogDebounced(user.uid, id, {
+          ...response,
+          image_data: response.image_data || null,
+        });
       }
     }
 
@@ -1323,7 +1326,10 @@ export const copyFoodLog = async (id, newDate, token) => {
   );
 
   const foodPath = `food_logs/${user.uid}/${response.id}`;
-  await retryWithBackoff(() => update(ref(database), { [foodPath]: response }));
+  await retryWithBackoff(() => update(ref(database), { [foodPath]: {
+    ...response,
+    image_data: response.image_data || null, // Use image_data from server
+  }}));
 
   return response;
 };

@@ -224,6 +224,8 @@ const FoodDiary = () => {
             carbs: parseFloat(log.carbs) || 0,
             protein: parseFloat(log.protein) || 0,
             fats: parseFloat(log.fats) || 0,
+            image_url: undefined, // Ensure image_url is removed
+            image_data: log.image_data, // Use image_data from the server
           };
           if (recentActionRef.current === `add-${validatedLog.id}` || foodLogs.some(l => l.id === validatedLog.id)) {
             recentActionRef.current = null;
@@ -233,6 +235,30 @@ const FoodDiary = () => {
         } catch (err) {
           console.error('Error handling foodLogAdded:', err);
           toast.error('Failed to update food log (added)');
+        }
+      },
+      foodLogUpdated: (log) => {
+        if (!isMounted.current) return;
+        try {
+          const validatedLog = {
+            ...log,
+            calories: parseFloat(log.calories) || 0,
+            carbs: parseFloat(log.carbs) || 0,
+            protein: parseFloat(log.protein) || 0,
+            fats: parseFloat(log.fats) || 0,
+            image_url: undefined,
+            image_data: log.image_data,
+          };
+          if (recentActionRef.current === `update-${validatedLog.id}`) {
+            recentActionRef.current = null;
+            return;
+          }
+          if (foodLogs.some(l => l.id === validatedLog.id)) {
+            setFoodLogs(prev => prev.map(item => item.id === validatedLog.id ? validatedLog : item).sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged)));
+          }
+        } catch (err) {
+          console.error('Error handling foodLogUpdated:', err);
+          toast.error('Failed to update food log (updated)');
         }
       },
       foodLogUpdated: (log) => {
@@ -434,9 +460,9 @@ const FoodDiary = () => {
                     <div className="flex flex-col items-center">
                       {/* Food Image */}
                       <div className="mb-4">
-                        {selectedFoodLog.image_url ? (
+                        {selectedFoodLog.image_data ? (
                           <img
-                            src={selectedFoodLog.image_url}
+                            src={selectedFoodLog.image_data}
                             alt={selectedFoodLog.food_name || 'Food'}
                             className="w-32 h-32 object-cover rounded-full border border-gray-200 shadow-sm"
                             onError={(e) => {
