@@ -191,7 +191,12 @@ class AuthController {
       const { username, displayName, role, phone, address, height, weight, profile_image } = req.body;
       const userId = req.user.uid;
       logToFile(`Received data: ${JSON.stringify({ username, displayName, role, phone, address, height, weight, profile_image })}`);
-
+  
+      // Validate that profile_image is a URL, not a base64 string
+      if (profile_image && profile_image.startsWith('data:image')) {
+        throw new Error('Base64 images are not allowed. Please upload to storage and provide a URL.');
+      }
+  
       const updatedUser = await User.updateProfile(userId, {
         username,
         displayName,
@@ -203,7 +208,7 @@ class AuthController {
         profile_image,
       });
       logToFile(`Profile updated successfully for user ${userId}`);
-
+  
       await firebaseDb.ref(`users/${userId}`).update({
         username,
         displayName,
@@ -215,7 +220,7 @@ class AuthController {
         profile_image: profile_image || null,
       });
       logToFile(`Firebase sync completed for user ${userId}`);
-
+  
       res.status(200).json(updatedUser);
     } catch (error) {
       logToFile(`Error updating profile: ${error.message}\n${error.stack}`, "ERROR");

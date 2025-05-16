@@ -52,7 +52,17 @@ class User {
       SET username = ?, display_name = ?, role = ?, phone = ?, address = ?, height = ?, weight = ?, profile_image = ?
       WHERE uid = ?
     `;
-    await db.query(query, [username, displayName, role, phone || null, address || null, height || null, weight || null, profile_image || null, userId]);
+    await db.query(query, [
+      username,
+      displayName,
+      role,
+      phone || null,
+      address || null,
+      height || null,
+      weight || null,
+      profile_image || null,
+      userId,
+    ]);
     return { uid: userId, username, displayName, role, phone, address, height, weight, profile_image };
   }
 
