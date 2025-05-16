@@ -68,6 +68,11 @@ const Nav = () => {
     }),
   };
 
+  // Hide navbar if user is logged in and role is admin
+  if (user && user.role === "admin") {
+    return null;
+  }
+
   return (
     <header className="fixed top-0 left-0 w-full text-gray-700 shadow-md z-50 backdrop-blur-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -152,14 +157,14 @@ const Nav = () => {
                         <FaUser className="w-4 h-4 mr-2" />
                         Profile
                       </Link>
-                      <Link
+                      {/* <Link
                         to="/user-info"
                         onClick={() => setIsDropdownOpen(false)}
                         className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100"
                       >
                         <FaUser className="w-4 h-4 mr-2" />
                         User Information
-                      </Link>
+                      </Link> */}
                       <Link
                         to="/settings"
                         onClick={() => setIsDropdownOpen(false)}
@@ -291,7 +296,7 @@ const Nav = () => {
                             ? [{ to: "/admin", label: "Admin Dashboard" }]
                             : []),
                           { to: "/profile", label: "Profile" },
-                          { to: "/user-info", label: "User Information" },
+                          // { to: "/user-info", label: "User Information" },
                           { to: "/settings", label: "Settings" },
                         ].map((item, index) => (
                           <motion.div

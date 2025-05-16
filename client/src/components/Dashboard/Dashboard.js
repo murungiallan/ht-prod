@@ -143,11 +143,16 @@ const PeriodFilter = ({ period, setPeriod }) => {
     "Last 28 Days"
   ];
 
+  const handleChange = (e) => {
+    e.preventDefault();
+    setPeriod(e.target.value);
+  };
+
   return (
     <div className="relative">
       <select
         value={period}
-        onChange={(e) => setPeriod(e.target.value)}
+        onChange={handleChange}
         className="appearance-none w-full bg-white border border-gray-300 rounded-lg py-2 pl-3 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
         {periods.map((p) => (

@@ -21,7 +21,9 @@ import ForgotPassword from "../pages/ForgotPassword";
 const ProtectedRoute = ({ children, adminOnly = false }) => {
   const { user } = useContext(AuthContext);
   if (!user) return <Navigate to="/login" />;
-  if (adminOnly && user.role !== "admin") return <Navigate to="/dashboard" />;
+  if (adminOnly && user.role !== "admin") {
+    return <Navigate to="/dashboard" />;
+  }
   return children;
 };
 

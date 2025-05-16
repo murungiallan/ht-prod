@@ -159,7 +159,7 @@ const Settings = () => {
       {/* Tab Navigation */}
       <div className="mb-8">
         <nav className="flex space-x-4 border-b border-gray-200">
-          <button
+          {/* <button
             className={`py-3 px-4 text-sm font-medium transition-colors duration-200 ${
               activeTab === 'profile'
                 ? 'border-b-2 border-blue-600 text-blue-600'
@@ -168,7 +168,7 @@ const Settings = () => {
             onClick={() => setActiveTab('profile')}
           >
             Profile
-          </button>
+          </button> */}
           <button
             className={`py-3 px-4 text-sm font-medium transition-colors duration-200 ${
               activeTab === 'security'
