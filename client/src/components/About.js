@@ -2,7 +2,8 @@ import { useRef, useEffect } from "react";
 import { motion, useAnimation, useInView } from "framer-motion";
 import { Link } from "react-router-dom";
 import { FaHeartbeat, FaChartLine, FaBrain, FaLock } from "react-icons/fa";
-import allanImg from '../assets/allan-profile.jpg';
+import teamMember1Img from '../assets/aspa.jpg';
+import teamMember2Img from '../assets/allan.JPG';
 import teamImg from '../assets/team-unsplash.jpg';
 
 const About = () => {
@@ -34,19 +35,27 @@ const About = () => {
     },
   };
 
+  // Team members data
+  const teamMembers = [
+    {
+      name: "Muhammad Azfar Asyraf Bin Affendi",
+      title: "Software Engineer",
+      bio: "With expertise across the entire application, Azfar particularly focused on the database and front-end user experience. He was crucial in creating a system that was both user-friendly and capable of securely and efficiently managing data, effectively connecting user needs with the technical aspects of HealthTrack.",
+      image: teamMember1Img,
+    },
+    {
+      name: "Murungi Allan Cheboiwo",
+      title: "Software Engineer",
+      bio: "As a key architect, Allan established HealthTrack's foundational structure by expertly integrating front-end and back-end systems. His work on database design and API optimization ensured the platform's reliability and ability to grow.",
+      image: teamMember2Img,
+    },
+  ];
+
   return (
     <div className="bg-gray-200 pt-16 min-h-screen">
       {/* Hero Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-gray-400 via-gray-200 to-gray-800 text-white text-center relative overflow-hidden">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-gray-800 via-gray-600 to-gray-800 text-white text-center relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTQ0MCIgaGVpZ2h0PSI3NjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj48cmVjdCBmaWxsPSIjMDAwIiBvcGFjaXR5PSIuMDUiIHdpZHRoPSIxNDQwIiBoZWlnaHQ9Ijc2MCIvPjxjaXJjbGUgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjEuNSIgc3Ryb2tlLW9wYWNpdHk9Ii4xNSIgY3g9IjcyMCIgY3k9IjM4MCIgcj0iMTAwIi8+PGNpcmNsZSBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2Utb3BhY2l0eT0iLjE1IiBjeD0iNzIwIiBjeT0iMzgwIiByPSIyMDAiLz48Y2lyY2xlIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1vcGFjaXR5PSIuMTUiIGN4PSI3MjAiIGN5PSIzODAiIHI9IjMwMCIvPjxjaXJjbGUgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjEuNSIgc3Ryb2tlLW9wYWNpdHk9Ii4xNSIgY3g9IjcyMCIgY3k9IjM4MCIgcj0iNDAwIi8+PC9nPjwvc3ZnPg==')] opacity-20"></div>
-        {/* <div 
-          className="absolute inset-0 opacity-90 z-0" 
-          style={{
-            backgroundImage: `url(${aboutImg})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center"
-          }}
-        ></div> */}
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -67,19 +76,19 @@ const About = () => {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
-                <h2 className="text-3xl font-bold text-gray-900 mb-6">Our Story</h2>
-                <div className="prose prose-lg text-gray-600">
-                    <p>
-                        HealthTrack began in 2025 with a simple vision: make health tracking intuitive and actionable. 
-                        We believe that understanding your body is the first step toward improving your wellbeing.
-                    </p>
-                    <p>
-                        Founded by a team of university students from Swinburne University Sarawak, we've designed our platform 
-                        to be both comprehensive and easy to use. Whether you're managing a health condition, pursuing 
-                        fitness goals, or simply want to lead a healthier lifestyle, HealthTrack provides the tools 
-                        you need.
-                    </p>
-                </div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-6">Our Story</h2>
+              <div className="prose prose-lg text-gray-600">
+                <p>
+                  HealthTrack began in 2025 with a simple vision: make health tracking intuitive and actionable. 
+                  We believe that understanding your body is the first step toward improving your wellbeing.
+                </p>
+                <p>
+                  Founded by a team of university students from Swinburne University Sarawak, we've designed our platform 
+                  to be both comprehensive and easy to use. Whether you're managing a health condition, pursuing 
+                  fitness goals, or simply want to lead a healthier lifestyle, HealthTrack provides the tools 
+                  you need.
+                </p>
+              </div>
             </div>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -189,25 +198,23 @@ const About = () => {
             initial="hidden"
             animate={teamControls}
             variants={staggerContainer}
-            className="grid md:grid-cols-4 lg:grid-cols-4 gap-8"
+            className="grid md:grid-cols-2 lg:grid-cols-2 gap-8"
           >
-            {[1, 2, 3, 4].map((index) => (
+            {teamMembers.map((member, index) => (
               <motion.div 
                 key={index}
                 variants={fadeInUp} 
-                className=" rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
+                className="rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
               >
                 <img 
-                  src={`${allanImg}?text=Team Member ${index}`} 
-                  alt={`Team Member ${index}`} 
-                  className="w-full h-64 object-cover opacity-10" 
+                  src={member.image} 
+                  alt={member.name} 
+                  className="w-full h-64 object-cover" 
                 />
                 <div className="p-6">
-                  <h3 className="text-xl font-bold text-gray-900 mb-1">Team Member {index}</h3>
-                  <p className="text-black mb-3">Position Title</p>
-                  <p className="text-gray-600">
-                    Brief bio about the team member and their contribution to HealthTrack.
-                  </p>
+                  <h3 className="text-xl font-bold text-gray-900 mb-1">{member.name}</h3>
+                  <p className="text-black mb-3">{member.title}</p>
+                  <p className="text-gray-600">{member.bio}</p>
                 </div>
               </motion.div>
             ))}

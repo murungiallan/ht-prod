@@ -133,7 +133,7 @@ const Sidebar = ({ activeTab, setActiveTab, isMinimized, setIsMinimized, isMobil
 
       {/* Desktop Sidebar */}
       <motion.div
-        className="hidden lg:block fixed top-0 left-0 h-screen bg-gray-100 text-black px-6 py-4 z-40"
+        className="hidden lg:block fixed top-0 left-0 shadow-md h-screen bg-gray-100 text-black px-6 py-4 z-40"
         variants={sidebarVariants}
         animate={isMinimized ? "minimized" : "expanded"}
         onMouseEnter={() => setIsMinimized(false)}
@@ -302,11 +302,11 @@ const ChartComponent = ({ type, data, options, title }) => {
 // Statistics Card Component
 const StatisticsCard = ({ title, value, change, icon }) => {
   return (
-    <div className="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
-      <div className="text-3xl text-indigo-600">{icon}</div>
+    <div className="bg-white p-4 rounded-xl shadow-md flex items-center space-x-3">
+      <div className="text-2xl text-indigo-600">{icon}</div>
       <div>
         <h3 className="text-sm font-medium text-gray-500">{title}</h3>
-        <p className="text-2xl font-bold text-gray-800">{value}</p>
+        <p className="text-xl font-bold text-gray-800">{value}</p>
         {change && (
           <p className={`text-sm ${change >= 0 ? "text-green-600" : "text-red-600"}`}>
             {change >= 0 ? "+" : ""}{change}% {change >= 0 ? "increase" : "decrease"}
@@ -893,7 +893,7 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen text-gray-800">
       {/* Top Navbar */}
-      <nav className="fixed top-0 left-0 right-0 bg-gray-100 text-black border-b border-gray-200 px-6 py-4 flex justify-start items-center z-50">
+      <nav className="fixed top-0 left-0 right-0 bg-gray-100 text-black border-b shadow-sm border-gray-200 px-6 py-4 flex justify-start items-center z-50">
         <img src={logo} alt="HealthTrack" className="h-10" />
         {/* <div className="flex items-center space-x-4">
           <span className="text-sm">{user?.email || "User"}</span>
@@ -935,9 +935,10 @@ const AdminDashboard = () => {
         )}
         {!loading && !error && (
           <div className="flex flex-col space-y-6">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-6 text-center">Admin Dashboard</h2>
             {activeTab === "users" && (
               <div>
-                <h2 className="text-2xl font-semibold text-gray-800 mb-6">Manage Users</h2>
+                <h2 className="text-xl font-semibold text-gray-800 mb-6 text-center">Manage Users</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
                   <StatisticsCard
                     title="Total Users"
@@ -945,11 +946,11 @@ const AdminDashboard = () => {
                     change={((users.length - (users.length * 0.9)) / (users.length * 0.9) * 100).toFixed(1)}
                     icon={<FaUser />}
                   />
-                  <StatisticsCard
+                  {/* <StatisticsCard
                     title="Active Users"
                     value={users.filter((u) => u.last_login).length}
                     icon={<FaUser />}
-                  />
+                  /> */}
                   <StatisticsCard
                     title="Admins"
                     value={users.filter((u) => u.role === "admin").length}
@@ -976,12 +977,55 @@ const AdminDashboard = () => {
                     icon={<FaRunning />}
                   />
                 </div>
-                {/* Rest of the users tab (buttons and table) remains unchanged */}
+                <div className="mb-6">
+                  <button
+                    onClick={() => setModalOpen("createUser")}
+                    className="bg-indigo-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-md hover:bg-gray-700 transition-colors"
+                  >
+                    Add User
+                  </button>
+                </div>
+                <PaginatedTable
+                  data={users}
+                  columns={[
+                    { key: "id", label: "User ID" },
+                    { key: "username", label: "Username" },
+                    { key: "email", label: "Email" },
+                    { key: "display_name", label: "Display Name" },
+                    { key: "role", label: "Role" },
+                    // {
+                    //   key: "last_login",
+                    //   label: "Last Login",
+                    //   render: (item) =>
+                    //     item.last_login ? new Date(item.last_login).toLocaleString() : "N/A",
+                    // },
+                    {
+                      key: "actions",
+                      label: "Actions",
+                      render: (item) => (
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => setModalOpen("updateUser")}
+                            className="text-indigo-600 hover:text-indigo-500 font-medium"
+                          >
+                            Update
+                          </button>
+                          <button
+                            onClick={() => handleResetPassword(item.email)}
+                            className="text-blue-600 hover:text-blue-500 font-medium"
+                          >
+                            Reset Password
+                          </button>
+                        </div>
+                      ),
+                    },
+                  ]}
+                />
               </div>
             )}
             {activeTab === "medications" && (
               <div>
-                <h2 className="text-2xl font-semibold text-gray-800 mb-6">Manage Medications</h2>
+                <h2 className="text-xl font-semibold text-gray-800 mb-6 text-center">Manage Medications</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
                   <StatisticsCard
                     title="Total Users"
@@ -1093,7 +1137,7 @@ const AdminDashboard = () => {
             )}
             {activeTab === "reminders" && (
               <div>
-                <h2 className="text-2xl font-semibold text-gray-800 mb-6">Manage Reminders</h2>
+                <h2 className="text-xl font-semibold text-gray-800 mb-6 text-center">Manage Reminders</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
                   <StatisticsCard
                     title="Total Users"
@@ -1171,7 +1215,7 @@ const AdminDashboard = () => {
             )}
             {activeTab === "foodLogs" && (
               <div>
-                <h2 className="text-2xl font-semibold text-gray-800 mb-6">Manage Food Logs</h2>
+                <h2 className="text-xl font-semibold text-gray-800 mb-6 text-center">Manage Food Logs</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
                   <StatisticsCard
                     title="Total Users"
@@ -1262,7 +1306,7 @@ const AdminDashboard = () => {
             )}
             {activeTab === "exercises" && (
               <div>
-                <h2 className="text-2xl font-semibold text-gray-800 mb-6">Manage Exercises</h2>
+                <h2 className="text-xl font-semibold text-gray-800 mb-6 text-center">Manage Exercises</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
                   <StatisticsCard
                     title="Total Users"
