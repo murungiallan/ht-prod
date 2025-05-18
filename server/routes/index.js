@@ -5,6 +5,7 @@ import medicationRoutes from "./medication.routes.js";
 import userRoutes from "./user.routes.js";
 import reminderRoutes from "./reminder.routes.js";
 import foodRoutes from "./food.routes.js";
+import adminRoutes from "./admin.routes.js";
 
 const router = Router();
 
@@ -19,5 +20,6 @@ router.use("/medications", medicationRoutes);
 router.use("/users", userRoutes);
 router.use("/reminders", reminderRoutes);
 router.use("/food-logs", foodRoutes);
+router.use("/admin", adminRoutes);
 
 export default router;
