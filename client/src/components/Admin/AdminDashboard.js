@@ -1,47 +1,67 @@
-import { useState, useEffect, useContext, useCallback } from "react";
+import { useState, useEffect, useContext, useMemo } from "react";
 import { AuthContext } from "../../contexts/AuthContext";
 import { auth } from "../../firebase/config";
 import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import {
-  getAllUsers,
+  getAllAdminUsers,
+  searchAdminUsers,
+  bulkDeleteAdminUsers,
+  getAllAdminMedications,
+  getAdminMedicationAdherence,
+  getAllAdminReminders,
+  updateAdminReminderStatus,
+  getAllAdminFoodLogs,
+  getAdminFoodStats,
+  getAllAdminExercises,
+  getAdminExerciseStats,
+  getAdminSystemSettings,
+  updateAdminSystemSettings,
+  getAdminUserActivityTrends,
+  exportAdminData,
+  getAdminAuditLogs,
+  registerUser,
   updateProfile,
   resetPassword,
-  saveWeeklyGoals,
-  getWeeklyGoals,
   createMedication,
-  getUserMedications,
   updateMedication,
   deleteMedication,
-  getTakenMedicationHistory,
-  calculateMedicationStreak,
   createReminder,
-  getUserReminders,
   updateReminder,
   deleteReminder,
-  updateReminderStatus,
   createFoodLog,
-  getUserFoodLogs,
   updateFoodLog,
   deleteFoodLog,
-  getFoodStats,
   createExercise,
-  getUserExercises,
   updateExercise,
   deleteExercise,
-  getExerciseStats,
-  registerUser,
 } from "../../services/api";
-import { FaUser, FaPills, FaBell, FaUtensils, FaRunning, FaSpinner, FaBars, FaTimes, FaSignOutAlt } from "react-icons/fa";
+import {
+  FaUser,
+  FaPills,
+  FaBell,
+  FaUtensils,
+  FaRunning,
+  FaSpinner,
+  FaBars,
+  FaTimes,
+  FaSignOutAlt,
+  FaCog,
+  FaFileExport,
+  FaHistory,
+  FaSearch,
+  FaTrash,
+} from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
-import { Line, Bar } from "react-chartjs-2";
+import { Bar, Line, Pie } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
-  PointElement,
-  LineElement,
   BarElement,
+  LineElement,
+  PointElement,
+  ArcElement,
   Title,
   Tooltip,
   Legend,
@@ -49,100 +69,281 @@ import {
 import logo from "../../assets/logo.png";
 import favicon from "../../assets/favicon.png";
 
-// Register Chart.js components
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  PointElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend
+);
+
+// Reusable DataTable Component
+const DataTable = ({ columns, data, totalCount, onEdit, onDelete, onSelect, selectedRows, setSelectedRows, onSort, sortConfig, fetchPage }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10); // Default to 10 for smaller fetches
+  const pageSizeOptions = [10, 25, 50];
+
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
+
+  const sortedData = useMemo(() => {
+    if (!sortConfig.key) return data;
+    const sorted = [...data].sort((a, b) => {
+      if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === "asc" ? -1 : 1;
+      if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    });
+    return sorted;
+  }, [data, sortConfig]);
+
+  useEffect(() => {
+    fetchPage(currentPage, itemsPerPage, sortConfig);
+  }, [currentPage, itemsPerPage, sortConfig, fetchPage]);
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedRows(sortedData.map((item) => item.id));
+    } else {
+      setSelectedRows([]);
+    }
+  };
+
+  return (
+    <div className="bg-white shadow-md rounded-lg overflow-x-auto">
+      <div className="flex justify-between items-center p-4">
+        <div className="flex items-center space-x-2">
+          <label className="text-sm text-gray-600">Show</label>
+          <select
+            value={itemsPerPage}
+            onChange={(e) => {
+              setItemsPerPage(parseInt(e.target.value));
+              setCurrentPage(1); // Reset to first page
+            }}
+            className="border border-gray-300 rounded-md p-1"
+          >
+            {pageSizeOptions.map((size) => (
+              <option key={size} value={size}>{size}</option>
+            ))}
+          </select>
+          <span className="text-sm text-gray-600">entries</span>
+        </div>
+      </div>
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <input
+                type="checkbox"
+                checked={selectedRows.length === sortedData.length && sortedData.length > 0}
+                onChange={handleSelectAll}
+              />
+            </th>
+            {columns.map((column) => (
+              <th
+                key={column.key}
+                onClick={() => onSort(column.key)}
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+              >
+                {column.label}
+                {sortConfig.key === column.key && (
+                  <span>{sortConfig.direction === "asc" ? " ↑" : " ↓"}</span>
+                )}
+              </th>
+            ))}
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {sortedData.map((item) => (
+            <tr key={item.id}>
+              <td className="px-6 py-4 whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  checked={selectedRows.includes(item.id)}
+                  onChange={() => onSelect(item.id)}
+                />
+              </td>
+              {columns.map((column) => (
+                <td key={column.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {column.render ? column.render(item) : item[column.key] || "-"}
+                </td>
+              ))}
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <button
+                  onClick={() => onEdit(item)}
+                  className="text-indigo-600 hover:text-indigo-900 mr-4"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => onDelete(item.id)}
+                  className="text-red-600 hover:text-red-900"
+                >
+                  Delete
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="flex justify-between items-center p-4">
+        <p className="text-sm text-gray-600">
+          Showing {((currentPage - 1) * itemsPerPage) + 1} to{" "}
+          {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} entries
+        </p>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 bg-gray-200 rounded-md disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <button
+            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 bg-gray-200 rounded-md disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Sidebar Component
-const Sidebar = ({ activeTab, setActiveTab, isMinimized, setIsMinimized, isMobileMenuOpen, setIsMobileMenuOpen }) => {
+const Sidebar = ({ activeTab, setActiveTab, activeSubTab, setActiveSubTab, isMinimized, setIsMinimized, isMobileMenuOpen, setIsMobileMenuOpen }) => {
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     await logout();
     navigate("/login");
-    toast("You have been logged out");
+    toast.success("You have been logged out");
     setIsMobileMenuOpen(false);
   };
 
   const tabs = [
-    { id: "users", label: "Users", icon: <FaUser /> },
-    { id: "medications", label: "Medications", icon: <FaPills /> },
-    { id: "reminders", label: "Reminders", icon: <FaBell /> },
-    { id: "foodLogs", label: "Food Logs", icon: <FaUtensils /> },
-    { id: "exercises", label: "Exercises", icon: <FaRunning /> },
+    {
+      id: "users",
+      label: "Users",
+      icon: <FaUser />,
+      subTabs: [
+        { id: "stats", label: "Statistics" },
+        { id: "charts", label: "Charts" },
+        { id: "all", label: "All Users" },
+        { id: "bulk", label: "Bulk Operations" },
+      ],
+    },
+    {
+      id: "medications",
+      label: "Medications",
+      icon: <FaPills />,
+      subTabs: [
+        { id: "stats", label: "Statistics" },
+        { id: "charts", label: "Charts" },
+        { id: "all", label: "All Medications" },
+        { id: "bulk", label: "Bulk Operations" },
+      ],
+    },
+    {
+      id: "reminders",
+      label: "Reminders",
+      icon: <FaBell />,
+      subTabs: [
+        { id: "stats", label: "Statistics" },
+        { id: "all", label: "All Reminders" },
+        { id: "bulk", label: "Bulk Operations" },
+      ],
+    },
+    {
+      id: "foodLogs",
+      label: "Food Logs",
+      icon: <FaUtensils />,
+      subTabs: [
+        { id: "stats", label: "Statistics" },
+        { id: "charts", label: "Charts" },
+        { id: "all", label: "All Food Logs" },
+        { id: "bulk", label: "Bulk Operations" },
+      ],
+    },
+    {
+      id: "exercises",
+      label: "Exercises",
+      icon: <FaRunning />,
+      subTabs: [
+        { id: "stats", label: "Statistics" },
+        { id: "charts", label: "Charts" },
+        { id: "all", label: "All Exercises" },
+        { id: "bulk", label: "Bulk Operations" },
+      ],
+    },
+    {
+      id: "settings",
+      label: "Settings",
+      icon: <FaCog />,
+      subTabs: [
+        { id: "system", label: "System Settings" },
+      ],
+    },
+    {
+      id: "audit",
+      label: "Audit Logs",
+      icon: <FaHistory />,
+      subTabs: [
+        { id: "logs", label: "View Logs" },
+      ],
+    },
+    {
+      id: "export",
+      label: "Data Export",
+      icon: <FaFileExport />,
+      subTabs: [
+        { id: "export", label: "Export Data" },
+      ],
+    },
   ];
 
-  // Define sidebar variants for desktop width
   const sidebarVariants = {
-    minimized: {
-      width: "6rem",
-      transition: { type: "spring", stiffness: 300, damping: 30, mass: 1 },
-    },
-    expanded: {
-      width: "16rem",
-      transition: { type: "spring", stiffness: 300, damping: 30, mass: 1 },
-    },
+    minimized: { width: "6rem" },
+    expanded: { width: "16rem" },
   };
 
-  // Define text variants for opacity
   const textVariants = {
-    minimized: { opacity: 0, transition: { duration: 0.2, ease: "easeOut" } },
-    expanded: { opacity: 1, transition: { duration: 0.2, ease: "easeIn", delay: 0.1 } },
+    minimized: { opacity: 0 },
+    expanded: { opacity: 1 },
   };
 
-  // Define icon variants
-  const iconVariants = {
-    minimized: { transition: { duration: 0.2, ease: "easeOut" } },
-    expanded: { transition: { duration: 0.2, ease: "easeIn" } },
-  };
-
-  // Animation variants for mobile menu
   const mobileMenuVariants = {
     hidden: { x: "100%" },
-    visible: { x: 0, transition: { duration: 0.3, ease: "easeInOut" } },
-    exit: { x: "100%", transition: { duration: 0.3, ease: "easeInOut" } },
-  };
-
-  // Animation variants for overlay
-  const overlayVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 0.5, transition: { duration: 0.3 } },
-    exit: { opacity: 0, transition: { duration: 0.3 } },
-  };
-
-  // Animation variants for nav items
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: (i) => ({
-      opacity: 1,
-      y: 0,
-      transition: { delay: i * 0.1, duration: 0.3 },
-    }),
+    visible: { x: 0 },
+    exit: { x: "100%" },
   };
 
   return (
     <>
-      {/* Mobile Hamburger Button */}
       <button
         className="fixed top-6 right-4 z-50 lg:hidden text-gray-700"
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
       >
         {isMobileMenuOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
       </button>
 
-      {/* Desktop Sidebar */}
       <motion.div
-        className="hidden lg:block fixed top-0 left-0 shadow-md h-screen bg-gray-100 text-black px-6 py-4 z-40"
+        className="hidden lg:block fixed top-0 left-0 shadow-md h-screen bg-gray-100 text-black px-2 py-4 z-40"
         variants={sidebarVariants}
         animate={isMinimized ? "minimized" : "expanded"}
         onMouseEnter={() => setIsMinimized(false)}
         onMouseLeave={() => setIsMinimized(true)}
-        layout
       >
         <div className="flex items-center justify-between mb-8 mt-16">
-          {/* Logo section (commented out as in original) */}
-          {/* <motion.div layout>
+          {/* <motion.div>
             {isMinimized ? (
               <img src={favicon} alt="Favicon" className="w-8 h-8 mx-auto" />
             ) : (
@@ -152,45 +353,48 @@ const Sidebar = ({ activeTab, setActiveTab, isMinimized, setIsMinimized, isMobil
         </div>
         <nav className="space-y-2">
           {tabs.map((tab) => (
-            <motion.button
-              key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id);
-              }}
-              className={`flex items-center w-full p-2 my-4 rounded-md hover:bg-gray-600 hover:text-white transition-colors ${
-                activeTab === tab.id ? "bg-gray-500 text-white" : ""
-              }`}
-              layout
-            >
-              <motion.span
-                variants={iconVariants}
-                animate={isMinimized ? "minimized" : "expanded"}
-                className="flex-shrink-0 w-6 h-6 flex items-center justify-center mr-3"
+            <div key={tab.id}>
+              <motion.button
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setActiveSubTab(tab.subTabs[0].id);
+                }}
+                className={`flex items-center w-full p-2 rounded-md hover:bg-gray-600 hover:text-white ${
+                  activeTab === tab.id ? "bg-gray-500 text-white" : ""
+                }`}
               >
-                {tab.icon}
-              </motion.span>
-              <motion.span
-                variants={textVariants}
-                animate={isMinimized ? "minimized" : "expanded"}
-                className="text-sm font-medium flex-grow text-left"
-                style={{ visibility: isMinimized ? "hidden" : "visible" }}
-              >
-                {tab.label}
-              </motion.span>
-            </motion.button>
+                <span className="flex-shrink-0 w-6 h-6">{tab.icon}</span>
+                <motion.span
+                  variants={textVariants}
+                  animate={isMinimized ? "minimized" : "expanded"}
+                  className="text-sm font-medium flex-grow text-left"
+                  style={{ visibility: isMinimized ? "hidden" : "visible" }}
+                >
+                  {tab.label}
+                </motion.span>
+              </motion.button>
+              {activeTab === tab.id && !isMinimized && (
+                <div className="ml-6 space-y-1 m-2">
+                  {tab.subTabs.map((subTab) => (
+                    <button
+                      key={subTab.id}
+                      onClick={() => setActiveSubTab(subTab.id)}
+                      className={`flex items-center w-full p-2 rounded-md hover:bg-gray-500 hover:text-white text-sm ${
+                        activeSubTab === subTab.id ? "bg-gray-400 text-white" : ""
+                      }`}
+                    >
+                      {subTab.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
           <motion.button
             onClick={handleLogout}
-            className="flex items-center w-full p-2 rounded-md hover:bg-red-600 hover:text-white transition-colors"
-            layout
+            className="flex items-center w-full p-2 rounded-md hover:bg-red-600 hover:text-white"
           >
-            <motion.span
-              variants={iconVariants}
-              animate={isMinimized ? "minimized" : "expanded"}
-              className="flex-shrink-0 w-6 h-6 flex items-center justify-center mr-3"
-            >
-              <FaSignOutAlt />
-            </motion.span>
+            <span className="flex-shrink-0 w-6 h-6 mr-3"><FaSignOutAlt /></span>
             <motion.span
               variants={textVariants}
               animate={isMinimized ? "minimized" : "expanded"}
@@ -203,21 +407,17 @@ const Sidebar = ({ activeTab, setActiveTab, isMinimized, setIsMinimized, isMobil
         </nav>
       </motion.div>
 
-      {/* Mobile Navigation */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <>
-            {/* Overlay */}
             <motion.div
               className="fixed inset-0 bg-black z-40 lg:hidden"
-              variants={overlayVariants}
+              variants={{ hidden: { opacity: 0 }, visible: { opacity: 0.5 }, exit: { opacity: 0 } }}
               initial="hidden"
               animate="visible"
               exit="exit"
               onClick={() => setIsMobileMenuOpen(false)}
             />
-
-            {/* Full-Page Mobile Menu */}
             <motion.nav
               className="fixed top-0 right-0 w-full h-screen bg-gray-100 z-50 lg:hidden"
               variants={mobileMenuVariants}
@@ -226,32 +426,23 @@ const Sidebar = ({ activeTab, setActiveTab, isMinimized, setIsMinimized, isMobil
               exit="exit"
             >
               <div className="flex flex-col h-full">
-                {/* Header Section with Logo and Close Button */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-200">
                   <img src={logo} alt="HealthTrack" className="h-10" />
                   <button
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="text-gray-700 focus:outline-none"
-                    aria-label="Close menu"
+                    className="text-gray-700"
                   >
                     <FaTimes size={24} />
                   </button>
                 </div>
-
-                {/* Navigation Links */}
                 <div className="flex-1 flex flex-col justify-between p-4">
                   <div className="space-y-4">
-                    {tabs.map((tab, index) => (
-                      <motion.div
-                        key={tab.id}
-                        custom={index}
-                        variants={itemVariants}
-                        initial="hidden"
-                        animate="visible"
-                      >
+                    {tabs.map((tab) => (
+                      <div key={tab.id}>
                         <button
                           onClick={() => {
                             setActiveTab(tab.id);
+                            setActiveSubTab(tab.subTabs[0].id);
                             setIsMobileMenuOpen(false);
                           }}
                           className={`block py-3 px-3 text-gray-700 text-lg font-medium hover:bg-gray-100 hover:text-blue-600 rounded-lg w-full text-left ${
@@ -260,24 +451,33 @@ const Sidebar = ({ activeTab, setActiveTab, isMinimized, setIsMinimized, isMobil
                         >
                           {tab.label}
                         </button>
-                      </motion.div>
+                        {activeTab === tab.id && (
+                          <div className="ml-4 space-y-2">
+                            {tab.subTabs.map((subTab) => (
+                              <button
+                                key={subTab.id}
+                                onClick={() => {
+                                  setActiveSubTab(subTab.id);
+                                  setIsMobileMenuOpen(false);
+                                }}
+                                className={`block py-2 px-3 text-gray-600 text-sm hover:bg-gray-100 rounded-lg w-full text-left ${
+                                  activeSubTab === subTab.id ? "bg-gray-200" : ""
+                                }`}
+                              >
+                                {subTab.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
-
-                  {/* Logout Button */}
-                  <motion.div
-                    custom={tabs.length}
-                    variants={itemVariants}
-                    initial="hidden"
-                    animate="visible"
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left py-3 px-3 text-gray-700 text-lg font-medium hover:bg-red-50 hover:text-red-600 border-t border-gray-200 rounded-lg"
                   >
-                    <button
-                      onClick={handleLogout}
-                      className="w-full text-left py-3 px-3 text-gray-700 text-lg font-medium hover:bg-red-50 hover:text-red-600 border-t border-gray-200 rounded-lg"
-                    >
-                      Logout
-                    </button>
-                  </motion.div>
+                    Logout
+                  </button>
                 </div>
               </div>
             </motion.nav>
@@ -288,269 +488,232 @@ const Sidebar = ({ activeTab, setActiveTab, isMinimized, setIsMinimized, isMobil
   );
 };
 
-// Chart Component
-const ChartComponent = ({ type, data, options, title }) => {
-  const Component = type === "line" ? Line : Bar;
-  return (
-    <div className="bg-white p-6 rounded-xl shadow-md mb-6">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4">{title}</h3>
-      <Component data={data} options={options} />
-    </div>
-  );
-};
-
-// Statistics Card Component
-const StatisticsCard = ({ title, value, change, icon }) => {
-  return (
-    <div className="bg-white p-4 rounded-xl shadow-md flex items-center space-x-3">
-      <div className="text-2xl text-indigo-600">{icon}</div>
-      <div>
-        <h3 className="text-sm font-medium text-gray-500">{title}</h3>
-        <p className="text-xl font-bold text-gray-800">{value}</p>
-        {change && (
-          <p className={`text-sm ${change >= 0 ? "text-green-600" : "text-red-600"}`}>
-            {change >= 0 ? "+" : ""}{change}% {change >= 0 ? "increase" : "decrease"}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// Paginated Table Component
-const PaginatedTable = ({ data, columns, itemsPerPage = 5 }) => {
-  const [currentPage, setCurrentPage] = useState(1);
-
-  const totalPages = Math.ceil(data.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedData = data.slice(startIndex, startIndex + itemsPerPage);
-
-  const handlePageChange = (page) => {
-    if (page >= 1 && page <= totalPages) setCurrentPage(page);
-  };
-
-  return (
-    <div className="bg-white rounded-xl shadow-md mt-6 overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            {columns.map((col) => (
-              <th
-                key={col.key}
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate max-w-[150px] sm:max-w-[200px]"
-              >
-                {col.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200">
-          {paginatedData.map((item, index) => (
-            <tr key={index}>
-              {columns.map((col) => (
-                <td
-                  key={col.key}
-                  className="px-4 py-4 text-sm text-gray-800 truncate max-w-[150px] sm:max-w-[200px]"
-                >
-                  {col.render ? col.render(item) : item[col.key] || "N/A"}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="flex flex-wrap justify-between items-center p-4 gap-4">
-        <button
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          className="px-4 py-2 bg-gray-100 text-gray-800 rounded-md disabled:opacity-50 hover:bg-gray-200 transition-colors"
-        >
-          Previous
-        </button>
-        <span className="text-gray-800">Page {currentPage} of {totalPages}</span>
-        <button
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          className="px-4 py-2 bg-gray-100 text-gray-800 rounded-md disabled:opacity-50 hover:bg-gray-200 transition-colors"
-        >
-          Next
-        </button>
-      </div>
-    </div>
-  );
-};
-
 // Main AdminDashboard Component
 const AdminDashboard = () => {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("users");
+  const [activeSubTab, setActiveSubTab] = useState("stats");
   const [isMinimized, setIsMinimized] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [users, setUsers] = useState([]);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalMedications, setTotalMedications] = useState(0);
+  const [totalReminders, setTotalReminders] = useState(0);
+  const [totalFoodLogs, setTotalFoodLogs] = useState(0);
+  const [totalExercises, setTotalExercises] = useState(0);
+  const [lastDoc, setLastDoc] = useState(null);
   const [medications, setMedications] = useState([]);
   const [reminders, setReminders] = useState([]);
   const [foodLogs, setFoodLogs] = useState([]);
   const [exercises, setExercises] = useState([]);
+  const [settings, setSettings] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [modalOpen, setModalOpen] = useState(null);
-  const [medicationStats, setMedicationStats] = useState({});
-  const [foodStats, setFoodStats] = useState({});
-  const [exerciseStats, setExerciseStats] = useState({});
+  const [modalData, setModalData] = useState({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
+  const [chartData, setChartData] = useState({});
 
   const getUserToken = async () => await auth.currentUser.getIdToken(true);
-  const handleSessionExpired = useCallback(() => {
+  const handleSessionExpired = () => {
     logout();
     navigate("/login");
-  }, [logout, navigate]);
+    toast.error("Session expired. Please log in again.");
+  };
 
   // Fetch Functions
-  const fetchUsers = async () => {
+  const fetchUsers = async (page = 1, limit = 10, sortConfig = { key: "", direction: "asc" }) => {
     if (!user) return;
     setLoading(true);
-    setError(null);
+    setError(null); // Clear previous errors
     try {
       const token = await getUserToken();
-      const userData = await getAllUsers(token);
-      setUsers(userData);
-      // toast.success("Users fetched successfully");
+      const response = searchQuery
+        ? await searchAdminUsers(searchQuery, token, limit, page, sortConfig)
+        : await getAllAdminUsers(token, limit, page, sortConfig);
+      setUsers(response.users || []);
+      setTotalUsers(response.total || 0);
+      setLastDoc(response.lastDoc || null);
     } catch (err) {
-      console.error("Error fetching users:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else {
-        setError("Failed to fetch users: " + (err.message || "Unknown error"));
+      if (err.message.includes("WRITE_TOO_BIG")) {
+        setError("Data too large to fetch. Please use search or reduce page size.");
+        toast.error("Data too large. Try searching or reducing page size.");
+      } else {
+        setError("Failed to fetch users: " + err.message);
         toast.error("Failed to fetch users");
       }
     } finally {
       setLoading(false);
     }
   };
-
-  const fetchMedications = async () => {
+  
+  const fetchMedications = async (page = 1, limit = 10, sortConfig = { key: "", direction: "asc" }) => {
     if (!user) return;
     setLoading(true);
     setError(null);
     try {
       const token = await getUserToken();
-      // Fetch medications for all users (modify API to support this)
-      const allMeds = await getUserMedications(token, { allUsers: true });
-      // Group medications by user_id
-      const medsByUser = allMeds.reduce((acc, med) => {
-        acc[med.user_id] = acc[med.user_id] || [];
-        acc[med.user_id].push(med);
-        return acc;
-      }, {});
-      
-      // Fetch history and streak for each user
-      const adherenceByUser = {};
-      const streakByUser = {};
-      for (const userId of Object.keys(medsByUser)) {
-        const history = await getTakenMedicationHistory(token, userId);
-        const streak = await calculateMedicationStreak(token, userId);
-        const adherence = history.length
-          ? (history.reduce((acc, curr) => acc + (curr.taken ? 1 : 0), 0) / history.length) * 100
-          : 0;
-        adherenceByUser[userId] = adherence;
-        streakByUser[userId] = streak;
-      }
-      
-      // Calculate averages
-      const totalUsers = users.length || 1; // Avoid division by zero
-      const avgAdherence = Object.values(adherenceByUser).length
-        ? Object.values(adherenceByUser).reduce((sum, val) => sum + val, 0) / Object.values(adherenceByUser).length
-        : 0;
-      const avgStreak = Object.values(streakByUser).length
-        ? Object.values(streakByUser).reduce((sum, val) => sum + val, 0) / Object.values(streakByUser).length
-        : 0;
-      
-      setMedications(allMeds);
-      setMedicationStats({
-        total: allMeds.length,
-        history: [], // Aggregate history not needed for admin view
-        streak: avgStreak,
-        adherence: avgAdherence,
-        medsByUser,
-        adherenceByUser,
-        streakByUser,
-      });
-      // toast.success("Medications fetched successfully");
+      const response = await getAllAdminMedications(token, limit, page, sortConfig);
+      setMedications(response.medications || []);
+      setTotalMedications(response.total || 0); // New state for total count
     } catch (err) {
-      console.error("Error fetching medications:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else {
-        setError("Failed to fetch medications: " + (err.message || "Unknown error"));
-        toast.error("Failed to fetch medications");
-      }
+      setError("Failed to fetch medications: " + err.message);
+      toast.error("Failed to fetch medications");
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchReminders = async () => {
+  const fetchReminders = async (page = 1, limit = 10, sortConfig = { key: "", direction: "asc" }) => {
     if (!user) return;
     setLoading(true);
     setError(null);
     try {
       const token = await getUserToken();
-      const reminders = await getUserReminders(token);
+      const reminders = await getAllAdminReminders(token, limit, page, sortConfig);
       setReminders(reminders);
-      // toast.success("Reminders fetched successfully");
+      setTotalReminders(reminders.total || 0);
     } catch (err) {
-      console.error("Error fetching reminders:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else {
-        setError("Failed to fetch reminders: " + (err.message || "Unknown error"));
-        toast.error("Failed to fetch reminders");
-      }
+      setError("Failed to fetch reminders: " + err.message);
+      toast.error("Failed to fetch reminders");
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchFoodLogs = async () => {
+  const fetchFoodLogs = async (page = 1, limit = 10, sortConfig = { key: "", direction: "asc" }) => {
     if (!user) return;
     setLoading(true);
-    setError(null);
     try {
       const token = await getUserToken();
-      const logs = await getUserFoodLogs(token);
-      const stats = await getFoodStats(token);
+      const logs = await getAllAdminFoodLogs(token, limit, page, sortConfig);
       setFoodLogs(logs);
-      setFoodStats(stats);
-      // toast.success("Food logs fetched successfully");
+      setTotalMedications(response.total || 0);
     } catch (err) {
-      console.error("Error fetching food logs:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else {
-        setError("Failed to fetch food logs: " + (err.message || "Unknown error"));
-        toast.error("Failed to fetch food logs");
-      }
+      setError("Failed to fetch food logs: " + err.message);
+      toast.error("Failed to fetch food logs");
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchExercises = async () => {
+  const fetchExercises = async (page = 1, limit = 10, sortConfig = { key: "", direction: "asc" }) => {
     if (!user) return;
     setLoading(true);
-    setError(null);
     try {
       const token = await getUserToken();
-      const exercises = await getUserExercises(token);
-      const stats = await getExerciseStats(token);
+      const exercises = await getAllAdminExercises(token, limit, page, sortConfig);
       setExercises(exercises);
-      setExerciseStats(stats);
-      // toast.success("Exercises fetched successfully");
     } catch (err) {
-      console.error("Error fetching exercises:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else {
-        setError("Failed to fetch exercises: " + (err.message || "Unknown error"));
-        toast.error("Failed to fetch exercises");
-      }
+      setError("Failed to fetch exercises: " + err.message);
+      toast.error("Failed to fetch exercises");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSettings = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const token = await getUserToken();
+      const settings = await getAdminSystemSettings(token);
+      setSettings(settings);
+    } catch (err) {
+      setError("Failed to fetch settings: " + err.message);
+      toast.error("Failed to fetch settings");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAuditLogs = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const token = await getUserToken();
+      const logs = await getAdminAuditLogs(token);
+      setAuditLogs(logs);
+    } catch (err) {
+      setError("Failed to fetch audit logs: " + err.message);
+      toast.error("Failed to fetch audit logs");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchChartData = async () => {
+    if (!user) return;
+    try {
+      const token = await getUserToken();
+      const [activityTrends, adherence, foodStats, exerciseStats] = await Promise.all([
+        getAdminUserActivityTrends(token),
+        getAdminMedicationAdherence(token),
+        getAdminFoodStats(token),
+        getAdminExerciseStats(token),
+      ]);
+
+      setChartData({
+        activityTrends: {
+          labels: activityTrends.map((t) => t.date),
+          datasets: [
+            {
+              label: "User Actions",
+              data: activityTrends.map((t) => t.count),
+              borderColor: "rgb(75, 192, 192)",
+              tension: 0.1,
+            },
+          ],
+        },
+        adherence: {
+          labels: adherence.map((a) => a.user_id),
+          datasets: [
+            {
+              label: "Adherence Rate (%)",
+              data: adherence.map((a) => a.adherence_rate),
+              backgroundColor: "rgba(54, 162, 235, 0.5)",
+            },
+          ],
+        },
+        foodStats: {
+          labels: ["Carbs", "Protein", "Fats"],
+          datasets: [
+            {
+              data: [
+                foodStats.total_carbs,
+                foodStats.total_protein,
+                foodStats.total_fats,
+              ],
+              backgroundColor: [
+                "rgba(255, 99, 132, 0.5)",
+                "rgba(54, 162, 235, 0.5)",
+                "rgba(255, 206, 86, 0.5)",
+              ],
+            },
+          ],
+        },
+        exerciseStats: {
+          labels: exerciseStats.map((e) => e.activity),
+          datasets: [
+            {
+              data: exerciseStats.map((e) => e.count),
+              backgroundColor: [
+                "rgba(255, 99, 132, 0.5)",
+                "rgba(54, 162, 235, 0.5)",
+                "rgba(255, 206, 86, 0.5)",
+                "rgba(75, 192, 192, 0.5)",
+                "rgba(153, 102, 255, 0.5)",
+              ],
+            },
+          ],
+        },
+      });
+    } catch (err) {
+      toast.error("Failed to fetch chart data: " + err.message);
     }
   };
 
@@ -564,38 +727,70 @@ const AdminDashboard = () => {
       fetchUsers();
       setModalOpen(null);
     } catch (err) {
-      console.error("Error creating user:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else toast.error("Failed to create user: " + (err.message || "Unknown error"));
+      toast.error("Failed to create user: " + err.message);
     }
   };
 
-  const handleUpdateUser = async (userId, userData) => {
+  const handleUpdateUser = async (id, userData) => {
     if (!user) return handleSessionExpired();
     try {
       const token = await getUserToken();
-      await updateProfile(userData, token);
-      toast.success("User profile updated successfully");
+      await updateProfile(id, userData, token);
+      if (userData.resetPassword) {
+        await resetPassword(id, token);
+        toast.success("Password reset email sent");
+      }
+      toast.success("User updated successfully");
       fetchUsers();
       setModalOpen(null);
     } catch (err) {
-      console.error("Error updating user:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else toast.error("Failed to update user: " + (err.message || "Unknown error"));
+      toast.error("Failed to update user: " + err.message);
     }
   };
 
-  const handleSaveWeeklyGoals = async (foodGoal, exerciseGoal) => {
+  const handleDeleteUser = async (id) => {
     if (!user) return handleSessionExpired();
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
     try {
       const token = await getUserToken();
-      await saveWeeklyGoals(foodGoal, exerciseGoal, token);
-      toast.success("Weekly goals saved successfully");
-      setModalOpen(null);
+      await bulkDeleteAdminUsers([id], token);
+      toast.success("User deleted successfully");
+      fetchUsers();
     } catch (err) {
-      console.error("Error saving weekly goals:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else toast.error("Failed to save weekly goals: " + (err.message || "Unknown error"));
+      toast.error("Failed to delete user: " + err.message);
+    }
+  };
+
+  // Updated handleBulkDeleteUsers with Batch Processing
+  const handleBulkDeleteUsers = async () => {
+    if (!user) return handleSessionExpired();
+    if (!selectedRows.length) return toast.error("No users selected");
+    if (!window.confirm("Are you sure you want to delete the selected users?")) return;
+    
+    const batchSize = 10;
+    const batches = [];
+    for (let i = 0; i < selectedRows.length; i += batchSize) {
+      batches.push(selectedRows.slice(i, i + batchSize));
+    }
+
+    setLoading(true);
+    try {
+      const token = await getUserToken();
+      for (const batch of batches) {
+        await bulkDeleteAdminUsers(batch, token);
+        toast.success(`Deleted ${batch.length} users`);
+      }
+      toast.success("All selected users deleted successfully");
+      setSelectedRows([]);
+      fetchUsers(1, 50, sortConfig);
+    } catch (err) {
+      if (err.message.includes("WRITE_TOO_BIG")) {
+        toast.error("Batch too large. Try selecting fewer users.");
+      } else {
+        toast.error("Failed to delete users: " + err.message);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -608,9 +803,7 @@ const AdminDashboard = () => {
       fetchMedications();
       setModalOpen(null);
     } catch (err) {
-      console.error("Error creating medication:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else toast.error("Failed to create medication: " + (err.message || "Unknown error"));
+      toast.error("Failed to create medication: " + err.message);
     }
   };
 
@@ -621,24 +814,22 @@ const AdminDashboard = () => {
       await updateMedication(id, medicationData, token);
       toast.success("Medication updated successfully");
       fetchMedications();
+      setModalOpen(null);
     } catch (err) {
-      console.error("Error updating medication:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else toast.error("Failed to update medication: " + (err.message || "Unknown error"));
+      toast.error("Failed to update medication: " + err.message);
     }
   };
 
   const handleDeleteMedication = async (id) => {
     if (!user) return handleSessionExpired();
+    if (!window.confirm("Are you sure you want to delete this medication?")) return;
     try {
       const token = await getUserToken();
       await deleteMedication(id, token);
       toast.success("Medication deleted successfully");
       fetchMedications();
     } catch (err) {
-      console.error("Error deleting medication:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else toast.error("Failed to delete medication: " + (err.message || "Unknown error"));
+      toast.error("Failed to delete medication: " + err.message);
     }
   };
 
@@ -651,51 +842,33 @@ const AdminDashboard = () => {
       fetchReminders();
       setModalOpen(null);
     } catch (err) {
-      console.error("Error creating reminder:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else toast.error("Failed to create reminder: " + (err.message || "Unknown error"));
+      toast.error("Failed to create reminder: " + err.message);
     }
   };
 
-  const handleUpdateReminder = async (id, reminderData) => {
+  const handleUpdateReminderStatus = async (ids, status) => {
     if (!user) return handleSessionExpired();
     try {
       const token = await getUserToken();
-      await updateReminder(id, reminderData, token);
-      toast.success("Reminder updated successfully");
+      await updateAdminReminderStatus(ids, status, token);
+      toast.success("Reminder status updated successfully");
       fetchReminders();
+      setSelectedRows([]);
     } catch (err) {
-      console.error("Error updating reminder:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else toast.error("Failed to update reminder: " + (err.message || "Unknown error"));
+      toast.error("Failed to update reminder status: " + err.message);
     }
   };
 
   const handleDeleteReminder = async (id) => {
     if (!user) return handleSessionExpired();
+    if (!window.confirm("Are you sure you want to delete this reminder?")) return;
     try {
       const token = await getUserToken();
       await deleteReminder(id, token);
       toast.success("Reminder deleted successfully");
       fetchReminders();
     } catch (err) {
-      console.error("Error deleting reminder:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else toast.error("Failed to delete reminder: " + (err.message || "Unknown error"));
-    }
-  };
-
-  const handleUpdateReminderStatus = async (id, status) => {
-    if (!user) return handleSessionExpired();
-    try {
-      const token = await getUserToken();
-      await updateReminderStatus(id, status, token);
-      toast.success("Reminder status updated successfully");
-      fetchReminders();
-    } catch (err) {
-      console.error("Error updating reminder status:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else toast.error("Failed to update reminder status: " + (err.message || "Unknown error"));
+      toast.error("Failed to delete reminder: " + err.message);
     }
   };
 
@@ -708,9 +881,7 @@ const AdminDashboard = () => {
       fetchFoodLogs();
       setModalOpen(null);
     } catch (err) {
-      console.error("Error creating food log:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else toast.error("Failed to create food log: " + (err.message || "Unknown error"));
+      toast.error("Failed to create food log: " + err.message);
     }
   };
 
@@ -721,24 +892,37 @@ const AdminDashboard = () => {
       await updateFoodLog(id, foodData, token);
       toast.success("Food log updated successfully");
       fetchFoodLogs();
+      setModalOpen(null);
     } catch (err) {
-      console.error("Error updating food log:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else toast.error("Failed to update food log: " + (err.message || "Unknown error"));
+      toast.error("Failed to update food log: " + err.message);
     }
   };
 
   const handleDeleteFoodLog = async (id) => {
     if (!user) return handleSessionExpired();
+    if (!window.confirm("Are you sure you want to delete this food log?")) return;
     try {
       const token = await getUserToken();
       await deleteFoodLog(id, token);
       toast.success("Food log deleted successfully");
       fetchFoodLogs();
     } catch (err) {
-      console.error("Error deleting food log:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else toast.error("Failed to delete food log: " + (err.message || "Unknown error"));
+      toast.error("Failed to delete food log: " + err.message);
+    }
+  };
+
+  const handleBulkDeleteFoodLogs = async () => {
+    if (!user) return handleSessionExpired();
+    if (!selectedRows.length) return toast.error("No food logs selected");
+    if (!window.confirm("Are you sure you want to delete the selected food logs?")) return;
+    try {
+      const token = await getUserToken();
+      await Promise.all(selectedRows.map((id) => deleteFoodLog(id, token)));
+      toast.success("Food logs deleted successfully");
+      fetchFoodLogs();
+      setSelectedRows([]);
+    } catch (err) {
+      toast.error("Failed to delete food logs: " + err.message);
     }
   };
 
@@ -751,9 +935,7 @@ const AdminDashboard = () => {
       fetchExercises();
       setModalOpen(null);
     } catch (err) {
-      console.error("Error creating exercise:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else toast.error("Failed to create exercise: " + (err.message || "Unknown error"));
+      toast.error("Failed to create exercise: " + err.message);
     }
   };
 
@@ -764,37 +946,82 @@ const AdminDashboard = () => {
       await updateExercise(id, exerciseData, token);
       toast.success("Exercise updated successfully");
       fetchExercises();
+      setModalOpen(null);
     } catch (err) {
-      console.error("Error updating exercise:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else toast.error("Failed to update exercise: " + (err.message || "Unknown error"));
+      toast.error("Failed to update exercise: " + err.message);
     }
   };
 
   const handleDeleteExercise = async (id) => {
     if (!user) return handleSessionExpired();
+    if (!window.confirm("Are you sure you want to delete this exercise?")) return;
     try {
       const token = await getUserToken();
       await deleteExercise(id, token);
       toast.success("Exercise deleted successfully");
       fetchExercises();
     } catch (err) {
-      console.error("Error deleting exercise:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else toast.error("Failed to delete exercise: " + (err.message || "Unknown error"));
+      toast.error("Failed to delete exercise: " + err.message);
     }
   };
 
-  const handleResetPassword = async (email) => {
+  const handleBulkDeleteExercises = async () => {
+    if (!user) return handleSessionExpired();
+    if (!selectedRows.length) return toast.error("No exercises selected");
+    if (!window.confirm("Are you sure you want to delete the selected exercises?")) return;
+    try {
+      const token = await getUserToken();
+      await Promise.all(selectedRows.map((id) => deleteExercise(id, token)));
+      toast.success("Exercises deleted successfully");
+      fetchExercises();
+      setSelectedRows([]);
+    } catch (err) {
+      toast.error("Failed to delete exercises: " + err.message);
+    }
+  };
+
+  const handleUpdateSetting = async (settingKey, settingValue) => {
     if (!user) return handleSessionExpired();
     try {
-      await resetPassword(email);
-      toast.success("Password reset email sent");
+      const token = await getUserToken();
+      await updateAdminSystemSettings(settingKey, settingValue, token);
+      toast.success("Setting updated successfully");
+      fetchSettings();
+      setModalOpen(null);
     } catch (err) {
-      console.error("Error sending reset email:", err);
-      if (err.code === "auth/id-token-expired") handleSessionExpired();
-      else toast.error("Failed to send reset email: " + (err.message || "Unknown error"));
+      toast.error("Failed to update setting: " + err.message);
     }
+  };
+
+  const handleExportData = async (type) => {
+    if (!user) return handleSessionExpired();
+    try {
+      const token = await getUserToken();
+      const data = await exportAdminData(type, token);
+      const blob = new Blob([data], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${type}_export.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast.success("Data exported successfully");
+    } catch (err) {
+      toast.error("Failed to export data: " + err.message);
+    }
+  };
+
+  const handleSort = (key) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
+  const handleRowSelect = (id) => {
+    setSelectedRows((prev) =>
+      prev.includes(id) ? prev.filter((rowId) => rowId !== id) : [...prev, id]
+    );
   };
 
   useEffect(() => {
@@ -803,126 +1030,138 @@ const AdminDashboard = () => {
       return;
     }
 
-    const unsubscribe = auth.onIdTokenChanged(async (currentUser) => {
-      if (!currentUser) handleSessionExpired();
-      else {
-        try {
-          const tokenResult = await currentUser.getIdTokenResult();
-          const expirationTime = new Date(tokenResult.expirationTime).getTime();
-          const currentTime = Date.now();
-          const timeUntilExpiration = expirationTime - currentTime;
-          if (timeUntilExpiration <= 0) handleSessionExpired();
-          else if (timeUntilExpiration < 5 * 60 * 1000) await currentUser.getIdToken(true);
-        } catch (error) {
-          console.error("Error checking token expiration:", error);
-          handleSessionExpired();
-        }
-      }
-    });
-
-    return () => unsubscribe();
-  }, [user, navigate, handleSessionExpired]);
-
-  useEffect(() => {
-    if (!user) return;
     switch (activeTab) {
-      case "users": fetchUsers(); break;
-      case "medications": fetchMedications(); break;
-      case "reminders": fetchReminders(); break;
-      case "foodLogs": fetchFoodLogs(); break;
-      case "exercises": fetchExercises(); break;
-      default: break;
+      case "users":
+        fetchUsers();
+        if (activeSubTab === "charts") fetchChartData();
+        break;
+      case "medications":
+        fetchMedications();
+        if (activeSubTab === "charts") fetchChartData();
+        break;
+      case "reminders":
+        fetchReminders();
+        break;
+      case "foodLogs":
+        fetchFoodLogs();
+        if (activeSubTab === "charts") fetchChartData();
+        break;
+      case "exercises":
+        fetchExercises();
+        if (activeSubTab === "charts") fetchChartData();
+        break;
+      case "settings":
+        fetchSettings();
+        break;
+      case "audit":
+        fetchAuditLogs();
+        break;
+      default:
+        break;
     }
-  }, [activeTab, user]);
-
-  const medicationAdherenceData = {
-    labels: medicationStats.history?.map((h) => new Date(h.date).toLocaleDateString()) || [],
-    datasets: [
-      {
-        label: "Adherence (%)",
-        data: medicationStats.history?.map((h) => (h.taken ? 100 : 0)) || [],
-        borderColor: "#4f46e5",
-        backgroundColor: "rgba(79, 70, 229, 0.2)",
-        fill: true,
-      },
-    ],
-  };
-
-  const foodCalorieData = {
-    labels: foodLogs.map((log) => new Date(log.date_logged).toLocaleDateString()),
-    datasets: [
-      {
-        label: "Calories Consumed",
-        data: foodLogs.map((log) => log.calories),
-        backgroundColor: "#4f46e5",
-      },
-    ],
-  };
-
-  const exerciseData = {
-    labels: exercises.map((ex) => new Date(ex.date_logged).toLocaleDateString()),
-    datasets: [
-      {
-        label: "Calories Burned",
-        data: exercises.map((ex) => ex.calories_burned),
-        borderColor: "#4f46e5",
-        backgroundColor: "rgba(79, 70, 229, 0.2)",
-        fill: true,
-      },
-      {
-        label: "Duration (min)",
-        data: exercises.map((ex) => ex.duration),
-        borderColor: "#a855f7",
-        backgroundColor: "rgba(168, 85, 247, 0.2)",
-        fill: true,
-      },
-    ],
-  };
-
-  const chartOptions = {
-    responsive: true,
-    plugins: { legend: { position: "top", labels: { color: "#1f2937" } }, title: { display: false } },
-    scales: {
-      y: { beginAtZero: true, ticks: { color: "#1f2937" }, grid: { color: "rgba(0, 0, 0, 0.05)" } },
-      x: { ticks: { color: "#1f2937" }, grid: { color: "rgba(0, 0, 0, 0.05)" } },
-    },
-  };
+  }, [activeTab, activeSubTab, user, navigate, searchQuery]);
 
   const modalVariants = { hidden: { opacity: 0, y: -50 }, visible: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -50 } };
 
+  // Table Columns
+  const userColumns = [
+    { key: "email", label: "Email" },
+    { key: "name", label: "Name" },
+    { key: "role", label: "Role" },
+    {
+      key: "created_at",
+      label: "Created At",
+      render: (item) => new Date(item.created_at).toLocaleDateString(),
+    },
+  ];
+
+  const medicationColumns = [
+    { key: "medication_name", label: "Medication Name" },
+    { key: "user_id", label: "User ID" },
+    { key: "dosage", label: "Dosage" },
+    { key: "frequency", label: "Frequency" },
+    { key: "times_per_day", label: "Times/Day" },
+    {
+      key: "start_date",
+      label: "Start Date",
+      render: (item) => item.start_date?.split("T")[0] || "-",
+    },
+  ];
+
+  const reminderColumns = [
+    { key: "user_id", label: "User ID" },
+    { key: "medication_id", label: "Medication ID" },
+    { key: "dose_index", label: "Dose Index" },
+    { key: "reminder_time", label: "Time" },
+    {
+      key: "date",
+      label: "Date",
+      render: (item) => item.date?.split("T")[0] || "-",
+    },
+    { key: "status", label: "Status" },
+  ];
+
+  const foodLogColumns = [
+    { key: "user_id", label: "User ID" },
+    { key: "food_name", label: "Food Name" },
+    { key: "calories", label: "Calories" },
+    { key: "carbs", label: "Carbs (g)" },
+    { key: "protein", label: "Protein (g)" },
+    { key: "fats", label: "Fats (g)" },
+    {
+      key: "date_logged",
+      label: "Date",
+      render: (item) => item.date_logged?.split("T")[0] || "-",
+    },
+    { key: "meal_type", label: "Meal Type" },
+  ];
+
+  const exerciseColumns = [
+    { key: "user_id", label: "User ID" },
+    { key: "activity", label: "Activity" },
+    { key: "duration", label: "Duration (min)" },
+    { key: "calories_burned", label: "Calories Burned" },
+    {
+      key: "date_logged",
+      label: "Date",
+      render: (item) => item.date_logged?.split("T")[0] || "-",
+    },
+  ];
+
+  const settingColumns = [
+    { key: "setting_key", label: "Setting Key" },
+    { key: "value", label: "Value" },
+  ];
+
+  const auditLogColumns = [
+    { key: "user_id", label: "User ID" },
+    { key: "action", label: "Action" },
+    {
+      key: "timestamp",
+      label: "Timestamp",
+      render: (item) => new Date(item.timestamp).toLocaleString(),
+    },
+    { key: "details", label: "Details" },
+  ];
+
   return (
     <div className="min-h-screen text-gray-800">
-      {/* Top Navbar */}
       <nav className="fixed top-0 left-0 right-0 bg-gray-100 text-black border-b shadow-sm border-gray-200 px-6 py-4 flex justify-start items-center z-50">
         <img src={logo} alt="HealthTrack" className="h-10" />
-        {/* <div className="flex items-center space-x-4">
-          <span className="text-sm">{user?.email || "User"}</span>
-          <button
-            onClick={() => logout()}
-            className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md transition-colors"
-          >
-            <FaSignOutAlt />
-            <span>Logout</span>
-          </button>
-        </div> */}
       </nav>
 
-      {/* Sidebar */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        activeSubTab={activeSubTab}
+        setActiveSubTab={setActiveSubTab}
         isMinimized={isMinimized}
         setIsMinimized={setIsMinimized}
         isMobileMenuOpen={isMobileMenuOpen}
         setIsMobileMenuOpen={setIsMobileMenuOpen}
       />
 
-      {/* Main Content */}
-      <main
-        className={`p-4 sm:p-6 lg:pt-8 sm:pt-8 transition-all duration-300 lg:mt-4${
-          isMinimized ? "lg:ml-16" : "lg:ml-48"
-        } max-w-7xl mx-auto`}
-      >
+<main className={`p-4 sm:p-6 lg:pt-8 sm:pt-8 transition-all duration-300 lg:mt-4 ${isMinimized ? "lg:ml-16" : "lg:ml-48"} max-w-7xl mx-auto`}>
         {loading && (
           <div className="flex justify-center items-center py-10">
             <FaSpinner className="animate-spin text-4xl text-indigo-600" />
@@ -936,461 +1175,503 @@ const AdminDashboard = () => {
         {!loading && !error && (
           <div className="flex flex-col space-y-6">
             <h2 className="text-2xl font-semibold text-gray-800 mb-6 text-center">Admin Dashboard</h2>
+
+            {/* Users Section */}
             {activeTab === "users" && (
-              <div>
-                <h2 className="text-xl font-semibold text-gray-800 mb-6 text-center">Manage Users</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
-                  <StatisticsCard
-                    title="Total Users"
-                    value={users.length}
-                    change={((users.length - (users.length * 0.9)) / (users.length * 0.9) * 100).toFixed(1)}
-                    icon={<FaUser />}
-                  />
-                  {/* <StatisticsCard
-                    title="Active Users"
-                    value={users.filter((u) => u.last_login).length}
-                    icon={<FaUser />}
-                  /> */}
-                  <StatisticsCard
-                    title="Admins"
-                    value={users.filter((u) => u.role === "admin").length}
-                    icon={<FaUser />}
-                  />
-                  <StatisticsCard
-                    title="Avg Medications/User"
-                    value={(medications.length / (users.length || 1)).toFixed(1)}
-                    icon={<FaPills />}
-                  />
-                  <StatisticsCard
-                    title="Avg Reminders/User"
-                    value={(reminders.length / (users.length || 1)).toFixed(1)}
-                    icon={<FaBell />}
-                  />
-                  <StatisticsCard
-                    title="Avg Food Logs/User"
-                    value={(foodLogs.length / (users.length || 1)).toFixed(1)}
-                    icon={<FaUtensils />}
-                  />
-                  <StatisticsCard
-                    title="Avg Exercises/User"
-                    value={(exercises.length / (users.length || 1)).toFixed(1)}
-                    icon={<FaRunning />}
-                  />
-                </div>
-                <div className="mb-6">
-                  <button
-                    onClick={() => setModalOpen("createUser")}
-                    className="bg-indigo-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-md hover:bg-gray-700 transition-colors"
-                  >
-                    Add User
-                  </button>
-                </div>
-                <PaginatedTable
-                  data={users}
-                  columns={[
-                    { key: "id", label: "User ID" },
-                    { key: "username", label: "Username" },
-                    { key: "email", label: "Email" },
-                    { key: "display_name", label: "Display Name" },
-                    { key: "role", label: "Role" },
-                    // {
-                    //   key: "last_login",
-                    //   label: "Last Login",
-                    //   render: (item) =>
-                    //     item.last_login ? new Date(item.last_login).toLocaleString() : "N/A",
-                    // },
-                    {
-                      key: "actions",
-                      label: "Actions",
-                      render: (item) => (
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => setModalOpen("updateUser")}
-                            className="text-indigo-600 hover:text-indigo-500 font-medium"
-                          >
-                            Update
-                          </button>
-                          <button
-                            onClick={() => handleResetPassword(item.email)}
-                            className="text-blue-600 hover:text-blue-500 font-medium"
-                          >
-                            Reset Password
-                          </button>
+              <>
+                {activeSubTab === "stats" && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-white p-6 rounded-lg shadow-md">
+                      <h3 className="text-lg font-semibold">Total Users</h3>
+                      <p className="text-2xl font-bold text-indigo-600">{totalUsers}</p>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg shadow-md">
+                      <h3 className="text-lg font-semibold">Active Users</h3>
+                      <p className="text-2xl font-bold text-indigo-600">
+                        {users.filter((u) => u.status === "active").length}
+                      </p>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg shadow-md">
+                      <h3 className="text-lg font-semibold">Admins</h3>
+                      <p className="text-2xl font-bold text-indigo-600">
+                        {users.filter((u) => u.role === "admin").length}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {activeSubTab === "charts" && chartData.activityTrends && (
+                  <div className="bg-white p-6 rounded-lg shadow-md">
+                    <h3 className="text-lg font-semibold mb-4">User Activity Trends</h3>
+                    <Line
+                      data={chartData.activityTrends}
+                      options={{
+                        responsive: true,
+                        plugins: { legend: { position: "top" }, title: { display: true, text: "User Activity Over Time" } },
+                      }}
+                    />
+                  </div>
+                )}
+                {activeSubTab === "all" && (
+                  <div>
+                    <div className="flex justify-between items-center mb-6">
+                      <div className="flex items-center space-x-4">
+                        <div className="relative">
+                          <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                          <input
+                            type="text"
+                            placeholder="Search users..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                          />
                         </div>
-                      ),
-                    },
-                  ]}
-                />
-              </div>
+                        <button
+                          onClick={() => setModalOpen("addUser")}
+                          className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
+                        >
+                          Add User
+                        </button>
+                      </div>
+                      {selectedRows.length > 0 && (
+                        <button
+                          onClick={handleBulkDeleteUsers}
+                          className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center"
+                        >
+                          <FaTrash className="mr-2" /> Delete Selected
+                        </button>
+                      )}
+                    </div>
+                    <DataTable
+                      columns={userColumns}
+                      data={users}
+                      totalCount={totalUsers}
+                      onEdit={(item) => {
+                        setModalData(item);
+                        setModalOpen("updateUser");
+                      }}
+                      onDelete={handleDeleteUser}
+                      onSelect={handleRowSelect}
+                      selectedRows={selectedRows}
+                      setSelectedRows={setSelectedRows}
+                      onSort={handleSort}
+                      sortConfig={sortConfig}
+                      fetchPage={fetchUsers}
+                    />
+                  </div>
+                )}
+                {activeSubTab === "bulk" && (
+                  <div className="bg-white p-6 rounded-lg shadow-md">
+                    <h3 className="text-lg font-semibold mb-4">Bulk User Operations</h3>
+                    <button
+                      onClick={handleBulkDeleteUsers}
+                      className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+                      disabled={!selectedRows.length}
+                    >
+                      Delete Selected Users
+                    </button>
+                  </div>
+                )}
+              </>
             )}
+
+            {/* Medications Section */}
             {activeTab === "medications" && (
-              <div>
-                <h2 className="text-xl font-semibold text-gray-800 mb-6 text-center">Manage Medications</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
-                  <StatisticsCard
-                    title="Total Users"
-                    value={users.length}
-                    icon={<FaUser />}
-                  />
-                  <StatisticsCard
-                    title="Total Medications"
-                    value={medicationStats.total || 0}
-                    icon={<FaPills />}
-                  />
-                  <StatisticsCard
-                    title="Avg Medications/User"
-                    value={(medicationStats.total / (users.length || 1)).toFixed(1)}
-                    icon={<FaPills />}
-                  />
-                  <StatisticsCard
-                    title="Avg Adherence Rate"
-                    value={`${medicationStats.adherence?.toFixed(1) || 0}%`}
-                    change={((medicationStats.adherence - 75) / 75 * 100).toFixed(1)}
-                    icon={<FaPills />}
-                  />
-                  <StatisticsCard
-                    title="Avg Streak"
-                    value={`${medicationStats.streak?.toFixed(1) || 0} days`}
-                    icon={<FaPills />}
-                  />
-                </div>
-                <ChartComponent
-                  type="line"
-                  data={medicationAdherenceData}
-                  options={chartOptions}
-                  title="Medication Adherence Over Time"
-                />
-                <div className="mb-6">
-                  <button
-                    onClick={() => setModalOpen("addMedication")}
-                    className="bg-indigo-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-md hover:bg-gray-700 transition-colors"
-                  >
-                    Add Medication
-                  </button>
-                </div>
-                <PaginatedTable
-                  data={medications}
-                  columns={[
-                    { key: "id", label: "ID" },
-                    { key: "user_id", label: "User ID" },
-                    { key: "medication_name", label: "Name" },
-                    { key: "dosage", label: "Dosage" },
-                    { key: "frequency", label: "Frequency" },
-                    { key: "times_per_day", label: "Times/Day" },
-                    {
-                      key: "times",
-                      label: "Times",
-                      render: (item) => (item.times ? item.times.join(", ") : "N/A"),
-                    },
-                    {
-                      key: "doses",
-                      label: "Doses",
-                      render: (item) => {
-                        try {
-                          const dosesArray = typeof item.doses === "string" ? JSON.parse(item.doses) : item.doses;
-                          return Array.isArray(dosesArray) ? dosesArray.join(", ") : "N/A";
-                        } catch (e) {
-                          console.error("Error parsing doses:", e);
-                          return "N/A";
-                        }
-                      },
-                    },
-                    { key: "start_date", label: "Start Date" },
-                    { key: "end_date", label: "End Date" },
-                    { key: "notes", label: "Notes" },
-                    {
-                      key: "actions",
-                      label: "Actions",
-                      render: (item) => (
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() =>
-                              handleUpdateMedication(item.id, {
-                                user_id: item.user_id,
-                                medication_name: item.medication_name,
-                                dosage: item.dosage,
-                                frequency: item.frequency,
-                                times_per_day: item.times_per_day,
-                                times: item.times,
-                                doses: item.doses,
-                                start_date: item.start_date,
-                                end_date: item.end_date,
-                                notes: item.notes,
-                              })
-                            }
-                            className="text-indigo-600 hover:text-indigo-500 font-medium"
-                          >
-                            Update
-                          </button>
-                          <button
-                            onClick={() => handleDeleteMedication(item.id)}
-                            className="text-red-600 hover:text-red-500 font-medium"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      ),
-                    },
-                  ]}
-                />
-              </div>
+              <>
+                {activeSubTab === "stats" && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-white p-6 rounded-lg shadow-md">
+                      <h3 className="text-lg font-semibold">Total Medications</h3>
+                      <p className="text-2xl font-bold text-indigo-600">{medications.length}</p>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg shadow-md">
+                      <h3 className="text-lg font-semibold">Unique Medications</h3>
+                      <p className="text-2xl font-bold text-indigo-600">
+                        {new Set(medications.map((m) => m.medication_name)).size}
+                      </p>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg shadow-md">
+                      <h3 className="text-lg font-semibold">Active Prescriptions</h3>
+                      <p className="text-2xl font-bold text-indigo-600">
+                        {medications.filter((m) => !m.end_date || new Date(m.end_date) > new Date()).length}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {activeSubTab === "charts" && chartData.adherence && (
+                  <div className="bg-white p-6 rounded-lg shadow-md">
+                    <h3 className="text-lg font-semibold mb-4">Medication Adherence</h3>
+                    <Bar
+                      data={chartData.adherence}
+                      options={{
+                        responsive: true,
+                        plugins: { legend: { position: "top" }, title: { display: true, text: "Adherence Rate by User" } },
+                      }}
+                    />
+                  </div>
+                )}
+                {activeSubTab === "all" && (
+                  <div>
+                    <div className="flex justify-between items-center mb-6">
+                      <button
+                        onClick={() => setModalOpen("addMedication")}
+                        className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
+                      >
+                        Add Medication
+                      </button>
+                    </div>
+                    <DataTable
+                      columns={medicationColumns}
+                      data={medications}
+                      onEdit={(item) => {
+                        setModalData(item);
+                        setModalOpen("updateMedication");
+                      }}
+                      onDelete={handleDeleteMedication}
+                      onSelect={handleRowSelect}
+                      selectedRows={selectedRows}
+                      setSelectedRows={setSelectedRows}
+                      onSort={handleSort}
+                      sortConfig={sortConfig}
+                    />
+                  </div>
+                )}
+                {activeSubTab === "bulk" && (
+                  <div className="bg-white p-6 rounded-lg shadow-md">
+                    <h3 className="text-lg font-semibold mb-4">Bulk Medication Operations</h3>
+                    <p className="text-gray-600">Select medications to update or delete in bulk.</p>
+                  </div>
+                )}
+              </>
             )}
+
+            {/* Reminders Section */}
             {activeTab === "reminders" && (
-              <div>
-                <h2 className="text-xl font-semibold text-gray-800 mb-6 text-center">Manage Reminders</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
-                  <StatisticsCard
-                    title="Total Users"
-                    value={users.length}
-                    icon={<FaUser />}
-                  />
-                  <StatisticsCard
-                    title="Total Reminders"
-                    value={reminders.length}
-                    icon={<FaBell />}
-                  />
-                  <StatisticsCard
-                    title="Avg Reminders/User"
-                    value={(reminders.length / (users.length || 1)).toFixed(1)}
-                    icon={<FaBell />}
-                  />
-                  <StatisticsCard
-                    title="Pending Reminders"
-                    value={reminders.filter((r) => r.status === "pending").length}
-                    icon={<FaBell />}
-                  />
-                  <StatisticsCard
-                    title="Sent Reminders"
-                    value={reminders.filter((r) => r.status === "sent").length}
-                    icon={<FaBell />}
-                  />
-                </div>
-                <div className="mb-6">
-                  <button
-                    onClick={() => setModalOpen("addReminder")}
-                    className="bg-indigo-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-md hover:bg-gray-700 transition-colors"
-                  >
-                    Add Reminder
-                  </button>
-                </div>
-                <PaginatedTable
-                  data={reminders}
-                  columns={[
-                    { key: "id", label: "ID" },
-                    { key: "user_id", label: "User ID" },
-                    { key: "medication_id", label: "Medication ID" },
-                    { key: "dose_index", label: "Dose Index" },
-                    { key: "reminder_time", label: "Time" },
-                    { key: "date", label: "Date" },
-                    { key: "type", label: "Type" },
-                    { key: "status", label: "Status" },
-                    {
-                      key: "actions",
-                      label: "Actions",
-                      render: (item) => (
-                        <div className="flex space-x-2">
+              <>
+                {activeSubTab === "stats" && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-white p-6 rounded-lg shadow-md">
+                      <h3 className="text-lg font-semibold">Total Reminders</h3>
+                      <p className="text-2xl font-bold text-indigo-600">{reminders.length}</p>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg shadow-md">
+                      <h3 className="text-lg font-semibold">Pending Reminders</h3>
+                      <p className="text-2xl font-bold text-indigo-600">
+                        {reminders.filter((r) => r.status === "pending").length}
+                      </p>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg shadow-md">
+                      <h3 className="text-lg font-semibold">Sent Reminders</h3>
+                      <p className="text-2xl font-bold text-indigo-600">
+                        {reminders.filter((r) => r.status === "sent").length}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {activeSubTab === "all" && (
+                  <div>
+                    <div className="flex justify-between items-center mb-6">
+                      <button
+                        onClick={() => setModalOpen("addReminder")}
+                        className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
+                      >
+                        Add Reminder
+                      </button>
+                      {selectedRows.length > 0 && (
+                        <div className="flex space-x-4">
                           <button
-                            onClick={() =>
-                              handleUpdateReminderStatus(
-                                item.id,
-                                item.status === "pending" ? "sent" : "pending"
-                              )
-                            }
-                            className="text-indigo-600 hover:text-indigo-500 font-medium"
+                            onClick={() => handleUpdateReminderStatus(selectedRows, "sent")}
+                            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
                           >
-                            Toggle Status
+                            Mark as Sent
                           </button>
                           <button
-                            onClick={() => handleDeleteReminder(item.id)}
-                            className="text-red-600 hover:text-red-500 font-medium"
+                            onClick={() => handleUpdateReminderStatus(selectedRows, "pending")}
+                            className="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700"
                           >
-                            Delete
+                            Mark as Pending
                           </button>
                         </div>
-                      ),
-                    },
-                  ]}
-                />
-              </div>
+                      )}
+                    </div>
+                    <DataTable
+                      columns={reminderColumns}
+                      data={reminders}
+                      onEdit={(item) => {
+                        setModalData(item);
+                        setModalOpen("updateReminder");
+                      }}
+                      onDelete={handleDeleteReminder}
+                      onSelect={handleRowSelect}
+                      selectedRows={selectedRows}
+                      setSelectedRows={setSelectedRows}
+                      onSort={handleSort}
+                      sortConfig={sortConfig}
+                    />
+                  </div>
+                )}
+                {activeSubTab === "bulk" && (
+                  <div className="bg-white p-6 rounded-lg shadow-md">
+                    <h3 className="text-lg font-semibold mb-4">Bulk Reminder Operations</h3>
+                    <button
+                      onClick={() => handleUpdateReminderStatus(selectedRows, "sent")}
+                      className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 mr-4"
+                      disabled={!selectedRows.length}
+                    >
+                      Mark Selected as Sent
+                    </button>
+                    <button
+                      onClick={() => handleUpdateReminderStatus(selectedRows, "pending")}
+                      className="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700"
+                      disabled={!selectedRows.length}
+                    >
+                      Mark Selected as Pending
+                    </button>
+                  </div>
+                )}
+              </>
             )}
+
+            {/* Food Logs Section */}
             {activeTab === "foodLogs" && (
+              <>
+                {activeSubTab === "stats" && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-white p-6 rounded-lg shadow-md">
+                      <h3 className="text-lg font-semibold">Total Food Logs</h3>
+                      <p className="text-2xl font-bold text-indigo-600">{foodLogs.length}</p>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg shadow-md">
+                      <h3 className="text-lg font-semibold">Total Calories</h3>
+                      <p className="text-2xl font-bold text-indigo-600">
+                        {foodLogs.reduce((sum, log) => sum + log.calories, 0).toFixed(1)}
+                      </p>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg shadow-md">
+                      <h3 className="text-lg font-semibold">Unique Meals</h3>
+                      <p className="text-2xl font-bold text-indigo-600">
+                        {new Set(foodLogs.map((log) => log.food_name)).size}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {activeSubTab === "charts" && chartData.foodStats && (
+                  <div className="bg-white p-6 rounded-lg shadow-md">
+                    <h3 className="text-lg font-semibold mb-4">Nutritional Breakdown</h3>
+                    <Pie
+                      data={chartData.foodStats}
+                      options={{
+                        responsive: true,
+                        plugins: { legend: { position: "top" }, title: { display: true, text: "Macronutrient Distribution" } },
+                      }}
+                    />
+                  </div>
+                )}
+                {activeSubTab === "all" && (
+                  <div>
+                    <div className="flex justify-between items-center mb-6">
+                      <button
+                        onClick={() => setModalOpen("addFoodLog")}
+                        className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
+                      >
+                        Add Food Log
+                      </button>
+                      {selectedRows.length > 0 && (
+                        <button
+                          onClick={handleBulkDeleteFoodLogs}
+                          className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center"
+                        >
+                          <FaTrash className="mr-2" /> Delete Selected
+                        </button>
+                      )}
+                    </div>
+                    <DataTable
+                      columns={foodLogColumns}
+                      data={foodLogs}
+                      onEdit={(item) => {
+                        setModalData(item);
+                        setModalOpen("updateFoodLog");
+                      }}
+                      onDelete={handleDeleteFoodLog}
+                      onSelect={handleRowSelect}
+                      selectedRows={selectedRows}
+                      setSelectedRows={setSelectedRows}
+                      onSort={handleSort}
+                      sortConfig={sortConfig}
+                    />
+                  </div>
+                )}
+                {activeSubTab === "bulk" && (
+                  <div className="bg-white p-6 rounded-lg shadow-md">
+                    <h3 className="text-lg font-semibold mb-4">Bulk Food Log Operations</h3>
+                    <button
+                      onClick={handleBulkDeleteFoodLogs}
+                      className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+                      disabled={!selectedRows.length}
+                    >
+                      Delete Selected Food Logs
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Exercises Section */}
+            {activeTab === "exercises" && (
+              <>
+                {activeSubTab === "stats" && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-white p-6 rounded-lg shadow-md">
+                      <h3 className="text-lg font-semibold">Total Exercises</h3>
+                      <p className="text-2xl font-bold text-indigo-600">{exercises.length}</p>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg shadow-md">
+                      <h3 className="text-lg font-semibold">Total Calories Burned</h3>
+                      <p className="text-2xl font-bold text-indigo-600">
+                        {exercises.reduce((sum, ex) => sum + ex.calories_burned, 0)}
+                      </p>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg shadow-md">
+                      <h3 className="text-lg font-semibold">Unique Activities</h3>
+                      <p className="text-2xl font-bold text-indigo-600">
+                        {new Set(exercises.map((ex) => ex.activity)).size}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {activeSubTab === "charts" && chartData.exerciseStats && (
+                  <div className="bg-white p-6 rounded-lg shadow-md">
+                    <h3 className="text-lg font-semibold mb-4">Exercise Type Distribution</h3>
+                    <Pie
+                      data={chartData.exerciseStats}
+                      options={{
+                        responsive: true,
+                        plugins: { legend: { position: "top" }, title: { display: true, text: "Exercise Types" } },
+                      }}
+                    />
+                  </div>
+                )}
+                {activeSubTab === "all" && (
+                  <div>
+                    <div className="flex justify-between items-center mb-6">
+                      <button
+                        onClick={() => setModalOpen("addExercise")}
+                        className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
+                      >
+                        Add Exercise
+                      </button>
+                      {selectedRows.length > 0 && (
+                        <button
+                          onClick={handleBulkDeleteExercises}
+                          className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center"
+                        >
+                          <FaTrash className="mr-2" /> Delete Selected
+                        </button>
+                      )}
+                    </div>
+                    <DataTable
+                      columns={exerciseColumns}
+                      data={exercises}
+                      onEdit={(item) => {
+                        setModalData(item);
+                        setModalOpen("updateExercise");
+                      }}
+                      onDelete={handleDeleteExercise}
+                      onSelect={handleRowSelect}
+                      selectedRows={selectedRows}
+                      setSelectedRows={setSelectedRows}
+                      onSort={handleSort}
+                      sortConfig={sortConfig}
+                    />
+                  </div>
+                )}
+                {activeSubTab === "bulk" && (
+                  <div className="bg-white p-6 rounded-lg shadow-md">
+                    <h3 className="text-lg font-semibold mb-4">Bulk Exercise Operations</h3>
+                    <button
+                      onClick={handleBulkDeleteExercises}
+                      className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+                      disabled={!selectedRows.length}
+                    >
+                      Delete Selected Exercises
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Settings Section */}
+            {activeTab === "settings" && activeSubTab === "system" && (
               <div>
-                <h2 className="text-xl font-semibold text-gray-800 mb-6 text-center">Manage Food Logs</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
-                  <StatisticsCard
-                    title="Total Users"
-                    value={users.length}
-                    icon={<FaUser />}
-                  />
-                  <StatisticsCard
-                    title="Total Food Logs"
-                    value={foodLogs.length}
-                    icon={<FaUtensils />}
-                  />
-                  <StatisticsCard
-                    title="Avg Food Logs/User"
-                    value={(foodLogs.length / (users.length || 1)).toFixed(1)}
-                    icon={<FaUtensils />}
-                  />
-                  <StatisticsCard
-                    title="Total Calories"
-                    value={foodStats.totalCalories || 0}
-                    icon={<FaUtensils />}
-                  />
-                  <StatisticsCard
-                    title="Avg Calories/Day"
-                    value={foodStats.avgCaloriesPerDay?.toFixed(1) || 0}
-                    icon={<FaUtensils />}
-                  />
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-semibold">System Settings</h3>
                 </div>
-                <ChartComponent
-                  type="bar"
-                  data={foodCalorieData}
-                  options={chartOptions}
-                  title="Calorie Intake Over Time"
-                />
-                <div className="mb-6">
-                  <button
-                    onClick={() => setModalOpen("addFoodLog")}
-                    className="bg-indigo-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-md hover:bg-gray-700 transition-colors"
-                  >
-                    Add Food Log
-                  </button>
-                </div>
-                <PaginatedTable
-                  data={foodLogs}
-                  columns={[
-                    { key: "id", label: "ID" },
-                    { key: "user_id", label: "User ID" },
-                    { key: "food_name", label: "Food Name" },
-                    { key: "portion_size", label: "Portion Size" },
-                    { key: "calories", label: "Calories" },
-                    {
-                      key: "date_logged",
-                      label: "Date Logged",
-                      render: (item) => new Date(item.date_logged).toLocaleString(),
-                    },
-                    { key: "notes", label: "Notes" },
-                    {
-                      key: "actions",
-                      label: "Actions",
-                      render: (item) => (
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() =>
-                              handleUpdateFoodLog(item.id, {
-                                user_id: item.user_id,
-                                food_name: item.food_name,
-                                portion_size: item.portion_size,
-                                calories: item.calories,
-                                date_logged: item.date_logged,
-                                notes: item.notes,
-                              })
-                            }
-                            className="text-indigo-600 hover:text-indigo-500 font-medium"
-                          >
-                            Update
-                          </button>
-                          <button
-                            onClick={() => handleDeleteFoodLog(item.id)}
-                            className="text-red-600 hover:text-red-500 font-medium"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      ),
-                    },
-                  ]}
+                <DataTable
+                  columns={settingColumns}
+                  data={settings}
+                  onEdit={(item) => {
+                    setModalData(item);
+                    setModalOpen("updateSetting");
+                  }}
+                  onDelete={() => {}}
+                  onSelect={() => {}}
+                  selectedRows={[]}
+                  setSelectedRows={() => {}}
+                  onSort={handleSort}
+                  sortConfig={sortConfig}
                 />
               </div>
             )}
-            {activeTab === "exercises" && (
+
+            {/* Audit Logs Section */}
+            {activeTab === "audit" && activeSubTab === "logs" && (
               <div>
-                <h2 className="text-xl font-semibold text-gray-800 mb-6 text-center">Manage Exercises</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
-                  <StatisticsCard
-                    title="Total Users"
-                    value={users.length}
-                    icon={<FaUser />}
-                  />
-                  <StatisticsCard
-                    title="Total Exercises"
-                    value={exercises.length}
-                    icon={<FaRunning />}
-                  />
-                  <StatisticsCard
-                    title="Avg Exercises/User"
-                    value={(exercises.length / (users.length || 1)).toFixed(1)}
-                    icon={<FaRunning />}
-                  />
-                  <StatisticsCard
-                    title="Total Calories Burned"
-                    value={exerciseStats.totalCaloriesBurned || 0}
-                    icon={<FaRunning />}
-                  />
-                  <StatisticsCard
-                    title="Avg Duration/Day"
-                    value={`${exerciseStats.avgDurationPerDay?.toFixed(1) || 0} min`}
-                    icon={<FaRunning />}
-                  />
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-semibold">Audit Logs</h3>
                 </div>
-                <ChartComponent
-                  type="line"
-                  data={exerciseData}
-                  options={chartOptions}
-                  title="Exercise Stats Over Time"
+                <DataTable
+                  columns={auditLogColumns}
+                  data={auditLogs}
+                  onEdit={() => {}}
+                  onDelete={() => {}}
+                  onSelect={() => {}}
+                  selectedRows={[]}
+                  setSelectedRows={() => {}}
+                  onSort={handleSort}
+                  sortConfig={sortConfig}
                 />
-                <div className="mb-6">
+              </div>
+            )}
+
+            {/* Data Export Section */}
+            {activeTab === "export" && activeSubTab === "export" && (
+              <div className="bg-white p-6 rounded-lg shadow-md">
+                <h3 className="text-lg font-semibold mb-4">Data Export</h3>
+                <div className="space-y-4">
                   <button
-                    onClick={() => setModalOpen("addExercise")}
-                    className="bg-indigo-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-md hover:bg-gray-700 transition-colors"
+                    onClick={() => handleExportData("users")}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
                   >
-                    Add Exercise
+                    Export Users
+                  </button>
+                  <button
+                    onClick={() => handleExportData("medications")}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
+                  >
+                    Export Medications
+                  </button>
+                  <button
+                    onClick={() => handleExportData("foodLogs")}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
+                  >
+                    Export Food Logs
+                  </button>
+                  <button
+                    onClick={() => handleExportData("exercises")}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
+                  >
+                    Export Exercises
                   </button>
                 </div>
-                <PaginatedTable
-                  data={exercises}
-                  columns={[
-                    { key: "id", label: "ID" },
-                    { key: "user_id", label: "User ID" },
-                    { key: "activity", label: "Activity" },
-                    { key: "duration", label: "Duration (min)" },
-                    { key: "calories_burned", label: "Calories Burned" },
-                    {
-                      key: "date_logged",
-                      label: "Date Logged",
-                      render: (item) => new Date(item.date_logged).toLocaleString(),
-                    },
-                    {
-                      key: "actions",
-                      label: "Actions",
-                      render: (item) => (
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() =>
-                              handleUpdateExercise(item.id, {
-                                user_id: item.user_id,
-                                activity: item.activity,
-                                duration: item.duration,
-                                calories_burned: item.calories_burned,
-                                date_logged: item.date_logged,
-                              })
-                            }
-                            className="text-indigo-600 hover:text-indigo-500 font-medium"
-                          >
-                            Update
-                          </button>
-                          <button
-                            onClick={() => handleDeleteExercise(item.id)}
-                            className="text-red-600 hover:text-red-500 font-medium"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      ),
-                    },
-                  ]}
-                />
               </div>
             )}
           </div>
@@ -1399,7 +1680,7 @@ const AdminDashboard = () => {
 
       {/* Modals */}
       <AnimatePresence>
-        {modalOpen === "createUser" && (
+        {modalOpen === "addUser" && (
           <motion.div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
             initial={{ opacity: 0 }}
@@ -1413,15 +1694,14 @@ const AdminDashboard = () => {
               animate="visible"
               exit="exit"
             >
-              <h3 className="text-lg font-bold text-gray-800 mb-4">Create New User</h3>
+              <h3 className="text-lg font-bold text-gray-800 mb-4">Add User</h3>
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   const formData = new FormData(e.target);
                   handleCreateUser({
-                    username: formData.get("username"),
                     email: formData.get("email"),
-                    displayName: formData.get("displayName"),
+                    name: formData.get("name"),
                     password: formData.get("password"),
                     role: formData.get("role"),
                   });
@@ -1429,36 +1709,30 @@ const AdminDashboard = () => {
                 className="space-y-4"
               >
                 <input
-                  type="text"
-                  name="username"
-                  placeholder="Username"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  required
-                />
-                <input
                   type="email"
                   name="email"
                   placeholder="Email"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
                   type="text"
-                  name="displayName"
-                  placeholder="Display Name"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  name="name"
+                  placeholder="Name"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
                   type="password"
                   name="password"
                   placeholder="Password"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <select
                   name="role"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
                 >
                   <option value="user">User</option>
                   <option value="admin">Admin</option>
@@ -1473,9 +1747,9 @@ const AdminDashboard = () => {
                   </button>
                   <button
                     type="submit"
-                    className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-gray-700 transition-colors"
+                    className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-indigo-700"
                   >
-                    Create User
+                    Add User
                   </button>
                 </div>
               </form>
@@ -1497,48 +1771,53 @@ const AdminDashboard = () => {
               animate="visible"
               exit="exit"
             >
-              <h3 className="text-lg font-bold text-gray-800 mb-4">Update User Profile</h3>
+              <h3 className="text-lg font-bold text-gray-800 mb-4">Update User</h3>
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   const formData = new FormData(e.target);
-                  handleUpdateUser(formData.get("uid"), {
-                    username: formData.get("username"),
+                  handleUpdateUser(modalData.id, {
                     email: formData.get("email"),
-                    displayName: formData.get("displayName"),
+                    name: formData.get("name"),
                     role: formData.get("role"),
+                    resetPassword: formData.get("resetPassword") === "on",
                   });
                 }}
                 className="space-y-4"
               >
                 <input
-                  type="text"
-                  name="username"
-                  placeholder="Username"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  required
-                />
-                <input
                   type="email"
                   name="email"
                   placeholder="Email"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  defaultValue={modalData.email}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
                   type="text"
-                  name="displayName"
-                  placeholder="Display Name"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  name="name"
+                  placeholder="Name"
+                  defaultValue={modalData.name}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <select
                   name="role"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  defaultValue={modalData.role}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
                 >
                   <option value="user">User</option>
                   <option value="admin">Admin</option>
                 </select>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    name="resetPassword"
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span>Send Password Reset Email</span>
+                </label>
                 <div className="flex justify-end space-x-4">
                   <button
                     type="button"
@@ -1549,69 +1828,9 @@ const AdminDashboard = () => {
                   </button>
                   <button
                     type="submit"
-                    className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-gray-700 transition-colors"
+                    className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-indigo-700"
                   >
                     Update User
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-
-        {modalOpen === "weeklyGoals" && (
-          <motion.div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl"
-              variants={modalVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-            >
-              <h3 className="text-lg font-bold text-gray-800 mb-4">Set Weekly Goals</h3>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const formData = new FormData(e.target);
-                  handleSaveWeeklyGoals(
-                    parseInt(formData.get("foodGoal")),
-                    parseInt(formData.get("exerciseGoal"))
-                  );
-                }}
-                className="space-y-4"
-              >
-                <input
-                  type="number"
-                  name="foodGoal"
-                  placeholder="Food Calorie Goal"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  required
-                />
-                <input
-                  type="number"
-                  name="exerciseGoal"
-                  placeholder="Exercise Calorie Goal"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  required
-                />
-                <div className="flex justify-end space-x-4">
-                  <button
-                    type="button"
-                    onClick={() => setModalOpen(null)}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 rounded-md"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-gray-700 transition-colors"
-                  >
-                    Save Goals
                   </button>
                 </div>
               </form>
@@ -1645,7 +1864,6 @@ const AdminDashboard = () => {
                     frequency: formData.get("frequency"),
                     times_per_day: parseInt(formData.get("times_per_day")),
                     times: formData.get("times").split(",").map((time) => time.trim()),
-                    doses: JSON.stringify(Array(parseInt(formData.get("times_per_day"))).fill(false)),
                     start_date: formData.get("start_date"),
                     end_date: formData.get("end_date"),
                     notes: formData.get("notes"),
@@ -1657,62 +1875,60 @@ const AdminDashboard = () => {
                   type="number"
                   name="user_id"
                   placeholder="User ID"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
                   type="text"
                   name="medication_name"
                   placeholder="Medication Name"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
                   type="text"
                   name="dosage"
-                  placeholder="Dosage"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Dosage (e.g., 500mg)"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
-                <select
+                <input
+                  type="text"
                   name="frequency"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Frequency (e.g., Daily)"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
-                >
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
+                />
                 <input
                   type="number"
                   name="times_per_day"
-                  placeholder="Times per Day"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Times Per Day"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
                   type="text"
                   name="times"
-                  placeholder="Times (comma-separated, e.g. 08:00,12:00)"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Times (e.g., 08:00, 20:00)"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
                   type="date"
                   name="start_date"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  required
+                  placeholder="Start Date"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                 />
                 <input
                   type="date"
                   name="end_date"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  required
+                  placeholder="End Date"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                 />
                 <textarea
                   name="notes"
                   placeholder="Notes"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                 />
                 <div className="flex justify-end space-x-4">
                   <button
@@ -1724,9 +1940,130 @@ const AdminDashboard = () => {
                   </button>
                   <button
                     type="submit"
-                    className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-gray-700 transition-colors"
+                    className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-indigo-700"
                   >
                     Add Medication
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {modalOpen === "updateMedication" && (
+          <motion.div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl"
+              variants={modalVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <h3 className="text-lg font-bold text-gray-800 mb-4">Update Medication</h3>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target);
+                  handleUpdateMedication(modalData.id, {
+                    user_id: parseInt(formData.get("user_id")),
+                    medication_name: formData.get("medication_name"),
+                    dosage: formData.get("dosage"),
+                    frequency: formData.get("frequency"),
+                    times_per_day: parseInt(formData.get("times_per_day")),
+                    times: formData.get("times").split(",").map((time) => time.trim()),
+                    start_date: formData.get("start_date"),
+                    end_date: formData.get("end_date"),
+                    notes: formData.get("notes"),
+                  });
+                }}
+                className="space-y-4"
+              >
+                <input
+                  type="number"
+                  name="user_id"
+                  placeholder="User ID"
+                  defaultValue={modalData.user_id}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="text"
+                  name="medication_name"
+                  placeholder="Medication Name"
+                  defaultValue={modalData.medication_name}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="text"
+                  name="dosage"
+                  placeholder="Dosage (e.g., 500mg)"
+                  defaultValue={modalData.dosage}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="text"
+                  name="frequency"
+                  placeholder="Frequency (e.g., Daily)"
+                  defaultValue={modalData.frequency}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="number"
+                  name="times_per_day"
+                  placeholder="Times Per Day"
+                  defaultValue={modalData.times_per_day}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="text"
+                  name="times"
+                  placeholder="Times (e.g., 08:00, 20:00)"
+                  defaultValue={modalData.times?.join(", ")}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="date"
+                  name="start_date"
+                  placeholder="Start Date"
+                  defaultValue={modalData.start_date?.split("T")[0]}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                />
+                <input
+                  type="date"
+                  name="end_date"
+                  placeholder="End Date"
+                  defaultValue={modalData.end_date?.split("T")[0]}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                />
+                <textarea
+                  name="notes"
+                  placeholder="Notes"
+                  defaultValue={modalData.notes}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                />
+                <div className="flex justify-end space-x-4">
+                  <button
+                    type="button"
+                    onClick={() => setModalOpen(null)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 rounded-md"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-indigo-700"
+                  >
+                    Update Medication
                   </button>
                 </div>
               </form>
@@ -1759,7 +2096,7 @@ const AdminDashboard = () => {
                     dose_index: parseInt(formData.get("dose_index")),
                     reminder_time: formData.get("reminder_time"),
                     date: formData.get("date"),
-                    type: formData.get("type"),
+                    status: formData.get("status"),
                   });
                 }}
                 className="space-y-4"
@@ -1768,41 +2105,44 @@ const AdminDashboard = () => {
                   type="number"
                   name="user_id"
                   placeholder="User ID"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
                   type="number"
                   name="medication_id"
                   placeholder="Medication ID"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
                   type="number"
                   name="dose_index"
                   placeholder="Dose Index"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
                   type="time"
                   name="reminder_time"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Reminder Time"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
                   type="date"
                   name="date"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Date"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <select
-                  name="type"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  name="status"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
                 >
-                  <option value="single">Single</option>
-                  <option value="daily">Daily</option>
+                  <option value="pending">Pending</option>
+                  <option value="sent">Sent</option>
                 </select>
                 <div className="flex justify-end space-x-4">
                   <button
@@ -1814,7 +2154,7 @@ const AdminDashboard = () => {
                   </button>
                   <button
                     type="submit"
-                    className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-gray-700 transition-colors"
+                    className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-indigo-700"
                   >
                     Add Reminder
                   </button>
@@ -1846,10 +2186,12 @@ const AdminDashboard = () => {
                   handleCreateFoodLog({
                     user_id: parseInt(formData.get("user_id")),
                     food_name: formData.get("food_name"),
-                    portion_size: formData.get("portion_size"),
-                    calories: parseInt(formData.get("calories")),
+                    calories: parseFloat(formData.get("calories")),
+                    carbs: parseFloat(formData.get("carbs")),
+                    protein: parseFloat(formData.get("protein")),
+                    fats: parseFloat(formData.get("fats")),
                     date_logged: formData.get("date_logged"),
-                    notes: formData.get("notes"),
+                    meal_type: formData.get("meal_type"),
                   });
                 }}
                 className="space-y-4"
@@ -1858,39 +2200,65 @@ const AdminDashboard = () => {
                   type="number"
                   name="user_id"
                   placeholder="User ID"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
                   type="text"
                   name="food_name"
                   placeholder="Food Name"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
-                />
-                <input
-                  type="text"
-                  name="portion_size"
-                  placeholder="Portion Size"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
                 <input
                   type="number"
                   name="calories"
                   placeholder="Calories"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  step="0.1"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="number"
+                  name="carbs"
+                  placeholder="Carbs (g)"
+                  step="0.1"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="number"
+                  name="protein"
+                  placeholder="Protein (g)"
+                  step="0.1"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="number"
+                  name="fats"
+                  placeholder="Fats (g)"
+                  step="0.1"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
                 />
                 <input
                   type="date"
                   name="date_logged"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Date Logged"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
-                <textarea
-                  name="notes"
-                  placeholder="Notes"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
+                <select
+                  name="meal_type"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                >
+                  <option value="breakfast">Breakfast</option>
+                  <option value="lunch">Lunch</option>
+                  <option value="dinner">Dinner</option>
+                  <option value="snack">Snack</option>
+                </select>
                 <div className="flex justify-end space-x-4">
                   <button
                     type="button"
@@ -1901,9 +2269,132 @@ const AdminDashboard = () => {
                   </button>
                   <button
                     type="submit"
-                    className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-gray-700 transition-colors"
+                    className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-indigo-700"
                   >
                     Add Food Log
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {modalOpen === "updateFoodLog" && (
+          <motion.div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl"
+              variants={modalVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <h3 className="text-lg font-bold text-gray-800 mb-4">Update Food Log</h3>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target);
+                  handleUpdateFoodLog(modalData.id, {
+                    user_id: parseInt(formData.get("user_id")),
+                    food_name: formData.get("food_name"),
+                    calories: parseFloat(formData.get("calories")),
+                    carbs: parseFloat(formData.get("carbs")),
+                    protein: parseFloat(formData.get("protein")),
+                    fats: parseFloat(formData.get("fats")),
+                    date_logged: formData.get("date_logged"),
+                    meal_type: formData.get("meal_type"),
+                  });
+                }}
+                className="space-y-4"
+              >
+                <input
+                  type="number"
+                  name="user_id"
+                  placeholder="User ID"
+                  defaultValue={modalData.user_id}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="text"
+                  name="food_name"
+                  placeholder="Food Name"
+                  defaultValue={modalData.food_name}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="number"
+                  name="calories"
+                  placeholder="Calories"
+                  step="0.1"
+                  defaultValue={modalData.calories}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="number"
+                  name="carbs"
+                  placeholder="Carbs (g)"
+                  step="0.1"
+                  defaultValue={modalData.carbs}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="number"
+                  name="protein"
+                  placeholder="Protein (g)"
+                  step="0.1"
+                  defaultValue={modalData.protein}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="number"
+                  name="fats"
+                  placeholder="Fats (g)"
+                  step="0.1"
+                  defaultValue={modalData.fats}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="date"
+                  name="date_logged"
+                  placeholder="Date Logged"
+                  defaultValue={modalData.date_logged?.split("T")[0]}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <select
+                  name="meal_type"
+                  defaultValue={modalData.meal_type}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                >
+                  <option value="breakfast">Breakfast</option>
+                  <option value="lunch">Lunch</option>
+                  <option value="dinner">Dinner</option>
+                  <option value="snack">Snack</option>
+                </select>
+                <div className="flex justify-end space-x-4">
+                  <button
+                    type="button"
+                    onClick={() => setModalOpen(null)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 rounded-md"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-indigo-700"
+                  >
+                    Update Food Log
                   </button>
                 </div>
               </form>
@@ -1944,34 +2435,35 @@ const AdminDashboard = () => {
                   type="number"
                   name="user_id"
                   placeholder="User ID"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
                   type="text"
                   name="activity"
-                  placeholder="Activity"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Activity (e.g., Running)"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
                   type="number"
                   name="duration"
                   placeholder="Duration (minutes)"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
                   type="number"
                   name="calories_burned"
                   placeholder="Calories Burned"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
                   type="date"
                   name="date_logged"
-                  className="w-full p-3 border border-gray-200 bg-gray-50 text-gray-800 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Date Logged"
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <div className="flex justify-end space-x-4">
@@ -1984,9 +2476,160 @@ const AdminDashboard = () => {
                   </button>
                   <button
                     type="submit"
-                    className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-gray-700 transition-colors"
+                    className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-indigo-700"
                   >
                     Add Exercise
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {modalOpen === "updateExercise" && (
+          <motion.div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl"
+              variants={modalVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <h3 className="text-lg font-bold text-gray-800 mb-4">Update Exercise</h3>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target);
+                  handleUpdateExercise(modalData.id, {
+                    user_id: parseInt(formData.get("user_id")),
+                    activity: formData.get("activity"),
+                    duration: parseInt(formData.get("duration")),
+                    calories_burned: parseInt(formData.get("calories_burned")),
+                    date_logged: formData.get("date_logged"),
+                  });
+                }}
+                className="space-y-4"
+              >
+                <input
+                  type="number"
+                  name="user_id"
+                  placeholder="User ID"
+                  defaultValue={modalData.user_id}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="text"
+                  name="activity"
+                  placeholder="Activity (e.g., Running)"
+                  defaultValue={modalData.activity}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="number"
+                  name="duration"
+                  placeholder="Duration (minutes)"
+                  defaultValue={modalData.duration}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="number"
+                  name="calories_burned"
+                  placeholder="Calories Burned"
+                  defaultValue={modalData.calories_burned}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="date"
+                  name="date_logged"
+                  placeholder="Date Logged"
+                  defaultValue={modalData.date_logged?.split("T")[0]}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <div className="flex justify-end space-x-4">
+                  <button
+                    type="button"
+                    onClick={() => setModalOpen(null)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 rounded-md"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-indigo-700"
+                  >
+                    Update Exercise
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {modalOpen === "updateSetting" && (
+          <motion.div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl"
+              variants={modalVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <h3 className="text-lg font-bold text-gray-800 mb-4">Update Setting</h3>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target);
+                  handleUpdateSetting(
+                    formData.get("setting_key"),
+                    formData.get("value")
+                  );
+                }}
+                className="space-y-4"
+              >
+                <input
+                  type="text"
+                  name="setting_key"
+                  placeholder="Setting Key"
+                  defaultValue={modalData.setting_key}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  readOnly
+                />
+                <input
+                  type="text"
+                  name="value"
+                  placeholder="Value"
+                  defaultValue={modalData.value}
+                  className="w-full p-3 border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <div className="flex justify-end space-x-4">
+                  <button
+                    type="button"
+                    onClick={() => setModalOpen(null)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 rounded-md"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-indigo-700"
+                  >
+                    Update Setting
                   </button>
                 </div>
               </form>

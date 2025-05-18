@@ -1503,3 +1503,356 @@ export const predictCaloricIntake = async (token) => {
     throw new Error(error.message || "Failed to predict caloric intake");
   }
 };
+
+// Admin API
+export const getAllAdminUsers = async (token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const response = await authFetch("/admin/users", {}, token);
+  const usersFromMySQL = response;
+
+  // Update Firebase with the latest user data
+  const updates = {};
+  usersFromMySQL.forEach((userData) => {
+    const userPath = `users/${userData.uid}`;
+    updates[userPath] = {
+      uid: userData.uid,
+      username: userData.username,
+      email: userData.email,
+      displayName: userData.display_name,
+      role: userData.role,
+      createdAt: userData.created_at,
+      lastLogin: userData.last_login,
+      phone: userData.phone || null,
+      address: userData.address || null,
+      height: userData.height || null,
+      weight: userData.weight || null,
+      profile_image: userData.profile_image || null,
+    };
+  });
+  await retryWithBackoff(() => update(ref(database), updates));
+
+  return usersFromMySQL;
+};
+
+export const searchAdminUsers = async (query, token) => {
+  if (!query || query.length < 2) throw new Error("Query must be at least 2 characters long");
+
+  const response = await authFetch(`/admin/users/search?query=${encodeURIComponent(query)}`, {}, token);
+  const usersFromMySQL = response;
+
+  // Update Firebase with the latest user data
+  const updates = {};
+  usersFromMySQL.forEach((userData) => {
+    const userPath = `users/${userData.uid}`;
+    updates[userPath] = {
+      uid: userData.uid,
+      username: userData.username,
+      email: userData.email,
+      displayName: userData.display_name,
+      role: userData.role,
+      createdAt: userData.created_at,
+      lastLogin: userData.last_login,
+      phone: userData.phone || null,
+      address: userData.address || null,
+      height: userData.height || null,
+      weight: userData.weight || null,
+      profile_image: userData.profile_image || null,
+    };
+  });
+  await retryWithBackoff(() => update(ref(database), updates));
+
+  return usersFromMySQL;
+};
+
+export const bulkDeleteAdminUsers = async (uids, token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+  if (!Array.isArray(uids) || uids.length === 0) throw new Error("Invalid or empty UIDs array");
+
+  const response = await authFetch(
+    "/admin/users/bulk",
+    {
+      method: "DELETE",
+      body: JSON.stringify({ uids }),
+    },
+    token
+  );
+
+  // Update Firebase by removing deleted users
+  const updates = {};
+  uids.forEach((uid) => {
+    updates[`users/${uid}`] = null;
+  });
+  await retryWithBackoff(() => update(ref(database), updates));
+
+  return response;
+};
+
+export const getAllAdminMedications = async (token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const response = await authFetch("/admin/medications", {}, token);
+  const medicationsFromMySQL = response;
+
+  // Update Firebase with the latest medication data
+  const updates = {};
+  medicationsFromMySQL.forEach((med) => {
+    const medicationPath = `medications/${med.user_id}/${med.id}`;
+    updates[medicationPath] = {
+      id: med.id.toString(),
+      userId: med.user_id,
+      medication_name: med.medication_name,
+      dosage: med.dosage,
+      frequency: med.frequency,
+      times_per_day: med.times_per_day,
+      times: med.times || [],
+      doses: med.doses || {},
+      start_date: med.start_date,
+      end_date: med.end_date,
+      notes: med.notes || null,
+      createdAt: med.createdAt || new Date().toISOString(),
+    };
+  });
+  await retryWithBackoff(() => update(ref(database), updates));
+
+  return medicationsFromMySQL;
+};
+
+export const getAdminMedicationAdherence = async (token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const response = await authFetch("/admin/medications/adherence", {}, token);
+  const adherenceStats = response;
+
+  // Store adherence stats in Firebase
+  const statsPath = `medication_adherence_stats/${user.uid}`;
+  await retryWithBackoff(() => update(ref(database), { [statsPath]: adherenceStats }));
+
+  return adherenceStats;
+};
+
+export const getAllAdminReminders = async (token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const response = await authFetch("/admin/reminders", {}, token);
+  const remindersFromMySQL = response;
+
+  // Update Firebase with the latest reminder data
+  const updates = {};
+  remindersFromMySQL.forEach((reminder) => {
+    const reminderPath = `reminders/${reminder.user_id}/${reminder.id}`;
+    updates[reminderPath] = {
+      id: reminder.id.toString(),
+      userId: reminder.user_id,
+      medicationId: reminder.medication_id,
+      doseIndex: reminder.dose_index,
+      reminderTime: reminder.reminder_time,
+      date: reminder.date,
+      type: reminder.type,
+      status: reminder.status || "pending",
+      createdAt: reminder.createdAt || new Date().toISOString(),
+    };
+  });
+  await retryWithBackoff(() => update(ref(database), updates));
+
+  return remindersFromMySQL;
+};
+
+export const updateAdminReminderStatus = async (reminderId, status, token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+  if (!["pending", "sent"].includes(status)) throw new Error("Status must be 'pending' or 'sent'");
+
+  const response = await authFetch(
+    `/admin/reminders/${reminderId}/status`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ status }),
+    },
+    token
+  );
+
+  // Update Firebase with the new status
+  const reminderPath = `reminders/${user.uid}/${reminderId}/status`;
+  await retryWithBackoff(() => update(ref(database), { [reminderPath]: status }));
+
+  return response;
+};
+
+export const getAdminSystemSettings = async (token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const response = await authFetch("/admin/settings", {}, token);
+  const settings = response;
+
+  // Store settings in Firebase
+  const settingsPath = `system_settings/${user.uid}`;
+  await retryWithBackoff(() => update(ref(database), { [settingsPath]: settings }));
+
+  return settings;
+};
+
+export const updateAdminSystemSettings = async (settingKey, settingValue, token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const response = await authFetch(
+    "/admin/settings",
+    {
+      method: "PUT",
+      body: JSON.stringify({ settingKey, settingValue }),
+    },
+    token
+  );
+
+  // Update Firebase with the new setting
+  const settingPath = `system_settings/${user.uid}/${settingKey}`;
+  await retryWithBackoff(() => update(ref(database), { [settingPath]: settingValue }));
+
+  return response;
+};
+
+export const getAdminUserActivityTrends = async (token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const response = await authFetch("/admin/activity-trends", {}, token);
+  const trends = response;
+
+  // Store trends in Firebase
+  const trendsPath = `activity_trends/${user.uid}`;
+  await retryWithBackoff(() => update(ref(database), { [trendsPath]: trends }));
+
+  return trends;
+};
+
+export const exportAdminData = async (table, token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+  const validTables = ["users", "medications", "reminders", "food_logs", "exercises"];
+  if (!validTables.includes(table)) throw new Error("Invalid table name");
+
+  const response = await fetch(`https://127.0.0.1:5000/api/admin/export/${table}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "text/csv",
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({
+      error: "An unknown error occurred",
+    }));
+    throw new Error(errorData.error || `Request failed with status ${response.status}`);
+  }
+
+  const csvContent = await response.text();
+  return csvContent;
+};
+
+export const getAdminAuditLogs = async (token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const response = await authFetch("/admin/audit-logs", {}, token);
+  const logs = response;
+
+  // Store audit logs in Firebase
+  const logsPath = `audit_logs/${user.uid}`;
+  await retryWithBackoff(() => update(ref(database), { [logsPath]: logs }));
+
+  return logs;
+};
+
+// Fetch all food logs for all users
+export const getAllAdminFoodLogs = async (token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const response = await authFetch("/admin/food-logs", {}, token);
+  const foodLogsFromMySQL = response;
+
+  // Update Firebase with the latest food log data
+  const updates = {};
+  foodLogsFromMySQL.forEach((foodLog) => {
+    const foodPath = `food_logs/${foodLog.user_id}/${foodLog.id}`;
+    updates[foodPath] = {
+      id: foodLog.id.toString(),
+      userId: foodLog.user_id,
+      food_name: foodLog.food_name,
+      calories: foodLog.calories,
+      carbs: foodLog.carbs,
+      protein: foodLog.protein,
+      fats: foodLog.fats,
+      image_data: foodLog.image_data || null,
+      date_logged: foodLog.date_logged,
+      meal_type: foodLog.meal_type,
+    };
+  });
+  await retryWithBackoff(() => update(ref(database), updates));
+
+  return foodLogsFromMySQL;
+};
+
+// Get food statistics for all users
+export const getAdminFoodStats = async (token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const response = await authFetch("/admin/food-stats", {}, token);
+  const foodStats = response;
+
+  // Store food stats in Firebase
+  const statsPath = `food_stats/admin/${user.uid}`;
+  await retryWithBackoff(() => update(ref(database), { [statsPath]: foodStats }));
+
+  return foodStats;
+};
+
+// Fetch all exercises for all users
+export const getAllAdminExercises = async (token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const response = await authFetch("/admin/exercises", {}, token);
+  const exercisesFromMySQL = response;
+
+  // Update Firebase with the latest exercise data
+  const updates = {};
+  exercisesFromMySQL.forEach((exercise) => {
+    const exercisePath = `exercises/${exercise.user_id}/${exercise.id}`;
+    updates[exercisePath] = {
+      id: exercise.id.toString(),
+      userId: exercise.user_id,
+      activity: exercise.activity,
+      duration: exercise.duration,
+      calories_burned: exercise.calories_burned,
+      date_logged: exercise.date_logged,
+    };
+  });
+  await retryWithBackoff(() => update(ref(database), updates));
+
+  return exercisesFromMySQL;
+};
+
+// Get exercise statistics for all users
+export const getAdminExerciseStats = async (token) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const response = await authFetch("/admin/exercise-stats", {}, token);
+  const exerciseStats = response;
+
+  // Store exercise stats in Firebase
+  const statsPath = `exercise_stats/admin/${user.uid}`;
+  await retryWithBackoff(() => update(ref(database), { [statsPath]: exerciseStats }));
+
+  return exerciseStats;
+};
