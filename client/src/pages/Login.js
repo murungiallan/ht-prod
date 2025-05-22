@@ -16,7 +16,7 @@ const Login = () => {
   useEffect(() => {
     if (user) {
       // Redirect based on role
-      const redirectPath = user.role === "admin" ? "/admin" : "/dashboard";
+      const redirectPath = user?.role === "admin" ? "/admin" : "/dashboard";
       navigate(redirectPath);
     }
   }, [user, navigate]);
@@ -29,12 +29,11 @@ const Login = () => {
     try {
       await login(email, password);
       toast.success("Successfully logged in!");
-      // Redirect based on role after successful login
-      const redirectPath = user.role === "admin" ? "/admin" : "/dashboard";
-      navigate(redirectPath);
     } catch (err) {
       setError(err.message || "Failed to login");
-      toast.error(err.message || "Failed to login");
+      if (!err.message?.includes("null")) {
+        toast.error(err.message || "Failed to login");
+      }
       console.error(err);
     } finally {
       setLoading(false);

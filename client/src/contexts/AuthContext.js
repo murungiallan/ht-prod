@@ -245,7 +245,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (username, email, password, displayName, role = "user") => {
+  const register = async (username, email, password, displayName, role) => {
     try {
       const userCredential = await retryWithBackoff(() =>
         createUserWithEmailAndPassword(auth, email, password)

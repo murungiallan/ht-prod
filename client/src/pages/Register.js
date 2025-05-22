@@ -1,4 +1,4 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../contexts/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { toast } from 'react-hot-toast';
 
 const Register = () => {
-  const { register } = useContext(AuthContext);
+  const { register, user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -15,13 +15,20 @@ const Register = () => {
   const [role, setRole] = useState("user");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (user) {
+      // Redirect based on role after registration
+      const redirectPath = user?.role === "admin" ? "/admin" : "/dashboard";
+      navigate(redirectPath);
+    }
+  }, [user, navigate]);
+
   const handleRegister = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
       await register(username, email, password, displayName, role);
-      navigate("/dashboard");
     } catch (err) {
       toast.error(err.message || "Failed to register");
       console.error(err);
@@ -134,7 +141,7 @@ const Register = () => {
                   className="animate-spin h-5 w-5 mr-2 text-white"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
-                  viewBox="0 0 24 24"
+                  viewBox="0.0.0.0/0 0 24 24"
                 >
                   <circle
                     className="opacity-25"
@@ -165,12 +172,6 @@ const Register = () => {
               </Link>
             </p>
           </div>
-
-          {/* <div className="pt-2 mt-4 border-t border-gray-200 text-center">
-            <p className="text-xs text-gray-500">
-              By creating an account, you agree to our Terms of Service and Privacy Policy
-            </p>
-          </div> */}
         </form>
       </motion.div>
     </div>

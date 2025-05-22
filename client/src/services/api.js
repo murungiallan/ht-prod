@@ -1504,355 +1504,431 @@ export const predictCaloricIntake = async (token) => {
   }
 };
 
-// Admin API
-export const getAllAdminUsers = async (token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
-
-  const response = await authFetch("/admin/users", {}, token);
-  const usersFromMySQL = response;
-
-  // Update Firebase with the latest user data
-  const updates = {};
-  usersFromMySQL.forEach((userData) => {
-    const userPath = `users/${userData.uid}`;
-    updates[userPath] = {
-      uid: userData.uid,
-      username: userData.username,
-      email: userData.email,
-      displayName: userData.display_name,
-      role: userData.role,
-      createdAt: userData.created_at,
-      lastLogin: userData.last_login,
-      phone: userData.phone || null,
-      address: userData.address || null,
-      height: userData.height || null,
-      weight: userData.weight || null,
-      profile_image: userData.profile_image || null,
-    };
-  });
-  await retryWithBackoff(() => update(ref(database), updates));
-
-  return usersFromMySQL;
+// Helper to validate and normalize response
+const normalizeResponse = (response, resourceKey) => {
+  if (!response || typeof response !== "object") {
+    console.error(`Invalid ${resourceKey} response:`, response);
+    return { [resourceKey]: [], total: 0, page: 1, pageSize: 10 };
+  }
+  return {
+    [resourceKey]: Array.isArray(response.data) ? response.data : [],
+    total: response.total || 0,
+    page: response.page || 1,
+    pageSize: response.pageSize || 10,
+  };
 };
 
-export const searchAdminUsers = async (query, token) => {
+// Users
+export const getAllAdminUsers = async (token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
+  try {
+    const response = await authFetch(
+      `/admin/users?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+      {},
+      token
+    );
+    return normalizeResponse(response, "users");
+  } catch (error) {
+    console.error("getAllAdminUsers error:", error);
+    throw error;
+  }
+};
+
+export const searchAdminUsers = async (query, token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
   if (!query || query.length < 2) throw new Error("Query must be at least 2 characters long");
-
-  const response = await authFetch(`/admin/users/search?query=${encodeURIComponent(query)}`, {}, token);
-  const usersFromMySQL = response;
-
-  // Update Firebase with the latest user data
-  const updates = {};
-  usersFromMySQL.forEach((userData) => {
-    const userPath = `users/${userData.uid}`;
-    updates[userPath] = {
-      uid: userData.uid,
-      username: userData.username,
-      email: userData.email,
-      displayName: userData.display_name,
-      role: userData.role,
-      createdAt: userData.created_at,
-      lastLogin: userData.last_login,
-      phone: userData.phone || null,
-      address: userData.address || null,
-      height: userData.height || null,
-      weight: userData.weight || null,
-      profile_image: userData.profile_image || null,
-    };
-  });
-  await retryWithBackoff(() => update(ref(database), updates));
-
-  return usersFromMySQL;
+  try {
+    const response = await authFetch(
+      `/admin/users/search?query=${encodeURIComponent(query)}&page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+      {},
+      token
+    );
+    return normalizeResponse(response, "users");
+  } catch (error) {
+    console.error("searchAdminUsers error:", error);
+    throw error;
+  }
 };
 
-export const bulkDeleteAdminUsers = async (uids, token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
+export const deleteSelectedAdminUsers = async (uids, token) => {
   if (!Array.isArray(uids) || uids.length === 0) throw new Error("Invalid or empty UIDs array");
-
-  const response = await authFetch(
-    "/admin/users/bulk",
-    {
-      method: "DELETE",
-      body: JSON.stringify({ uids }),
-    },
-    token
-  );
-
-  // Update Firebase by removing deleted users
-  const updates = {};
-  uids.forEach((uid) => {
-    updates[`users/${uid}`] = null;
-  });
-  await retryWithBackoff(() => update(ref(database), updates));
-
-  return response;
+  try {
+    const response = await authFetch(
+      "/admin/users/delete",
+      {
+        method: "POST",
+        body: JSON.stringify({ uids }),
+      },
+      token
+    );
+    return response; // Expecting { message: "Selected users deleted successfully" }
+  } catch (error) {
+    console.error("deleteSelectedAdminUsers error:", error);
+    throw error;
+  }
 };
 
-export const getAllAdminMedications = async (token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
+// Medications
+export const getAllAdminMedications = async (token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
+  try {
+    const response = await authFetch(
+      `/admin/medications?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+      {},
+      token
+    );
+    return normalizeResponse(response, "medications");
+  } catch (error) {
+    console.error("getAllAdminMedications error:", error);
+    throw error;
+  }
+};
 
-  const response = await authFetch("/admin/medications", {}, token);
-  const medicationsFromMySQL = response;
-
-  // Update Firebase with the latest medication data
-  const updates = {};
-  medicationsFromMySQL.forEach((med) => {
-    const medicationPath = `medications/${med.user_id}/${med.id}`;
-    updates[medicationPath] = {
-      id: med.id.toString(),
-      userId: med.user_id,
-      medication_name: med.medication_name,
-      dosage: med.dosage,
-      frequency: med.frequency,
-      times_per_day: med.times_per_day,
-      times: med.times || [],
-      doses: med.doses || {},
-      start_date: med.start_date,
-      end_date: med.end_date,
-      notes: med.notes || null,
-      createdAt: med.createdAt || new Date().toISOString(),
-    };
-  });
-  await retryWithBackoff(() => update(ref(database), updates));
-
-  return medicationsFromMySQL;
+export const searchAdminMedications = async (query, token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
+  if (!query || query.length < 2) throw new Error("Query must be at least 2 characters long");
+  try {
+    const response = await authFetch(
+      `/admin/medications/search?query=${encodeURIComponent(query)}&page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+      {},
+      token
+    );
+    return normalizeResponse(response, "medications");
+  } catch (error) {
+    console.error("searchAdminMedications error:", error);
+    throw error;
+  }
 };
 
 export const getAdminMedicationAdherence = async (token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
-
-  const response = await authFetch("/admin/medications/adherence", {}, token);
-  const adherenceStats = response;
-
-  // Store adherence stats in Firebase
-  const statsPath = `medication_adherence_stats/${user.uid}`;
-  await retryWithBackoff(() => update(ref(database), { [statsPath]: adherenceStats }));
-
-  return adherenceStats;
+  try {
+    const response = await authFetch("/admin/medications/adherence", {}, token);
+    return response; // Expecting { totalDoses, takenDoses, adherenceRate }
+  } catch (error) {
+    console.error("getAdminMedicationAdherence error:", error);
+    throw error;
+  }
 };
 
-export const getAllAdminReminders = async (token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
+export const deleteSelectedAdminMedications = async (ids, token) => {
+  if (!Array.isArray(ids) || ids.length === 0) throw new Error("Invalid or empty IDs array");
+  try {
+    const response = await authFetch(
+      "/admin/medications/delete",
+      {
+        method: "POST",
+        body: JSON.stringify({ ids }),
+      },
+      token
+    );
+    return response; // Expecting { message: "Selected medications deleted successfully" }
+  } catch (error) {
+    console.error("deleteSelectedAdminMedications error:", error);
+    throw error;
+  }
+};
 
-  const response = await authFetch("/admin/reminders", {}, token);
-  const remindersFromMySQL = response;
+// Reminders
+export const getAllAdminReminders = async (token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
+  try {
+    const response = await authFetch(
+      `/admin/reminders?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+      {},
+      token
+    );
+    return normalizeResponse(response, "reminders");
+  } catch (error) {
+    console.error("getAllAdminReminders error:", error);
+    throw error;
+  }
+};
 
-  // Update Firebase with the latest reminder data
-  const updates = {};
-  remindersFromMySQL.forEach((reminder) => {
-    const reminderPath = `reminders/${reminder.user_id}/${reminder.id}`;
-    updates[reminderPath] = {
-      id: reminder.id.toString(),
-      userId: reminder.user_id,
-      medicationId: reminder.medication_id,
-      doseIndex: reminder.dose_index,
-      reminderTime: reminder.reminder_time,
-      date: reminder.date,
-      type: reminder.type,
-      status: reminder.status || "pending",
-      createdAt: reminder.createdAt || new Date().toISOString(),
-    };
-  });
-  await retryWithBackoff(() => update(ref(database), updates));
-
-  return remindersFromMySQL;
+export const searchAdminReminders = async (query, token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
+  if (!query || query.length < 2) throw new Error("Query must be at least 2 characters long");
+  try {
+    const response = await authFetch(
+      `/admin/reminders/search?query=${encodeURIComponent(query)}&page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+      {},
+      token
+    );
+    return normalizeResponse(response, "reminders");
+  } catch (error) {
+    console.error("searchAdminReminders error:", error);
+    throw error;
+  }
 };
 
 export const updateAdminReminderStatus = async (reminderId, status, token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
   if (!["pending", "sent"].includes(status)) throw new Error("Status must be 'pending' or 'sent'");
-
-  const response = await authFetch(
-    `/admin/reminders/${reminderId}/status`,
-    {
-      method: "PUT",
-      body: JSON.stringify({ status }),
-    },
-    token
-  );
-
-  // Update Firebase with the new status
-  const reminderPath = `reminders/${user.uid}/${reminderId}/status`;
-  await retryWithBackoff(() => update(ref(database), { [reminderPath]: status }));
-
-  return response;
+  try {
+    const response = await authFetch(
+      `/admin/reminders/${reminderId}/status`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ status }),
+      },
+      token
+    );
+    return response; // Expecting { message: "Reminder status updated" }
+  } catch (error) {
+    console.error("updateAdminReminderStatus error:", error);
+    throw error;
+  }
 };
 
-export const getAdminSystemSettings = async (token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
+export const deleteSelectedAdminReminders = async (ids, token) => {
+  if (!Array.isArray(ids) || ids.length === 0) throw new Error("Invalid or empty IDs array");
+  try {
+    const response = await authFetch(
+      "/admin/reminders/delete",
+      {
+        method: "POST",
+        body: JSON.stringify({ ids }),
+      },
+      token
+    );
+    return response; // Expecting { message: "Selected reminders deleted successfully" }
+  } catch (error) {
+    console.error("deleteSelectedAdminReminders error:", error);
+    throw error;
+  }
+};
 
-  const response = await authFetch("/admin/settings", {}, token);
-  const settings = response;
+// Food Logs
+export const getAllAdminFoodLogs = async (token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
+  try {
+    const response = await authFetch(
+      `/admin/food-logs?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+      {},
+      token
+    );
+    return normalizeResponse(response, "foodLogs");
+  } catch (error) {
+    console.error("getAllAdminFoodLogs error:", error);
+    throw error;
+  }
+};
 
-  // Store settings in Firebase
-  const settingsPath = `system_settings/${user.uid}`;
-  await retryWithBackoff(() => update(ref(database), { [settingsPath]: settings }));
+export const searchAdminFoodLogs = async (query, token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
+  if (!query || query.length < 2) throw new Error("Query must be at least 2 characters long");
+  try {
+    const response = await authFetch(
+      `/admin/food-logs/search?query=${encodeURIComponent(query)}&page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+      {},
+      token
+    );
+    return normalizeResponse(response, "foodLogs");
+  } catch (error) {
+    console.error("searchAdminFoodLogs error:", error);
+    throw error;
+  }
+};
 
-  return settings;
+export const getAdminFoodStats = async (token) => {
+  try {
+    const response = await authFetch("/admin/food-logs/stats", {}, token);
+    return response; // Expecting { totalFoodLogs, avgCalories, avgCarbs, avgProtein, avgFats }
+  } catch (error) {
+    console.error("getAdminFoodStats error:", error);
+    throw error;
+  }
+};
+
+export const deleteSelectedAdminFoodLogs = async (ids, token) => {
+  if (!Array.isArray(ids) || ids.length === 0) throw new Error("Invalid or empty IDs array");
+  try {
+    const response = await authFetch(
+      "/admin/food-logs/delete",
+      {
+        method: "POST",
+        body: JSON.stringify({ ids }),
+      },
+      token
+    );
+    return response; // Expecting { message: "Selected food logs deleted successfully" }
+  } catch (error) {
+    console.error("deleteSelectedAdminFoodLogs error:", error);
+    throw error;
+  }
+};
+
+// Exercises
+export const getAllAdminExercises = async (token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
+  try {
+    const response = await authFetch(
+      `/admin/exercises?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+      {},
+      token
+    );
+    return normalizeResponse(response, "exercises");
+  } catch (error) {
+    console.error("getAllAdminExercises error:", error);
+    throw error;
+  }
+};
+
+export const getAdminExerciseStats = async (token) => {
+  try {
+    const response = await authFetch("/admin/exercises/stats", {}, token);
+    return response; // Expecting { totalExercises, avgDuration, avgCaloriesBurned }
+  } catch (error) {
+    console.error("getAdminExerciseStats error:", error);
+    throw error;
+  }
+};
+
+export const searchAdminExercises = async (query, token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
+  if (!query || query.length < 2) throw new Error("Query must be at least 2 characters long");
+  try {
+    const response = await authFetch(
+      `/admin/exercises/search?query=${encodeURIComponent(query)}&page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+      {},
+      token
+    );
+    return normalizeResponse(response, "exercises");
+  } catch (error) {
+    console.error("searchAdminExercises error:", error);
+    throw error;
+  }
+};
+
+export const deleteSelectedAdminExercises = async (ids, token) => {
+  if (!Array.isArray(ids) || ids.length === 0) throw new Error("Invalid or empty IDs array");
+  try {
+    const response = await authFetch(
+      "/admin/exercises/delete",
+      {
+        method: "POST",
+        body: JSON.stringify({ ids }),
+      },
+      token
+    );
+    return response; // Expecting { message: "Selected exercises deleted successfully" }
+  } catch (error) {
+    console.error("deleteSelectedAdminExercises error:", error);
+    throw error;
+  }
+};
+
+// System Settings
+export const getAdminSystemSettings = async (token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
+  try {
+    const response = await authFetch(
+      `/admin/settings?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+      {},
+      token
+    );
+    return normalizeResponse(response, "settings");
+  } catch (error) {
+    console.error("getAdminSystemSettings error:", error);
+    throw error;
+  }
+};
+
+export const searchAdminSystemSettings = async (query, token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
+  if (!query || query.length < 2) throw new Error("Query must be at least 2 characters long");
+  try {
+    const response = await authFetch(
+      `/admin/settings/search?query=${encodeURIComponent(query)}&page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+      {},
+      token
+    );
+    return normalizeResponse(response, "settings");
+  } catch (error) {
+    console.error("searchAdminSystemSettings error:", error);
+    throw error;
+  }
 };
 
 export const updateAdminSystemSettings = async (settingKey, settingValue, token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
-
-  const response = await authFetch(
-    "/admin/settings",
-    {
-      method: "PUT",
-      body: JSON.stringify({ settingKey, settingValue }),
-    },
-    token
-  );
-
-  // Update Firebase with the new setting
-  const settingPath = `system_settings/${user.uid}/${settingKey}`;
-  await retryWithBackoff(() => update(ref(database), { [settingPath]: settingValue }));
-
-  return response;
+  try {
+    const response = await authFetch(
+      "/admin/settings",
+      {
+        method: "PUT",
+        body: JSON.stringify({ settingKey, settingValue }),
+      },
+      token
+    );
+    return response; // Expecting { message: "System setting updated" }
+  } catch (error) {
+    console.error("updateAdminSystemSettings error:", error);
+    throw error;
+  }
 };
 
+export const deleteAdminSetting = async (settingKey, token) => {
+  try {
+    const response = await authFetch(
+      `/admin/settings/${encodeURIComponent(settingKey)}`,
+      { method: "DELETE" },
+      token
+    );
+    return response; // Expecting { message: "Setting deleted" }
+  } catch (error) {
+    console.error("deleteAdminSetting error:", error);
+    throw error;
+  }
+};
+
+export const deleteSelectedAdminSettings = async (settingKeys, token) => {
+  if (!Array.isArray(settingKeys) || settingKeys.length === 0) throw new Error("Invalid or empty setting keys array");
+  try {
+    const response = await authFetch(
+      "/admin/settings/delete",
+      {
+        method: "POST",
+        body: JSON.stringify({ settingKeys }),
+      },
+      token
+    );
+    return response; // Expecting { message: "Selected settings deleted successfully" }
+  } catch (error) {
+    console.error("deleteSelectedAdminSettings error:", error);
+    throw error;
+  }
+};
+
+// Analytics
 export const getAdminUserActivityTrends = async (token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
-
-  const response = await authFetch("/admin/activity-trends", {}, token);
-  const trends = response;
-
-  // Store trends in Firebase
-  const trendsPath = `activity_trends/${user.uid}`;
-  await retryWithBackoff(() => update(ref(database), { [trendsPath]: trends }));
-
-  return trends;
+  try {
+    const response = await authFetch("/admin/analytics/user-activity", {}, token);
+    return response; // Expecting [{ date, activeUsers }, ...]
+  } catch (error) {
+    console.error("getAdminUserActivityTrends error:", error);
+    throw error;
+  }
 };
 
+// Data Export
 export const exportAdminData = async (table, token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
   const validTables = ["users", "medications", "reminders", "food_logs", "exercises"];
   if (!validTables.includes(table)) throw new Error("Invalid table name");
-
-  const response = await fetch(`https://127.0.0.1:5000/api/admin/export/${table}`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "text/csv",
-    },
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({
-      error: "An unknown error occurred",
-    }));
-    throw new Error(errorData.error || `Request failed with status ${response.status}`);
+  try {
+    const response = await fetch(`/api/admin/export/${table}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "text/csv",
+      },
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: "An unknown error occurred" }));
+      throw new Error(errorData.error || `Request failed with status ${response.status}`);
+    }
+    return await response.text(); // CSV content
+  } catch (error) {
+    console.error("exportAdminData error:", error);
+    throw error;
   }
-
-  const csvContent = await response.text();
-  return csvContent;
 };
 
-export const getAdminAuditLogs = async (token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
-
-  const response = await authFetch("/admin/audit-logs", {}, token);
-  const logs = response;
-
-  // Store audit logs in Firebase
-  const logsPath = `audit_logs/${user.uid}`;
-  await retryWithBackoff(() => update(ref(database), { [logsPath]: logs }));
-
-  return logs;
-};
-
-// Fetch all food logs for all users
-export const getAllAdminFoodLogs = async (token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
-
-  const response = await authFetch("/admin/food-logs", {}, token);
-  const foodLogsFromMySQL = response;
-
-  // Update Firebase with the latest food log data
-  const updates = {};
-  foodLogsFromMySQL.forEach((foodLog) => {
-    const foodPath = `food_logs/${foodLog.user_id}/${foodLog.id}`;
-    updates[foodPath] = {
-      id: foodLog.id.toString(),
-      userId: foodLog.user_id,
-      food_name: foodLog.food_name,
-      calories: foodLog.calories,
-      carbs: foodLog.carbs,
-      protein: foodLog.protein,
-      fats: foodLog.fats,
-      image_data: foodLog.image_data || null,
-      date_logged: foodLog.date_logged,
-      meal_type: foodLog.meal_type,
-    };
-  });
-  await retryWithBackoff(() => update(ref(database), updates));
-
-  return foodLogsFromMySQL;
-};
-
-// Get food statistics for all users
-export const getAdminFoodStats = async (token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
-
-  const response = await authFetch("/admin/food-stats", {}, token);
-  const foodStats = response;
-
-  // Store food stats in Firebase
-  const statsPath = `food_stats/admin/${user.uid}`;
-  await retryWithBackoff(() => update(ref(database), { [statsPath]: foodStats }));
-
-  return foodStats;
-};
-
-// Fetch all exercises for all users
-export const getAllAdminExercises = async (token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
-
-  const response = await authFetch("/admin/exercises", {}, token);
-  const exercisesFromMySQL = response;
-
-  // Update Firebase with the latest exercise data
-  const updates = {};
-  exercisesFromMySQL.forEach((exercise) => {
-    const exercisePath = `exercises/${exercise.user_id}/${exercise.id}`;
-    updates[exercisePath] = {
-      id: exercise.id.toString(),
-      userId: exercise.user_id,
-      activity: exercise.activity,
-      duration: exercise.duration,
-      calories_burned: exercise.calories_burned,
-      date_logged: exercise.date_logged,
-    };
-  });
-  await retryWithBackoff(() => update(ref(database), updates));
-
-  return exercisesFromMySQL;
-};
-
-// Get exercise statistics for all users
-export const getAdminExerciseStats = async (token) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
-
-  const response = await authFetch("/admin/exercise-stats", {}, token);
-  const exerciseStats = response;
-
-  // Store exercise stats in Firebase
-  const statsPath = `exercise_stats/admin/${user.uid}`;
-  await retryWithBackoff(() => update(ref(database), { [statsPath]: exerciseStats }));
-
-  return exerciseStats;
+// Audit Logs
+export const getAdminAuditLogs = async (token, limit, page, sortConfig = { key: "", direction: "asc" }, query = "") => {
+  try {
+    const url = query
+      ? `/admin/audit-logs?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}&query=${encodeURIComponent(query)}`
+      : `/admin/audit-logs?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`;
+    const response = await authFetch(url, {}, token);
+    return normalizeResponse(response, "logs");
+  } catch (error) {
+    console.error("getAdminAuditLogs error:", error);
+    throw error;
+  }
 };

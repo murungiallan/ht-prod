@@ -1078,25 +1078,50 @@ const Dashboard = () => {
   const downloadChartImage = (chartRef, fileName) => {
     if (chartRef.current) {
       const chart = chartRef.current;
+      
+      // Store original background settings
+      const originalBackgroundColor = chart.canvas.style.backgroundColor;
+      const originalPluginOptions = chart.options.plugins.backgroundColor;
+      
+      // Set white background for download
+      chart.canvas.style.backgroundColor = 'white';
+      
+      // Properly set the chart background via plugin options
+      if (!chart.options.plugins) chart.options.plugins = {};
+      chart.options.plugins.backgroundColor = {
+        color: 'white'
+      };
+      
+      // Update chart to apply background changes
+      chart.update();
+      
+      // Generate and download the image
       const image = chart.toBase64Image('image/png');
       const link = document.createElement('a');
       link.href = image;
       link.download = `${fileName}.png`;
+      link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      toast.success(`${fileName}.png downloaded!`);
+      
+      // Restore original background settings
+      chart.canvas.style.backgroundColor = originalBackgroundColor;
+      chart.options.plugins.backgroundColor = originalPluginOptions;
+      chart.update();
+      
+      toast.success(`${fileName}.png downloaded successfully!`);
     } else {
       toast.error("Chart is not available for download.");
     }
   };
-
+  
   const downloadChartDataAsCSV = (data, labels, fileName, labelField = 'label', dataField = 'data') => {
     if (!data || !labels) {
       toast.error("No data available to download.");
       return;
     }
-
+  
     const headers = ['Date', dataField.charAt(0).toUpperCase() + dataField.slice(1)];
     const rows = labels.map((label, index) => {
       let value;
@@ -1109,12 +1134,12 @@ const Dashboard = () => {
       }
       return [moment(label).format('MMM D'), value];
     });
-
+  
     const csvContent = [
       headers.join(','),
       ...rows.map(row => row.join(','))
     ].join('\n');
-
+  
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);

@@ -226,7 +226,7 @@ const Home = () => {
         initial="hidden"
         animate={ctaControls}
         variants={fadeInUp}
-        className="py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-gray-200 to-gray-400 text-white text-center"
+        className="py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-gray-400 to-gray-600 text-white text-center"
       >
         <h2 className="text-3xl sm:text-4xl font-bold mb-6">
           Ready to Transform Your Health?
