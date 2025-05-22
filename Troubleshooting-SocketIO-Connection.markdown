@@ -146,8 +146,8 @@ Verify that the Socket.IO client can connect to the server without certificate e
 
        ```text
        Connecting to server at: https://127.0.0.1:5000
-       Connecting with token: <your-token>
-       Socket.IO connected: <socket-id>
+       Connecting with token
+       Socket.IO connected
        ```
 
      - **Failure**:

@@ -28,7 +28,7 @@ const logToFile = (message, level = "INFO") => {
   }
 };
 
-// Directory and base URL setup (unchanged)
+// Directory and base URL setup
 const uploadDir = path.join(projectRoot, "Uploads");
 const tempDir = path.join(projectRoot, "Temp");
 const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
