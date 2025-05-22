@@ -14,6 +14,8 @@ import LogExercise from "./LogExercise";
 import RecentExercises from "./RecentExercises";
 import WeeklyActivity from "./WeeklyActivity";
 import LoadingSpinner from "../common/LoadingSpinner";
+import React from "react";
+import { FiHelpCircle } from "react-icons/fi";
 
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
@@ -31,6 +33,7 @@ const ExerciseTracker = () => {
   const [error, setError] = useState(null);
   const [lastFailedAction, setLastFailedAction] = useState(null);
   const [exercises, setExercises] = useState([]);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [stats, setStats] = useState({ totalCalories: 0, totalDuration: 0, totalSessions: 0 });
   const [weeklyData, setWeeklyData] = useState({
     calories: [],
@@ -484,6 +487,42 @@ const ExerciseTracker = () => {
           handleUpdateExercise={handleUpdateExercise}
           loading={loading}
         />
+      </div>
+
+      <div
+        style={{
+          position: "fixed",
+          bottom: "20px",
+          left: "20px",
+          backgroundColor: "#1a73e8",
+          color: "white",
+          borderRadius: "50%",
+          width: "48px",
+          height: "48px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "none",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+          cursor: "pointer",
+          zIndex: 1100,
+          // opacity: "70%",
+        }}
+        onMouseEnter={() => setIsHelpOpen(true)}
+        onMouseLeave={() => setIsHelpOpen(false)}
+      >
+        <FiHelpCircle style={{ fontSize: "24px", opacity: "70%" }} />
+        {isHelpOpen && (
+          <div className="absolute bottom-12 left-8 w-64 bg-white p-4 rounded-lg shadow-lg text-sm text-gray-600">
+            <p><strong>Exercise Tracker Features:</strong></p>
+            <ul className="list-disc pl-4">
+              <li>Log exercise (top right) by clicking it and entering relevant values.</li>
+              <li>Select a date on the horizontal calendar to view exercise statistics such as calories burned, duration of exercise and number of sessions per day</li>
+              <li>View charts showing calories burned, duration of exercise daily and number of sessions per day for the last 7 days</li>
+              <li>Manage exercise (edit log, delete functions) in the table.</li>
+            </ul>
+          </div>
+        )}
       </div>
     </motion.div>
   );

@@ -139,8 +139,8 @@ const GoalsModal = ({ isOpen, onClose, onSave, suggestedFoodGoal }) => {
 const PeriodFilter = ({ period, setPeriod }) => {
   const periods = [
     "Last 7 Days",
-    "Last 14 Days",
-    "Last 28 Days"
+    "Last 14 Days"
+    // "Last 28 Days"
   ];
 
   const handleChange = (e) => {

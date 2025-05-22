@@ -14,6 +14,7 @@ import DailyFoodLogs from './DailyFoodLogs';
 import FoodLogModal from './modals/FoodLogModal';
 import moment from 'moment';
 import { WiDaySunnyOvercast, WiDaySunny, WiDayWindy } from "react-icons/wi";
+import { FiHelpCircle } from 'react-icons/fi';
 
 // ErrorBoundary component to catch rendering errors
 const ErrorBoundary = ({ children, fallbackMessage = "Something went wrong" }) => {
@@ -520,26 +521,30 @@ const FoodDiary = () => {
           </ErrorBoundary>
 
           <div
-            className="fixed bottom-4 right-4 z-50"
+            style={{
+              position: "fixed",
+              bottom: "20px",
+              left: "20px",
+              backgroundColor: "#1a73e8",
+              color: "white",
+              borderRadius: "50%",
+              width: "48px",
+              height: "48px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "none",
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+              cursor: "pointer",
+              zIndex: 1100,
+              // opacity: "70%",
+            }}
             onMouseEnter={() => setIsHelpOpen(true)}
             onMouseLeave={() => setIsHelpOpen(false)}
           >
-            <svg
-              className="h-10 w-10 text-blue-600 cursor-pointer hover:text-blue-700 transition"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
+            <FiHelpCircle style={{ fontSize: "24px", opacity: "70%" }} />
             {isHelpOpen && (
-              <div className="absolute bottom-12 right-0 w-64 bg-white p-4 rounded-lg shadow-lg text-sm text-gray-600">
+              <div className="absolute bottom-12 left-8 w-64 bg-white p-4 rounded-lg shadow-lg text-sm text-gray-600">
                 <p><strong>Food Diary Features:</strong></p>
                 <ul className="list-disc pl-4">
                   <li>Select a date to view logs using the calendar.</li>
