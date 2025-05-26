@@ -1,46 +1,50 @@
-import sql from 'mssql';
+import { createPool, createConnection } from 'mysql2/promise';
 import dotenv from 'dotenv';
-
 dotenv.config();
 
-const connectionString = process.env.MSSQL_URL;
-let dbConfig = {
-  user: process.env.MSSQL_USER || 'sa',
-  password: process.env.MSSQL_PASSWORD || '',
-  server: process.env.MSSQL_HOST || 'localhost',
-  port: parseInt(process.env.MSSQL_PORT) || 1433,
-  database: process.env.MSSQL_DATABASE || 'healthtrack_db',
-  options: {
-    encrypt: true, // Enforce encryption as required by the server
-    trustServerCertificate: process.env.NODE_ENV === 'development', // Trust self-signed certs locally, validate in production
-    enableArithAbort: true,
-  },
+// Function to create the database if it doesn't exist
+const ensureDatabaseExists = async () => {
+  const connection = await createConnection({
+    host: 'localhost',
+    user: 'root',
+    password: process.env.DATABASE_PASSWORD || 'root',
+  });
+
+  try {
+    // Check if the database exists
+    const [databases] = await connection.query("SHOW DATABASES LIKE 'healthtrack_db'");
+    if (databases.length === 0) {
+      await connection.query('CREATE DATABASE healthtrack_db');
+      console.log('Database healthtrack_db created successfully.');
+    } else {
+      console.log('Database healthtrack_db already exists.');
+    }
+  } catch (error) {
+    console.error('Error creating database:', error.message);
+    throw error;
+  } finally {
+    await connection.end();
+  }
 };
 
-if (connectionString) {
-  const params = new URLSearchParams(connectionString.replace(';', '&'));
-  dbConfig = {
-    user: params.get('User ID') || 'sa',
-    password: params.get('Password') || '',
-    server: params.get('Server')?.split(',')[0] || 'localhost', // Extract server name
-    port: parseInt(params.get('Server')?.split(',')[1]) || 1433, // Extract port
-    database: params.get('Initial Catalog') || 'healthtrack_db',
-    options: {
-      encrypt: params.get('Encrypt') === 'True' || true,
-      trustServerCertificate: process.env.NODE_ENV === 'development',
-      enableArithAbort: true,
-    },
-  };
-}
-
 // Create a connection pool
-const db = new sql.ConnectionPool(dbConfig);
+const db = createPool({
+  host: 'localhost',
+  user: 'root',
+  password: process.env.DATABASE_PASSWORD, 
+  database: 'healthtrack_db',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+});
 
 // Test the connection on startup
 const initializeDb = async () => {
   try {
-    await db.connect();
-    console.log('Connected to MSSQL Database');
+    await ensureDatabaseExists();
+    const connection = await db.getConnection();
+    console.log('Connected to MySQL Database');
+    connection.release();
   } catch (error) {
     console.error('Database connection failed:', error.message);
     throw error;
@@ -53,5 +57,4 @@ initializeDb().catch((error) => {
   process.exit(1);
 });
 
-// Export the pool for use in routes
 export default db;

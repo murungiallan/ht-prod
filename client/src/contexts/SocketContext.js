@@ -23,7 +23,7 @@ export const SocketProvider = ({ children }) => {
     try {
       const token = await getCachedToken();
       console.log("Connecting with token:");
-      const newSocket = io("https://127.0.0.1:5000", {
+      const newSocket = io("http://127.0.0.1:5000", {
         auth: { token },
         reconnection: true,
         reconnectionAttempts: 5,

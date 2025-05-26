@@ -5,7 +5,7 @@ import { ref as storageRef, getStorage, uploadBytes, getDownloadURL, uploadBytes
 import { storage } from "../firebase/config.js";
 import { debounce } from "lodash";
 
-const api = axios.create({ baseURL: "https://127.0.0.1:5000/api" });
+const api = axios.create({ baseURL: "http://127.0.0.1:5000/api" });
 
 // Retry logic with exponential backoff for rate-limited requests
 const retryWithBackoff = async (operation, maxAttempts = 3, baseDelay = 1000) => {
@@ -40,7 +40,7 @@ const authFetch = async (endpoint, options = {}, token) => {
   }
 
   try {
-    const response = await fetch(`https://127.0.0.1:5000/api${endpoint}`, {
+    const response = await fetch(`http://127.0.0.1:5000/api${endpoint}`, {
       ...options,
       headers,
     });

@@ -31,7 +31,7 @@ const server = http.createServer(app);
 // Attach Socket.IO to the HTTP server
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: [process.env.CLIENT_URL || "http://localhost:3000", "http://127.0.0.1:5000", "http://127.0.0.1:3000"],
     methods: ["GET", "POST", "PUT", "DELETE"],
   },
 });
@@ -92,7 +92,7 @@ const applyBodyParsing = (req, res, next) => {
 
 // Apply middleware
 app.use(cors({
-  origin: [process.env.CLIENT_URL || "http://localhost:3000"],
+  origin: [process.env.CLIENT_URL || "http://localhost:3000", "http://127.0.0.1:3000"],
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
