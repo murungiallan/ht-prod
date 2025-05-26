@@ -15,7 +15,7 @@ dotenv.config();
 
 initializeApp({
   credential: cert(serviceAccount),
-  databaseURL: process.env.REACT_APP_DATABASE_URL || "https://healthtrack-web-app-default-rtdb.asia-southeast1.firebasedatabase.app/",
+  databaseURL: "https://healthtrack-web-app-default-rtdb.asia-southeast1.firebasedatabase.app",
 });
 
 const db = getDatabase();
