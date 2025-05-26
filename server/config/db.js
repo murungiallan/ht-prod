@@ -1,47 +1,52 @@
-import { createPool, createConnection } from 'mysql2/promise';
+import { createPool } from 'mysql2/promise';
 import dotenv from 'dotenv';
+import { parse } from 'url';
+
 dotenv.config();
 
-// Function to create the database if it doesn't exist
-const ensureDatabaseExists = async () => {
-  const connection = await createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: process.env.DATABASE_PASSWORD,
-  });
-
-  try {
-    // Check if the database exists
-    const [databases] = await connection.query("SHOW DATABASES LIKE 'healthtrack_db'");
-    if (databases.length === 0) {
-      await connection.query('CREATE DATABASE healthtrack_db');
-      console.log('Database healthtrack_db created successfully.');
-    } else {
-      console.log('Database healthtrack_db already exists.');
-    }
-  } catch (error) {
-    console.error('Error creating database:', error.message);
-    throw error;
-  } finally {
-    await connection.end();
-  }
-};
-
-// Create a connection pool
-const db = createPool({
+// Parse the database URL if available (for production)
+const databaseUrl = process.env.STACKHERO_MYSQL_DATABASE_URL;
+let dbConfig = {
   host: 'localhost',
+  port: 3306,
   user: 'root',
-  password: process.env.DATABASE_PASSWORD, 
+  password: '',
   database: 'healthtrack_db',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-});
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : { rejectUnauthorized: false },
+};
+
+if (databaseUrl) {
+  const parsedUrl = parse(databaseUrl, true);
+  const auth = parsedUrl.auth ? parsedUrl.auth.split(':') : ['root', ''];
+  const sslOptions = process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : { rejectUnauthorized: false };
+  
+  dbConfig = {
+    host: parsedUrl.hostname || 'localhost',
+    port: parseInt(parsedUrl.port) || 3306,
+    user: auth[0] || 'root',
+    password: auth[1] || '',
+    database: parsedUrl.pathname ? parsedUrl.pathname.split('/')[1] : 'healthtrack_db',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    ssl: sslOptions,
+  };
+
+  // Override database name if the URL specifies 'root'
+  if (dbConfig.database === 'root') {
+    dbConfig.database = process.env.MYSQL_DATABASE || 'healthtrack_db';
+  }
+}
+
+// Create a connection pool
+const db = createPool(dbConfig);
 
 // Test the connection on startup
 const initializeDb = async () => {
   try {
-    await ensureDatabaseExists();
     const connection = await db.getConnection();
     console.log('Connected to MySQL Database');
     connection.release();

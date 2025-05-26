@@ -3,8 +3,7 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 import { Server } from "socket.io";
-import https from "https";
-import fs from "fs";
+import http from "http";
 import { initializeApp, cert } from "firebase-admin/app";
 import { getDatabase } from "firebase-admin/database";
 import { getAuth } from "firebase-admin/auth";
@@ -16,7 +15,7 @@ dotenv.config();
 
 initializeApp({
   credential: cert(serviceAccount),
-  databaseURL: "https://healthtrack-web-app-default-rtdb.asia-southeast1.firebasedatabase.app/",
+  databaseURL: process.env.REACT_APP_DATABASE_URL || "https://healthtrack-web-app-default-rtdb.asia-southeast1.firebasedatabase.app/",
 });
 
 const db = getDatabase();
@@ -24,23 +23,15 @@ const db = getDatabase();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load SSL certificates
-const key = fs.readFileSync(path.join(__dirname, '..', 'certs', 'selfsigned.key'));
-const sslCert = fs.readFileSync(path.join(__dirname, '..', 'certs', 'selfsigned.crt'));
-const options = {
-  key: key,
-  cert: sslCert,
-};
-
 const app = express();
 
-// Create HTTPS server
-const server = https.createServer(options, app);
+// Change to HTTP server since Heroku handles SSL
+const server = http.createServer(app);
 
-// Attach Socket.IO to the HTTPS server
+// Attach Socket.IO to the HTTP server
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: process.env.CLIENT_URL || "http://localhost:3000",
     methods: ["GET", "POST", "PUT", "DELETE"],
   },
 });
@@ -91,10 +82,8 @@ setInterval(() => {
 const applyBodyParsing = (req, res, next) => {
   const contentType = req.get('Content-Type') || '';
   if (contentType.startsWith('multipart/form-data')) {
-    // Skip JSON and URL-encoded parsing for multipart requests
     return next();
   }
-  // Apply JSON and URL-encoded parsing for non-multipart requests
   json({ limit: '10mb' })(req, res, (err) => {
     if (err) return next(err);
     express.urlencoded({ limit: '10mb', extended: true })(req, res, next);
@@ -103,14 +92,14 @@ const applyBodyParsing = (req, res, next) => {
 
 // Apply middleware
 app.use(cors({
-  origin: ["https://127.0.0.1:5000", "http://127.0.0.1:3000"],
+  origin: [process.env.CLIENT_URL || "http://localhost:3000"],
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
 app.use(applyBodyParsing);
 
 // Serve the uploads directory as static to access images
-app.use("/Uploads", express.static(path.join(__dirname, "..", "Uploads")));
+app.use("/Uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 // Middleware to attach Socket.IO to req and handle content type for CSS
 app.use((req, res, next) => {
@@ -128,7 +117,7 @@ app.use("/api", routes);
 const clientPath = path.join(__dirname, "..", "client", "build");
 app.use(express.static(clientPath));
 app.get('/', (req, res) => {
-  res.send('Now using https..');
+  res.send('HealthTrack server running');
 });
 app.get("*", (req, res) => {
   res.sendFile(path.join(clientPath, "index.html"));
@@ -148,10 +137,10 @@ io.on("connection", (socket) => {
   });
 });
 
-const port = 5000;
+const port = process.env.PORT || 5000;
 server.listen(port, () => {
   console.log(`Server running on port ${port}`);
-  console.log(`Socket.IO server available at https://127.0.0.1:${port}`);
+  console.log(`Socket.IO server available at ${process.env.BASE_URL || `http://localhost:${port}`}`);
 });
 
 export { db };
