@@ -1,55 +1,46 @@
-import { createPool } from 'mysql2/promise';
+import sql from 'mssql';
 import dotenv from 'dotenv';
-import { parse } from 'url';
 
 dotenv.config();
 
-// Parse the database URL if available (for production)
-const databaseUrl = process.env.STACKHERO_MYSQL_DATABASE_URL;
+const connectionString = process.env.MSSQL_URL;
 let dbConfig = {
-  host: 'localhost',
-  port: 3306,
-  user: 'root',
-  password: '',
-  database: 'healthtrack_db',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : { rejectUnauthorized: false },
+  user: process.env.MSSQL_USER || 'sa',
+  password: process.env.MSSQL_PASSWORD || '',
+  server: process.env.MSSQL_HOST || 'localhost',
+  port: parseInt(process.env.MSSQL_PORT) || 1433,
+  database: process.env.MSSQL_DATABASE || 'healthtrack_db',
+  options: {
+    encrypt: true, // Enforce encryption as required by the server
+    trustServerCertificate: process.env.NODE_ENV === 'development', // Trust self-signed certs locally, validate in production
+    enableArithAbort: true,
+  },
 };
 
-if (databaseUrl) {
-  const parsedUrl = parse(databaseUrl, true);
-  const auth = parsedUrl.auth ? parsedUrl.auth.split(':') : ['root', ''];
-  const sslOptions = process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : { rejectUnauthorized: false };
-  
+if (connectionString) {
+  const params = new URLSearchParams(connectionString.replace(';', '&'));
   dbConfig = {
-    host: parsedUrl.hostname || 'localhost',
-    port: parseInt(parsedUrl.port) || 3306,
-    user: auth[0] || 'root',
-    password: auth[1] || '',
-    database: parsedUrl.pathname ? parsedUrl.pathname.split('/')[1] : 'healthtrack_db',
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-    ssl: sslOptions,
+    user: params.get('User ID') || 'sa',
+    password: params.get('Password') || '',
+    server: params.get('Server')?.split(',')[0] || 'localhost', // Extract server name
+    port: parseInt(params.get('Server')?.split(',')[1]) || 1433, // Extract port
+    database: params.get('Initial Catalog') || 'healthtrack_db',
+    options: {
+      encrypt: params.get('Encrypt') === 'True' || true,
+      trustServerCertificate: process.env.NODE_ENV === 'development',
+      enableArithAbort: true,
+    },
   };
-
-  // Override database name if the URL specifies 'root'
-  if (dbConfig.database === 'root') {
-    dbConfig.database = process.env.MYSQL_DATABASE || 'healthtrack_db';
-  }
 }
 
 // Create a connection pool
-const db = createPool(dbConfig);
+const db = new sql.ConnectionPool(dbConfig);
 
 // Test the connection on startup
 const initializeDb = async () => {
   try {
-    const connection = await db.getConnection();
-    console.log('Connected to MySQL Database');
-    connection.release();
+    await db.connect();
+    console.log('Connected to MSSQL Database');
   } catch (error) {
     console.error('Database connection failed:', error.message);
     throw error;
@@ -62,4 +53,5 @@ initializeDb().catch((error) => {
   process.exit(1);
 });
 
+// Export the pool for use in routes
 export default db;
