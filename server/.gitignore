@@ -24,4 +24,3 @@ yarn-error.log*
 utils/
 seedData.js
 reminderlogs.txt
-service-account-key.json
