@@ -1,0 +1,18 @@
+{
+    "sqltools.connections": [
+        {
+            "mysqlOptions": {
+                "authProtocol": "default",
+                "enableSsl": "Disabled"
+            },
+            "previewLimit": 50,
+            "server": "er4nv2.stackhero-network.com",
+            "port": 8021,
+            "driver": "MySQL",
+            "name": "healthtrack_remote",
+            "database": "healthtrack_db",
+            "username": "root",
+            "password": "Vg565WK52RT0G6UkQgmf0S6Unow1SGa0"
+        }
+    ]
+}
