@@ -9,22 +9,24 @@ import { getDatabase } from "firebase-admin/database";
 import { getAuth } from "firebase-admin/auth";
 import dotenv from "dotenv";
 import routes from "./routes/index.js";
-import pino from "pino";
-import pinoHttp from "pino-http";
+import pino from "pino"; // Import pino for logging
+import pinoHttp from "pino-http"; // Middleware for logging HTTP requests
 
 dotenv.config();
 
-// Initialize logger
+// Initialize logger with conditional transport
 const logger = pino({
   level: process.env.NODE_ENV === "production" ? "info" : "debug",
-  transport: {
-    target: "pino-pretty",
-    options: {
-      colorize: true,
-      translateTime: "SYS:standard",
-      ignore: "pid,hostname",
+  ...(process.env.NODE_ENV !== "production" && {
+    transport: {
+      target: "pino-pretty",
+      options: {
+        colorize: true,
+        translateTime: "SYS:standard",
+        ignore: "pid,hostname",
+      },
     },
-  },
+  }),
 });
 
 // Validate environment variables
@@ -178,9 +180,9 @@ const applyBodyParsing = (req, res, next) => {
 // Apply middleware
 app.use(
   pinoHttp({
-    logger, // Use the same logger instance
+    logger,
     autoLogging: {
-      ignore: (req) => req.url.includes("healthcheck"), // Skip logging for healthcheck routes if any
+      ignore: (req) => req.url.includes("healthcheck"),
     },
     customLogLevel: (req, res, err) => {
       if (res.statusCode >= 500) return "error";
