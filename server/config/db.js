@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const remoteConfig = {
-  host: process.env.STACKHERO_MARIADB_HOST,
+  host: process.env.STACKHERO_MARIADB_HOST, // er4nv2.stackhero-network.com
   user: process.env.STACKHERO_MARIADB_USER,
   password: process.env.STACKHERO_MARIADB_PASSWORD,
   database: process.env.STACKHERO_MARIADB_DATABASE || 'healthtrack_db',
@@ -32,6 +32,9 @@ const attemptConnectionWithRetry = async (config, isPrimary = true, retries = 3,
       console.error(`Connection attempt ${i + 1}/${retries} to ${config.host}:${config.port} failed:`, error.message);
       if (error.code === 'ER_CON_COUNT_ERROR') {
         console.log('Too many connections, retrying after delay...');
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else if (error.code === 'ENOTFOUND') {
+        console.log('DNS resolution failed, retrying after delay...');
         await new Promise(resolve => setTimeout(resolve, delay));
       } else {
         throw error;
@@ -61,59 +64,10 @@ const checkTableExistsAndIsReachable = async (pool, tableName) => {
   }
 };
 
-// Function to create the users table
-const createUsersTable = async (pool) => {
-  const connection = await pool.getConnection();
-  try {
-    const query = `
-      CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        uid VARCHAR(255) NOT NULL UNIQUE,
-        username VARCHAR(255) NOT NULL,
-        email VARCHAR(255) NOT NULL UNIQUE,
-        display_name VARCHAR(255),
-        password VARCHAR(255),
-        role VARCHAR(50),
-        created_at DATETIME,
-        last_login DATETIME,
-        phone VARCHAR(20),
-        address TEXT,
-        height DECIMAL(5,2),
-        weight DECIMAL(5,2),
-        profile_image VARCHAR(255),
-        weekly_food_calorie_goal INT,
-        weekly_exercise_calorie_goal INT,
-        fcm_token VARCHAR(255)
-      )
-    `;
-    await connection.query(query);
-    console.log('Successfully created or verified "users" table');
-  } catch (error) {
-    console.error('Failed to create "users" table:', error.message);
-    throw error;
-  } finally {
-    connection.release();
-  }
-};
-
-// Initialize the database connection
-const initializeDb = async () => {
-  db = await attemptConnectionWithRetry(remoteConfig, true);
-  if (!db) {
-    throw new Error('Failed to initialize database: Remote connection failed');
-  }
-  const tableStatus = await checkTableExistsAndIsReachable(db, 'users');
-  if (!tableStatus.exists) {
-    await createUsersTable(db);
-  }
-};
-
 // Function to create the database if it doesn't exist
 const ensureDatabaseExists = async () => {
-  if (!db || !db.config) {
-    throw new Error('No active database connection available');
-  }
-  const connection = await createConnection(db.config);
+  const tempConfig = { ...remoteConfig, database: undefined }; // Connect without specifying a database
+  const connection = await createConnection(tempConfig);
   try {
     const [databases] = await connection.query("SHOW DATABASES LIKE 'healthtrack_db'");
     if (databases.length === 0 && process.env.NODE_ENV !== 'production') {
@@ -128,6 +82,100 @@ const ensureDatabaseExists = async () => {
   } finally {
     await connection.end();
   }
+};
+
+// Function to create the users table (aligned with Stackhero example and app requirements)
+const createUsersTable = async (pool) => {
+  const connection = await pool.getConnection();
+  try {
+    const query = `
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        uid VARCHAR(255) NOT NULL UNIQUE,
+        username VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        display_name VARCHAR(255),
+        password VARCHAR(255),
+        role ENUM('user', 'admin') DEFAULT 'user',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_login DATETIME,
+        phone VARCHAR(20),
+        address TEXT,
+        height DECIMAL(5,2),
+        weight DECIMAL(5,2),
+        profile_image VARCHAR(255),
+        weekly_food_calorie_goal INT,
+        weekly_exercise_calorie_goal INT,
+        fcm_token VARCHAR(255)
+      ) ENGINE=InnoDB;
+    `;
+    await connection.query(query);
+    console.log('Successfully created or verified "users" table');
+  } catch (error) {
+    console.error('Failed to create "users" table:', error.message);
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+// Function to insert a fake user (from Stackhero example)
+const insertFakeUser = async (pool) => {
+  const connection = await pool.getConnection();
+  try {
+    const fakeUserId = Math.round(Math.random() * 100000);
+    await connection.query(
+      'INSERT INTO users (uid, username, email, display_name, address) VALUES (?, ?, ?, ?, ?)',
+      [
+        `fake-${fakeUserId}`,
+        'User name',
+        'user@email.com',
+        'Fake User',
+        'User address',
+      ]
+    );
+    console.log(`Inserted fake user with UID: fake-${fakeUserId}`);
+  } catch (error) {
+    console.error('Failed to insert fake user:', error.message);
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+// Function to count users (from Stackhero example)
+const countUsers = async (pool) => {
+  const connection = await pool.getConnection();
+  try {
+    const [usersCount] = await connection.query('SELECT COUNT(*) AS cpt FROM users');
+    console.log(`There are now ${usersCount[0].cpt} users in the "users" table`);
+    return usersCount[0].cpt;
+  } catch (error) {
+    console.error('Failed to count users:', error.message);
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+// Initialize the database connection
+const initializeDb = async () => {
+  db = await attemptConnectionWithRetry(remoteConfig, true);
+  if (!db) {
+    throw new Error('Failed to initialize database: Remote connection failed');
+  }
+
+  await ensureDatabaseExists();
+
+  const tableStatus = await checkTableExistsAndIsReachable(db, 'users');
+  if (!tableStatus.exists) {
+    await createUsersTable(db);
+    // Insert a fake user only if the table was just created
+    await insertFakeUser(db);
+  }
+
+  // Log the number of users
+  await countUsers(db);
 };
 
 // Periodic connection check and table verification
@@ -154,6 +202,7 @@ const startConnectionMonitor = () => {
     if (!tableStatus.exists) {
       console.error('Critical: "users" table does not exist. Attempting to create...');
       await createUsersTable(db);
+      await insertFakeUser(db);
     } else if (!tableStatus.reachable) {
       console.error('Critical: "users" table is not reachable');
     }
@@ -166,7 +215,6 @@ const startConnectionMonitor = () => {
 (async () => {
   try {
     await initializeDb();
-    await ensureDatabaseExists();
     console.log('Database initialization completed');
     startConnectionMonitor();
   } catch (error) {
