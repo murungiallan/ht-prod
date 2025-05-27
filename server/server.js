@@ -239,10 +239,10 @@ app.get("*", (req, res) => {
 });
 
 // Global error handling middleware
-app.use((err, req, res, next) => {
-  logger.error({ err, url: req.url, method: req.method }, "Unhandled error in request");
-  res.status(500).json({ error: "Internal Server Error" });
-});
+// app.use((err, req, res, next) => {
+//   logger.error({ err, url: req.url, method: req.method }, "Unhandled error in request");
+//   res.status(500).json({ error: "Internal Server Error" });
+// });
 
 io.on("connection", (socket) => {
   logger.info({ socketId: socket.id }, "A user connected via Socket.IO");
@@ -256,6 +256,19 @@ io.on("connection", (socket) => {
     logger.info({ socketId: socket.id, reason }, "User disconnected");
     socket.emit("disconnection_reason", reason);
   });
+});
+
+app.use((err, req, res, next) => {
+  console.error("Server Error:", {
+    message: err.message,
+    stack: err.stack,
+    request: {
+      method: req.method,
+      url: req.url,
+      headers: req.headers,
+    },
+  });
+  res.status(500).json({ error: "Internal Server Error" });
 });
 
 const port = process.env.PORT || 5000;
