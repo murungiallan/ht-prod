@@ -257,25 +257,16 @@ const MedicationTracker = () => {
   const isFutureDate = (date) => isAfter(new Date(date), new Date(), { granularity: "day" });
 
   const getDoseStatus = useCallback((med, doseIndex, date = selectedDate) => {
-    if (typeof doseIndex !== "number" || doseIndex < 0) {
-      console.error(`Invalid doseIndex for medication ${med.id}: ${doseIndex}`);
-      return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false };
-    }
-  
     const dateKey = moment(date).format("YYYY-MM-DD");
-    const doses = med.doses?.[dateKey] || med.times.map((time) => ({
-      time,
-      taken: false,
-      missed: false,
-      takenAt: null,
-    }));
+    const doses = med.doses?.[dateKey] || [];
   
-    if (!doses[doseIndex]) {
+    // Find the dose with the matching doseIndex
+    const dose = doses.find(d => d.doseIndex === doseIndex);
+    if (!dose) {
       console.log(`Dose not found for medication ${med.id}, doseIndex ${doseIndex}`);
-      return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false };
+      return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false, canTake: false };
     }
   
-    const dose = doses[doseIndex];
     const doseTime = dose.time;
     const now = moment().local();
   
@@ -532,51 +523,55 @@ const MedicationTracker = () => {
     try {
       const token = await getUserToken();
       const dateKey = moment(selectedDate).format("YYYY-MM-DD");
-
+  
       const med = medications.find((m) => m.id === medicationId);
-      const doseTime = med.doses?.[dateKey]?.[doseIndex]?.time || med.times[doseIndex];
-      if (!doseTime) {
-        throw new Error("Dose time not found");
+      const dose = med.doses?.[dateKey]?.find(d => d.doseIndex === doseIndex);
+      if (!dose) {
+        throw new Error("Dose not found");
       }
-
-      const doseDateTime = moment(`${dateKey} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
+  
+      const doseDateTime = moment(`${dateKey} ${dose.time}`, "YYYY-MM-DD HH:mm:ss");
       const now = moment().local();
       const hoursDiff = Math.abs(doseDateTime.diff(now, "hours", true));
-
+  
       if (taken && hoursDiff > 2) {
         toast.error("Can only mark medication as taken within 2 hours of the scheduled time");
         return;
       }
-
+  
       const response = await updateMedicationTakenStatus(medicationId, doseIndex, taken, token, dateKey);
-
+  
       if (!response) {
         throw new Error("Failed to update medication status");
       }
-
+  
       setMedications((prev) =>
-        prev.map((med) =>
-          med.id === response.id
+        prev.map((m) =>
+          m.id === response.id
             ? {
-                ...med,
+                ...m,
                 doses: {
-                  ...med.doses,
-                  [dateKey]: response.doses?.[dateKey] || med.times.map((time, idx) => ({
-                    time,
-                    taken: idx === doseIndex ? taken : med.doses?.[dateKey]?.[idx]?.taken || false,
-                    missed: med.doses?.[dateKey]?.[idx]?.missed || false,
-                    takenAt: idx === doseIndex && taken ? new Date().toISOString() : med.doses?.[dateKey]?.[idx]?.takenAt || null,
+                  ...m.doses,
+                  [dateKey]: response.doses?.[dateKey]?.map(dose => ({
+                    ...dose,
+                    doseIndex: dose.doseIndex,
+                  })) || m.doses[dateKey].map(d => ({
+                    ...d,
+                    taken: d.doseIndex === doseIndex ? taken : d.taken,
+                    missed: d.doseIndex === doseIndex ? false : d.missed,
+                    takenAt: d.doseIndex === doseIndex && taken ? new Date().toISOString() : d.takenAt,
+                    doseIndex: d.doseIndex,
                   })),
                 },
               }
-            : med
+            : m
         )
       );
-
+  
       if (socket) {
         socket.emit("medicationUpdated", response);
       }
-
+  
       toast.success(taken ? "Dose marked as taken" : "Dose status undone");
       setShowConfirmModal(false);
       setShowTakePrompt(null);
@@ -585,16 +580,16 @@ const MedicationTracker = () => {
         newSet.add(`${medicationId}-${dateKey}-${doseIndex}`);
         return newSet;
       });
-
+  
       if (!taken && hoursDiff < 2) {
-        setReminderTime(doseTime);
+        setReminderTime(dose.time);
         setShowAddReminderPrompt({
           medication: med,
           doseIndex,
           suggestedDate: dateKey,
         });
       }
-
+  
       await updateMedicationHistory();
     } catch (err) {
       console.error("Error updating taken status:", err);
@@ -789,12 +784,13 @@ const MedicationTracker = () => {
     const history = [];
     medications.forEach((med) => {
       Object.entries(med.doses || {}).forEach(([date, doses]) => {
-        doses.forEach((dose, index) => {
+        doses.forEach((dose) => {
           history.push({
             medication_name: med.medication_name,
             dosage: med.dosage,
             date,
             time: dose.time,
+            doseIndex: dose.doseIndex,
             status: dose.taken ? "Taken" : dose.missed ? "Missed" : "Pending",
           });
         });
@@ -805,26 +801,22 @@ const MedicationTracker = () => {
 
   const checkAndMarkMissedDoses = useCallback(async () => {
     if (!user) return;
-
+  
     const now = moment().local();
     const dateKey = moment().format("YYYY-MM-DD");
     const token = await getUserToken();
-
+  
     for (const med of medications) {
-      const doses = med.doses?.[dateKey] || med.times.map((time) => ({
-        time,
-        taken: false,
-        missed: false,
-        takenAt: null,
-      }));
-
-      for (let doseIndex = 0; doseIndex < doses.length; doseIndex++) {
-        const dose = doses[doseIndex];
+      const doses = med.doses?.[dateKey] || [];
+      if (!doses.length) continue;
+  
+      for (const dose of doses) {
+        const doseIndex = dose.doseIndex;
         const [hours, minutes] = dose.time.split(":").map(Number);
         const doseDateTime = moment()
           .set({ hour: hours, minute: minutes, second: 0, millisecond: 0 });
         const windowEnd = moment(doseDateTime).add(2, "hours");
-
+  
         if (now.isAfter(windowEnd) && !dose.taken && !dose.missed) {
           try {
             await markMedicationAsMissed(med.id, doseIndex, true, token, dateKey);
@@ -835,8 +827,8 @@ const MedicationTracker = () => {
                       ...m,
                       doses: {
                         ...m.doses,
-                        [dateKey]: doses.map((d, idx) =>
-                          idx === doseIndex ? { ...d, missed: true } : d
+                        [dateKey]: m.doses[dateKey].map((d) =>
+                          d.doseIndex === doseIndex ? { ...d, missed: true } : d
                         ),
                       },
                     }
@@ -854,6 +846,27 @@ const MedicationTracker = () => {
               handleSessionExpired();
             } else {
               toast.error("Failed to mark dose as missed");
+              // Fallback: Update local state
+              setMedications((prev) =>
+                prev.map((m) =>
+                  m.id === med.id
+                    ? {
+                        ...m,
+                        doses: {
+                          ...m.doses,
+                          [dateKey]: m.doses[dateKey].map((d) =>
+                            d.doseIndex === doseIndex ? { ...d, missed: true } : d
+                          ),
+                        },
+                      }
+                    : m
+                )
+              );
+              setPromptedDoses((prev) => {
+                const newSet = new Set(prev);
+                newSet.add(`${med.id}-${dateKey}-${doseIndex}`);
+                return newSet;
+              });
             }
           }
         }
@@ -868,15 +881,11 @@ const MedicationTracker = () => {
     const currentDateKey = now.format("YYYY-MM-DD");
   
     for (const med of medications) {
-      const doses = med.doses?.[currentDateKey] || med.times.map((time) => ({
-        time,
-        taken: false,
-        missed: false,
-        takenAt: null,
-      }));
+      const doses = med.doses?.[currentDateKey] || [];
+      if (!doses.length) continue;
   
-      for (let doseIndex = 0; doseIndex < doses.length; doseIndex++) {
-        const dose = doses[doseIndex];
+      for (const dose of doses) {
+        const doseIndex = dose.doseIndex;
         const { isTaken, isMissed, isWithinWindow } = getDoseStatus(med, doseIndex, new Date());
         const doseKey = `${med.id}-${currentDateKey}-${doseIndex}`;
   
@@ -959,8 +968,14 @@ const MedicationTracker = () => {
   }, [reminders, medications, handleMarkReminderAsSent, promptedDoses]);
 
   useEffect(() => {
+    const interval = setInterval(() => {
+      checkAndMarkMissedDoses();
+    }, 60 * 1000);
+  
     checkAndMarkMissedDoses();
-  }, [medications, checkAndMarkMissedDoses]);
+  
+    return () => clearInterval(interval);
+  }, [checkAndMarkMissedDoses]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -994,22 +1009,17 @@ const MedicationTracker = () => {
     return medications
       .flatMap((med) => {
         const dateKey = moment(selectedDate).format("YYYY-MM-DD");
-        const doses = med.doses?.[dateKey] || med.times.map((time) => ({
-          time,
-          taken: false,
-          missed: false,
-          takenAt: null,
-        }));
-        return doses.map((dose, index) => {
+        const doses = med.doses?.[dateKey] || [];
+        return doses.map((dose) => {
           const [hours] = dose.time.split(":").map(Number);
           if (hours >= 5 && hours < 12) {
-            const key = `${med.id}-${index}`;
+            const key = `${med.id}-${dose.doseIndex}`;
             if (seen.has(key)) return null;
             seen.add(key);
             return {
               ...med,
               doseTime: dose.time,
-              doseIndex: index,
+              doseIndex: dose.doseIndex,
               timeOfDay: "Morning",
               selectedDate,
             };
@@ -1019,28 +1029,23 @@ const MedicationTracker = () => {
       })
       .filter(Boolean);
   }, [medications, selectedDate]);
-
+  
   const afternoonMeds = useMemo(() => {
     const seen = new Set();
     return medications
       .flatMap((med) => {
         const dateKey = moment(selectedDate).format("YYYY-MM-DD");
-        const doses = med.doses?.[dateKey] || med.times.map((time) => ({
-          time,
-          taken: false,
-          missed: false,
-          takenAt: null,
-        }));
-        return doses.map((dose, index) => {
+        const doses = med.doses?.[dateKey] || [];
+        return doses.map((dose) => {
           const [hours] = dose.time.split(":").map(Number);
           if (hours >= 12 && hours < 17) {
-            const key = `${med.id}-${index}`;
+            const key = `${med.id}-${dose.doseIndex}`;
             if (seen.has(key)) return null;
             seen.add(key);
             return {
               ...med,
               doseTime: dose.time,
-              doseIndex: index,
+              doseIndex: dose.doseIndex,
               timeOfDay: "Afternoon",
               selectedDate,
             };
@@ -1050,28 +1055,23 @@ const MedicationTracker = () => {
       })
       .filter(Boolean);
   }, [medications, selectedDate]);
-
+  
   const eveningMeds = useMemo(() => {
     const seen = new Set();
     return medications
       .flatMap((med) => {
         const dateKey = moment(selectedDate).format("YYYY-MM-DD");
-        const doses = med.doses?.[dateKey] || med.times.map((time) => ({
-          time,
-          taken: false,
-          missed: false,
-          takenAt: null,
-        }));
-        return doses.map((dose, index) => {
+        const doses = med.doses?.[dateKey] || [];
+        return doses.map((dose) => {
           const [hours] = dose.time.split(":").map(Number);
           if (hours >= 17 || hours < 5) {
-            const key = `${med.id}-${index}`;
+            const key = `${med.id}-${dose.doseIndex}`;
             if (seen.has(key)) return null;
             seen.add(key);
             return {
               ...med,
               doseTime: dose.time,
-              doseIndex: index,
+              doseIndex: dose.doseIndex,
               timeOfDay: "Evening",
               selectedDate,
             };
@@ -1083,21 +1083,15 @@ const MedicationTracker = () => {
   }, [medications, selectedDate]);
 
   const timeofdaymeds = { morningMeds, afternoonMeds, eveningMeds };
-
   const dailyDoses = useMemo(() => {
     return medications
-      .map((med) => {
+      .flatMap((med) => {
         const dateKey = moment(selectedDate).format("YYYY-MM-DD");
-        const doses = med.doses?.[dateKey] || med.times.map((time) => ({
-          time,
-          taken: false,
-          missed: false,
-          takenAt: null,
-        }));
-        return doses.map((dose, index) => ({
+        const doses = med.doses?.[dateKey] || [];
+        return doses.map((dose) => ({
           ...med,
           doseTime: dose.time,
-          doseIndex: index,
+          doseIndex: dose.doseIndex,
           timeOfDay: (() => {
             const [hours] = dose.time.split(":").map(Number);
             if (hours >= 5 && hours < 12) return "Morning";
@@ -1106,7 +1100,6 @@ const MedicationTracker = () => {
           })(),
         }));
       })
-      .flat()
       .filter(Boolean);
   }, [medications, selectedDate]);
 
