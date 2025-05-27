@@ -259,7 +259,21 @@ const MedicationTracker = () => {
   const getDoseStatus = useCallback((med, doseIndex, date = selectedDate) => {
     if (typeof doseIndex !== "number" || doseIndex < 0) {
       console.error(`Invalid doseIndex for medication ${med.id}: ${doseIndex}`);
-      // return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false };
+      // Determine doseIndex based on time of day if not provided
+      const dateKey = moment(date).format("YYYY-MM-DD");
+      const doses = med.doses?.[dateKey] || med.times.map((time) => ({
+        time,
+        taken: false,
+        missed: false,
+        takenAt: null,
+      }));
+      const dose = doses[0]; // Use the first dose as a reference
+      if (dose) {
+        const [hours] = dose.time.split(":").map(Number);
+        doseIndex = hours >= 5 && hours < 12 ? 1 : hours >= 12 && hours < 17 ? 2 : 3;
+      } else {
+        return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false, canTake: false };
+      }
     }
   
     const dateKey = moment(date).format("YYYY-MM-DD");
@@ -272,7 +286,7 @@ const MedicationTracker = () => {
   
     if (!doses[doseIndex]) {
       console.log(`Dose not found for medication ${med.id}, doseIndex ${doseIndex}`);
-      // return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false };
+      return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false, canTake: false };
     }
   
     const dose = doses[doseIndex];
