@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { IoMdNotifications } from "react-icons/io";
 import Tippy from "@tippyjs/react";
 import "tippy.js/dist/tippy.css";
-import MedicationStatusBadge from "./MedicationStatusBadge";
+// import MedicationStatusBadge from "./MedicationStatusBadge";
 import moment from "moment";
 import styled from "styled-components";
 import { WiDaySunnyOvercast, WiDaySunny, WiDayWindy } from "react-icons/wi";
@@ -141,9 +141,14 @@ const TimeOfDaySection = React.memo(
                 ({activeMeds.length} medications)
               </span>
             </h2>
+            {activeMeds.some((med) => typeof med.doseIndex !== "number") && (
+              <p className="text-sm text-red-500 mb-3">
+                Some medications could not be displayed due to missing dose information.
+              </p>
+            )}
             <div className="divide-y divide-gray-200">
               {activeMeds.map((med) => {
-                if (typeof med.doseIndex !== "number") {
+                if (typeof med.doseIndex !== "number" || med.doseIndex < 0) {
                   console.error(`Invalid doseIndex for medication ${med.id}: ${med.doseIndex}`);
                   return null;
                 }
@@ -201,7 +206,7 @@ const TimeOfDaySection = React.memo(
                           <span className="text-sm text-gray-600 mb-1">
                             {moment(med.doseTime, "HH:mm:ss").format("h:mm A")}
                           </span>
-                          <MedicationStatusBadge med={med} getDoseStatus={getDoseStatus} />
+                          {/* <MedicationStatusBadge med={med} getDoseStatus={getDoseStatus} /> */}
                         </div>
                       </div>
                     </div>

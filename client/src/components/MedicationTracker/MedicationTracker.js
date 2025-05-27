@@ -381,16 +381,29 @@ const MedicationTracker = () => {
       setLoading(true);
       const token = await getUserToken();
       const meds = await getUserMedications(token);
-
+  
+      // Validate medications
+      const validMeds = meds.filter((med) => {
+        if (!Array.isArray(med.times) || med.times.length === 0) {
+          console.error(`Invalid times for medication ${med.id}: ${med.times}`);
+          return false;
+        }
+        if (!med.doses || typeof med.doses !== "object") {
+          console.error(`Invalid doses for medication ${med.id}: ${med.doses}`);
+          return false;
+        }
+        return true;
+      });
+  
       const uniqueMeds = Array.from(
         new Map(
-          meds.map((med) => [
+          validMeds.map((med) => [
             `${med.medication_name}-${med.dosage}-${med.times_per_day}-${med.frequency}`,
             med,
           ])
         ).values()
       );
-
+  
       setMedications(uniqueMeds);
     } catch (err) {
       console.error("Error fetching medications:", err);
@@ -991,7 +1004,7 @@ const MedicationTracker = () => {
 
   const morningMeds = useMemo(() => {
     const seen = new Set();
-    return medications
+    const result = medications
       .flatMap((med) => {
         const dateKey = moment(selectedDate).format("YYYY-MM-DD");
         const doses = med.doses?.[dateKey] || med.times.map((time) => ({
@@ -1018,11 +1031,13 @@ const MedicationTracker = () => {
         });
       })
       .filter(Boolean);
+      console.log(`Morning meds computed: ${JSON.stringify(result)}`);
+      return result;
   }, [medications, selectedDate]);
 
   const afternoonMeds = useMemo(() => {
     const seen = new Set();
-    return medications
+    const result = medications
       .flatMap((med) => {
         const dateKey = moment(selectedDate).format("YYYY-MM-DD");
         const doses = med.doses?.[dateKey] || med.times.map((time) => ({
@@ -1049,11 +1064,13 @@ const MedicationTracker = () => {
         });
       })
       .filter(Boolean);
+      console.log(`Afternoon meds computed: ${JSON.stringify(result)}`);
+      return result;
   }, [medications, selectedDate]);
 
   const eveningMeds = useMemo(() => {
     const seen = new Set();
-    return medications
+    const result = medications
       .flatMap((med) => {
         const dateKey = moment(selectedDate).format("YYYY-MM-DD");
         const doses = med.doses?.[dateKey] || med.times.map((time) => ({
@@ -1080,6 +1097,8 @@ const MedicationTracker = () => {
         });
       })
       .filter(Boolean);
+      console.log(`Evening meds computed: ${JSON.stringify(result)}`);
+      return result;
   }, [medications, selectedDate]);
 
   const timeofdaymeds = { morningMeds, afternoonMeds, eveningMeds };
