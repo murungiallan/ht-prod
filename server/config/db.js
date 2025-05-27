@@ -1,5 +1,6 @@
 import { createPool, createConnection } from 'mysql2/promise';
 import dotenv from 'dotenv';
+
 dotenv.config();
 
 const remoteConfig = {
@@ -11,55 +12,100 @@ const remoteConfig = {
   waitForConnections: true,
   connectionLimit: 5,
   queueLimit: 0,
-  connectTimeout: 30000, // 30 seconds timeout
-  ssl: {
-    rejectUnauthorized: true, // Enable SSL if required by remote instance
-  },
+  connectTimeout: 30000,
+  ssl: { rejectUnauthorized: true },
 };
 
-let db; // Active connection pool
+let db;
 
-// Function to test and set the active connection pool
-const attemptConnection = async (config, isPrimary = true) => {
+// Function to attempt connection with retry logic
+const attemptConnectionWithRetry = async (config, isPrimary = true, retries = 3, delay = 5000) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const pool = createPool({ ...config });
+      pool.config = config;
+      const connection = await pool.getConnection();
+      console.log(`${isPrimary ? 'Primary' : 'Secondary'} connection established to ${config.host}:${config.port}`);
+      connection.release();
+      return pool;
+    } catch (error) {
+      console.error(`Connection attempt ${i + 1}/${retries} to ${config.host}:${config.port} failed:`, error.message);
+      if (error.code === 'ER_CON_COUNT_ERROR') {
+        console.log('Too many connections, retrying after delay...');
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
+  throw new Error(`Failed to connect to ${config.host}:${config.port} after ${retries} attempts`);
+};
+
+// Function to check if a table exists and is reachable
+const checkTableExistsAndIsReachable = async (pool, tableName) => {
+  const connection = await pool.getConnection();
   try {
-    const pool = createPool({ ...config });
-    pool.config = config; // Attach config to the pool for later use
-    const connection = await pool.getConnection();
-    console.log(`${isPrimary ? 'Primary' : 'Secondary'} connection established to ${config.host}:${config.port}`);
-    connection.release();
-    return pool;
+    const [rows] = await connection.query(`SHOW TABLES LIKE ?`, [tableName]);
+    if (rows.length === 0) {
+      console.error(`Table ${tableName} does not exist in the database`);
+      return { exists: false, reachable: false };
+    }
+    await connection.query(`SELECT 1 FROM ${tableName} LIMIT 1`);
+    console.log(`Table ${tableName} exists and is reachable`);
+    return { exists: true, reachable: true };
   } catch (error) {
-    console.error(`Connection to ${config ? `${config.host}:${config.port}` : 'undefined host'} failed:`, error.message);
-    return null;
+    console.error(`Error checking table ${tableName}:`, error.message);
+    return { exists: false, reachable: false };
+  } finally {
+    connection.release();
   }
 };
 
+// Function to create the users table
+const createUsersTable = async (pool) => {
+  const connection = await pool.getConnection();
+  try {
+    const query = `
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        uid VARCHAR(255) NOT NULL UNIQUE,
+        username VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        display_name VARCHAR(255),
+        password VARCHAR(255),
+        role VARCHAR(50),
+        created_at DATETIME,
+        last_login DATETIME,
+        phone VARCHAR(20),
+        address TEXT,
+        height DECIMAL(5,2),
+        weight DECIMAL(5,2),
+        profile_image VARCHAR(255),
+        weekly_food_calorie_goal INT,
+        weekly_exercise_calorie_goal INT,
+        fcm_token VARCHAR(255)
+      )
+    `;
+    await connection.query(query);
+    console.log('Successfully created or verified "users" table');
+  } catch (error) {
+    console.error('Failed to create "users" table:', error.message);
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+// Initialize the database connection
 const initializeDb = async () => {
-  db = await attemptConnection(remoteConfig, true);
+  db = await attemptConnectionWithRetry(remoteConfig, true);
   if (!db) {
     throw new Error('Failed to initialize database: Remote connection failed');
   }
-};
-
-const startConnectionMonitor = () => {
-  setInterval(async () => {
-    if (!db) {
-      console.log('No active connection, attempting to reinitialize...');
-      await initializeDb();
-      return;
-    }
-    const testConnection = await attemptConnection(db.config, true);
-    if (!testConnection) {
-      console.log('Active connection failed, attempting to reconnect...');
-      const newDb = await attemptConnection(remoteConfig, true);
-      if (newDb) {
-        db = newDb;
-        console.log('Switched to new active connection');
-      } else {
-        console.log('Failed to reconnect, no viable database available');
-      }
-    }
-  }, 60000);
+  const tableStatus = await checkTableExistsAndIsReachable(db, 'users');
+  if (!tableStatus.exists) {
+    await createUsersTable(db);
+  }
 };
 
 // Function to create the database if it doesn't exist
@@ -84,6 +130,38 @@ const ensureDatabaseExists = async () => {
   }
 };
 
+// Periodic connection check and table verification
+const startConnectionMonitor = () => {
+  setInterval(async () => {
+    if (!db) {
+      console.log('No active connection, attempting to reinitialize...');
+      await initializeDb();
+      return;
+    }
+    const testConnection = await attemptConnectionWithRetry(db.config, true);
+    if (!testConnection) {
+      console.log('Active connection failed, attempting to reconnect...');
+      const newDb = await attemptConnectionWithRetry(remoteConfig, true);
+      if (newDb) {
+        db = newDb;
+        console.log('Switched to new active connection');
+      } else {
+        console.log('Failed to reconnect, no viable database available');
+        return;
+      }
+    }
+    const tableStatus = await checkTableExistsAndIsReachable(db, 'users');
+    if (!tableStatus.exists) {
+      console.error('Critical: "users" table does not exist. Attempting to create...');
+      await createUsersTable(db);
+    } else if (!tableStatus.reachable) {
+      console.error('Critical: "users" table is not reachable');
+    }
+    const [status] = await db.query("SHOW STATUS LIKE 'Threads_connected'");
+    console.log(`Current connections: ${status[0].Value}`);
+  }, 60000);
+};
+
 // Initialize the database connection
 (async () => {
   try {
@@ -97,5 +175,4 @@ const ensureDatabaseExists = async () => {
   }
 })();
 
-// Export the active connection pool
 export default db;
