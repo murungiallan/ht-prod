@@ -256,7 +256,26 @@ const MedicationTracker = () => {
   const isPastDate = (date) => isBefore(new Date(date), new Date(), { granularity: "day" });
   const isFutureDate = (date) => isAfter(new Date(date), new Date(), { granularity: "day" });
 
-  const getDoseStatus = useCallback((med, date, doseIndex) => {
+  const getDoseStatus = useCallback((med, doseIndex, date = selectedDate) => {
+    if (typeof doseIndex !== "number" || doseIndex < 0) {
+      console.error(`Invalid doseIndex for medication ${med.id}: ${doseIndex}`);
+      // Determine doseIndex based on time of day
+      const dateKey = moment(date).format("YYYY-MM-DD");
+      const doses = med.doses?.[dateKey] || med.times.map((time) => ({
+        time,
+        taken: false,
+        missed: false,
+        takenAt: null,
+      }));
+      const dose = doses[0]; 
+      if (dose) {
+        const [hours] = dose.time.split(":").map(Number);
+        doseIndex = hours >= 5 && hours < 12 ? 1 : hours >= 12 && hours < 17 ? 2 : 3;
+      } else {
+        return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false, canTake: false };
+      }
+    }
+  
     const dateKey = moment(date).format("YYYY-MM-DD");
     const doses = med.doses?.[dateKey] || med.times.map((time) => ({
       time,
@@ -264,34 +283,34 @@ const MedicationTracker = () => {
       missed: false,
       takenAt: null,
     }));
-
+  
     if (!doses[doseIndex]) {
       console.log(`Dose not found for medication ${med.id}, doseIndex ${doseIndex}`);
-      // return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false };
+      return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false, canTake: false };
     }
-
+  
     const dose = doses[doseIndex];
     const doseTime = dose.time;
     const now = moment().local();
-
+  
     const [hours, minutes] = doseTime.split(":").map(Number);
     const doseDateTime = moment(date)
       .set({ hour: hours, minute: minutes, second: 0, millisecond: 0 })
       .local();
-
+  
     const windowStart = moment(doseDateTime).subtract(2, "hours");
     const windowEnd = moment(doseDateTime).add(2, "hours");
-
+  
     const isWithinWindow = now.isBetween(windowStart, windowEnd, undefined, "[]");
     const isTimeToTake = now.isSameOrAfter(doseDateTime);
-
+  
     const canTake =
       !dose.taken &&
       !dose.missed &&
       isWithinWindow &&
       !isPastDate(date) &&
       !isFutureDate(date);
-
+  
     return {
       isTaken: dose.taken,
       isMissed: dose.missed,
@@ -299,7 +318,7 @@ const MedicationTracker = () => {
       isWithinWindow,
       canTake,
     };
-  }, []);
+  }, [selectedDate, isPastDate, isFutureDate]);
 
   const confirmTakenStatus = (medicationId, doseIndex, taken) => {
     setConfirmMessage(
@@ -376,16 +395,29 @@ const MedicationTracker = () => {
       setLoading(true);
       const token = await getUserToken();
       const meds = await getUserMedications(token);
-
+  
+      // Validate medications
+      const validMeds = meds.filter((med) => {
+        if (!Array.isArray(med.times) || med.times.length === 0) {
+          console.error(`Invalid times for medication ${med.id}: ${med.times}`);
+          return false;
+        }
+        if (!med.doses || typeof med.doses !== "object") {
+          console.error(`Invalid doses for medication ${med.id}: ${med.doses}`);
+          return false;
+        }
+        return true;
+      });
+  
       const uniqueMeds = Array.from(
         new Map(
-          meds.map((med) => [
+          validMeds.map((med) => [
             `${med.medication_name}-${med.dosage}-${med.times_per_day}-${med.frequency}`,
             med,
           ])
         ).values()
       );
-
+  
       setMedications(uniqueMeds);
     } catch (err) {
       console.error("Error fetching medications:", err);
@@ -986,14 +1018,15 @@ const MedicationTracker = () => {
 
   const morningMeds = useMemo(() => {
     const seen = new Set();
-    return medications
+    const result = medications
       .flatMap((med) => {
         const dateKey = moment(selectedDate).format("YYYY-MM-DD");
-        const doses = med.doses?.[dateKey] || med.times.map((time) => ({
+        const doses = med.doses?.[dateKey] || med.times.map((time, index) => ({
           time,
           taken: false,
           missed: false,
           takenAt: null,
+          doseIndex: index,
         }));
         return doses.map((dose, index) => {
           const [hours] = dose.time.split(":").map(Number);
@@ -1004,7 +1037,7 @@ const MedicationTracker = () => {
             return {
               ...med,
               doseTime: dose.time,
-              doseIndex: index,
+              doseIndex: 1,
               timeOfDay: "Morning",
               selectedDate,
             };
@@ -1013,18 +1046,21 @@ const MedicationTracker = () => {
         });
       })
       .filter(Boolean);
+    console.log(`Morning meds computed: ${JSON.stringify(result)}`);
+    return result;
   }, [medications, selectedDate]);
-
+  
   const afternoonMeds = useMemo(() => {
     const seen = new Set();
-    return medications
+    const result = medications
       .flatMap((med) => {
         const dateKey = moment(selectedDate).format("YYYY-MM-DD");
-        const doses = med.doses?.[dateKey] || med.times.map((time) => ({
+        const doses = med.doses?.[dateKey] || med.times.map((time, index) => ({
           time,
           taken: false,
           missed: false,
           takenAt: null,
+          doseIndex: index,
         }));
         return doses.map((dose, index) => {
           const [hours] = dose.time.split(":").map(Number);
@@ -1035,7 +1071,7 @@ const MedicationTracker = () => {
             return {
               ...med,
               doseTime: dose.time,
-              doseIndex: index,
+              doseIndex: 2,
               timeOfDay: "Afternoon",
               selectedDate,
             };
@@ -1044,18 +1080,21 @@ const MedicationTracker = () => {
         });
       })
       .filter(Boolean);
+    console.log(`Afternoon meds computed: ${JSON.stringify(result)}`);
+    return result;
   }, [medications, selectedDate]);
-
+  
   const eveningMeds = useMemo(() => {
     const seen = new Set();
-    return medications
+    const result = medications
       .flatMap((med) => {
         const dateKey = moment(selectedDate).format("YYYY-MM-DD");
-        const doses = med.doses?.[dateKey] || med.times.map((time) => ({
+        const doses = med.doses?.[dateKey] || med.times.map((time, index) => ({
           time,
           taken: false,
           missed: false,
           takenAt: null,
+          doseIndex: index,
         }));
         return doses.map((dose, index) => {
           const [hours] = dose.time.split(":").map(Number);
@@ -1066,7 +1105,7 @@ const MedicationTracker = () => {
             return {
               ...med,
               doseTime: dose.time,
-              doseIndex: index,
+              doseIndex: 3,
               timeOfDay: "Evening",
               selectedDate,
             };
@@ -1075,6 +1114,8 @@ const MedicationTracker = () => {
         });
       })
       .filter(Boolean);
+    console.log(`Evening meds computed: ${JSON.stringify(result)}`);
+    return result;
   }, [medications, selectedDate]);
 
   const timeofdaymeds = { morningMeds, afternoonMeds, eveningMeds };
@@ -1129,7 +1170,7 @@ const MedicationTracker = () => {
       const permission = await Notification.requestPermission();
       if (permission === "granted") {
         const fcmToken = await getToken(messaging, {
-          vapidKey: "BHo0F2FHBX8okHJ8ejib_7nHTTlXhJlZ4O0e4VQ1jKa0UJWhXBDJdp8KS4Ox2cWSn9ppw_m_Pz4L0KBkKN15CHI",
+          vapidKey: "BKw9yzIU2m8qKZTF4pj1dR37XLpvkn95Sv2UC-ySWFIosmiLHTBX-RkyRv2wi5-C83SRsJv_ewuDnBvqpbvkJC0",
         });
         if (fcmToken) {
           const token = await getUserToken();
