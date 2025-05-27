@@ -102,6 +102,7 @@ const allowedOrigins = [
   process.env.CLIENT_URL || "http://localhost:3000",
   "http://127.0.0.1:3000",
   "http://127.0.0.1:5000",
+  "https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com",
 ];
 if (process.env.NODE_ENV === "production") {
   allowedOrigins.push("https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com");

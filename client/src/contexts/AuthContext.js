@@ -103,9 +103,7 @@ export const AuthProvider = ({ children }) => {
           const fetchUserData = async (retry = true) => {
             try {
               const token = await getCachedToken();
-              const apiUrl = process.env.NODE_ENV === 'production'
-                ? 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api/users'
-                : 'http://127.0.0.1:5000/api/users';
+              const apiUrl = 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api/users';
               const response = await fetch(apiUrl, {
                 method: "GET",
                 headers: {
@@ -149,9 +147,7 @@ export const AuthProvider = ({ children }) => {
               const updateLastLogin = async (retry = true) => {
                 try {
                   const token = await getCachedToken();
-                  const apiUrl = process.env.NODE_ENV === 'production'
-                    ? 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api/users/last-login'
-                    : 'http://127.0.0.1:5000/api/users/last-login';
+                  const apiUrl = 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api/users/last-login';
                   const response = await fetch(apiUrl, {
                     method: "POST",
                     headers: {
@@ -222,9 +218,7 @@ export const AuthProvider = ({ children }) => {
 
       // Update lastLogin in MySQL via API
       const token = await getCachedToken();
-      const apiUrl = process.env.NODE_ENV === 'production'
-        ? 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api/users/last-login'
-        : 'http://127.0.0.1:5000/api/users/last-login';
+      const apiUrl = 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api/users/last-login';
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
@@ -276,9 +270,7 @@ export const AuthProvider = ({ children }) => {
       );
 
       const token = await getCachedToken();
-      const apiUrl = process.env.NODE_ENV === 'production'
-        ? 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api/users/register'
-        : 'http://127.0.0.1:5000/api/users/register';
+      const apiUrl = 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api/users/register';
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
@@ -338,9 +330,7 @@ export const AuthProvider = ({ children }) => {
       );
 
       const token = await getCachedToken();
-      const apiUrl = process.env.NODE_ENV === 'production'
-        ? 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api/users/profile'
-        : 'http://127.0.0.1:5000/api/users/profile';
+      const apiUrl = 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api/users/profile';
       const response = await fetch(apiUrl, {
         method: "PUT",
         headers: {
@@ -369,9 +359,7 @@ export const AuthProvider = ({ children }) => {
 
   const resetPassword = async (email) => {
     try {
-      const apiUrl = process.env.NODE_ENV === 'production'
-        ? 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api/users/reset-password'
-        : 'http://127.0.0.1:5000/api/users/reset-password';
+      const apiUrl = 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api/users/reset-password';
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {

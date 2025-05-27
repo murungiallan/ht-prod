@@ -23,9 +23,7 @@ export const SocketProvider = ({ children }) => {
     try {
       const token = await getCachedToken();
       console.log("Connecting with token:");
-      const socketUrl = process.env.NODE_ENV === 'production'
-        ? window.location.origin // e.g., https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com
-        : 'http://127.0.0.1:5000';
+      const socketUrl = window.location.origin; // e.g., https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com
       const newSocket = io(socketUrl, {
         auth: { token },
         reconnection: true,

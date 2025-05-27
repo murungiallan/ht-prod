@@ -6,9 +6,7 @@ import { storage } from "../firebase/config.js";
 import { debounce } from "lodash";
 
 // Determine the API base URL based on the environment
-const API_BASE_URL = process.env.NODE_ENV === 'production'
-  ? 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api'
-  : 'http://127.0.0.1:5000/api';
+const API_BASE_URL = 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api';
 
 // Create axios instance with dynamic base URL
 const api = axios.create({ baseURL: API_BASE_URL });
