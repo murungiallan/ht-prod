@@ -6,6 +6,7 @@ import MedicationStatusBadge from "./MedicationStatusBadge";
 import moment from "moment";
 import styled from "styled-components";
 import { WiDaySunnyOvercast, WiDaySunny, WiDayWindy } from "react-icons/wi";
+import PropTypes from "prop-types";
 
 // Styled components for tabs
 const TabsContainer = styled.div`
@@ -78,7 +79,6 @@ const TimeOfDaySection = React.memo(
   ({ meds, reminders, setShowReminderModal, setSelectedMedication, getDoseStatus }) => {
     const [activeTab, setActiveTab] = useState(0);
 
-    // Function to categorize doseTime into Morning, Afternoon, or Evening
     const getTimeOfDay = (doseTime) => {
       const hour = moment(doseTime, "HH:mm:ss").hour();
       if (hour >= 0 && hour < 12) return "Morning";
@@ -89,13 +89,11 @@ const TimeOfDaySection = React.memo(
     const morningMedsList = meds?.morningMeds || [];
     const afternoonMedsList = meds?.afternoonMeds || [];
     const eveningMedsList = meds?.eveningMeds || [];
-    
-    // Apply the (redundant) filter to the safe lists
+
     const morningMeds = morningMedsList.filter((med) => getTimeOfDay(med.doseTime) === "Morning");
     const afternoonMeds = afternoonMedsList.filter((med) => getTimeOfDay(med.doseTime) === "Afternoon");
     const eveningMeds = eveningMedsList.filter((med) => getTimeOfDay(med.doseTime) === "Evening");
 
-    // Array of tab data
     const tabs = [
       {
         name: "Morning",
@@ -114,7 +112,6 @@ const TimeOfDaySection = React.memo(
       },
     ];
 
-    // Get the meds for the active tab
     const activeMeds = tabs[activeTab].meds;
 
     return (
@@ -146,6 +143,11 @@ const TimeOfDaySection = React.memo(
             </h2>
             <div className="divide-y divide-gray-200">
               {activeMeds.map((med) => {
+                if (typeof med.doseIndex !== "number") {
+                  console.error(`Invalid doseIndex for medication ${med.id}: ${med.doseIndex}`);
+                  return null;
+                }
+
                 const hasReminder = reminders.some(
                   (rem) =>
                     rem.medicationId === med.id &&
@@ -153,7 +155,7 @@ const TimeOfDaySection = React.memo(
                     rem.effectiveDate === moment(med.selectedDate).format("YYYY-MM-DD")
                 );
 
-                const doseStatus = getDoseStatus(med, med.doseIndex);
+                const doseStatus = getDoseStatus(med, med.doseIndex, med.selectedDate);
 
                 return (
                   <div
@@ -199,7 +201,7 @@ const TimeOfDaySection = React.memo(
                           <span className="text-sm text-gray-600 mb-1">
                             {moment(med.doseTime, "HH:mm:ss").format("h:mm A")}
                           </span>
-                          <MedicationStatusBadge status={doseStatus.status} />
+                          <MedicationStatusBadge med={med} getDoseStatus={getDoseStatus} />
                         </div>
                       </div>
                     </div>
@@ -215,5 +217,13 @@ const TimeOfDaySection = React.memo(
 );
 
 TimeOfDaySection.displayName = "TimeOfDaySection";
+
+TimeOfDaySection.propTypes = {
+  meds: PropTypes.object.isRequired,
+  reminders: PropTypes.array.isRequired,
+  setShowReminderModal: PropTypes.func.isRequired,
+  setSelectedMedication: PropTypes.func.isRequired,
+  getDoseStatus: PropTypes.func.isRequired,
+};
 
 export default TimeOfDaySection;

@@ -5,6 +5,7 @@ import { CiWarning } from "react-icons/ci";
 import styled from "styled-components";
 import { theme } from "./styles";
 import moment from "moment";
+import PropTypes from "prop-types";
 
 const StatusBadge = styled.span`
   display: inline-flex;
@@ -41,21 +42,21 @@ const StatusBadge = styled.span`
 `;
 
 const MedicationStatusBadge = React.memo(({ med, getDoseStatus }) => {
-  // Confirming getDoseStatus is available
   if (!getDoseStatus) {
     console.error("getDoseStatus function is required in MedicationStatusBadge");
-    return null;
+    return (
+      <StatusBadge className="pending">
+        <CiWarning /> Pending (Status Unavailable)
+      </StatusBadge>
+    );
   }
 
-  console.log(getDoseStatus);
-
-  // Fetching the dose status using the provided getDoseStatus function
   const { isTaken, isMissed, isTimeToTake, isWithinWindow } = getDoseStatus(med, med.doseIndex);
 
   if (isTaken) {
     return (
       <StatusBadge className="taken">
-        <BsCheck2Circle/> Taken
+        <BsCheck2Circle /> Taken
       </StatusBadge>
     );
   }
@@ -63,27 +64,31 @@ const MedicationStatusBadge = React.memo(({ med, getDoseStatus }) => {
   if (isMissed) {
     return (
       <StatusBadge className="missed">
-        <BsXCircle/> Missed
+        <BsXCircle /> Missed
       </StatusBadge>
     );
   }
 
-  // Check if the dose is overdue (time has passed but within the 1-hour window)
   const isOverdue = isWithinWindow && !isTaken;
 
   return (
     <StatusBadge className={isOverdue ? "overdue" : "pending"}>
       {isOverdue ? (
         <>
-          <BsClock/> Overdue
+          <BsClock /> Overdue
         </>
       ) : (
         <>
-          <CiWarning/> Pending
+          <CiWarning /> Pending
         </>
       )}
     </StatusBadge>
   );
 });
+
+MedicationStatusBadge.propTypes = {
+  med: PropTypes.object.isRequired,
+  getDoseStatus: PropTypes.func.isRequired,
+};
 
 export default MedicationStatusBadge;
