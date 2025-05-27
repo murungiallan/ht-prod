@@ -30,7 +30,7 @@ try {
     connectionLimit: 5,
     queueLimit: 0,
     connectTimeout: 30000,
-    ssl: { rejectUnauthorized: true },
+    // ssl: { rejectUnauthorized: true },
   };
   console.log(`Using JawsDB configuration: ${remoteConfig.host}:${remoteConfig.port}`);
 } catch (error) {
