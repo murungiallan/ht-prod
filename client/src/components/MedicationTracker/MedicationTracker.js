@@ -286,7 +286,7 @@ const MedicationTracker = () => {
   
     if (!doses[doseIndex]) {
       console.log(`Dose not found for medication ${med.id}, doseIndex ${doseIndex}`);
-      return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false, canTake: false };
+      // return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false, canTake: false };
     }
   
     const dose = doses[doseIndex];
