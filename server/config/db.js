@@ -2,19 +2,6 @@ import { createPool, createConnection } from 'mysql2/promise';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// Configuration for local and remote instances
-const localConfig = {
-  host: 'localhost',
-  user: 'root',
-  password: 'root',
-  database: 'healthtrack_db',
-  port: 3306,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  connectTimeout: 30000, // 30 seconds timeout
-};
-
 const remoteConfig = {
   host: process.env.STACKHERO_MARIADB_HOST,
   user: process.env.STACKHERO_MARIADB_USER,
@@ -22,7 +9,7 @@ const remoteConfig = {
   database: process.env.STACKHERO_MARIADB_DATABASE || 'healthtrack_db',
   port: parseInt(process.env.STACKHERO_MARIADB_PORT) || 3306,
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: 5,
   queueLimit: 0,
   connectTimeout: 30000, // 30 seconds timeout
   ssl: {
@@ -47,17 +34,32 @@ const attemptConnection = async (config, isPrimary = true) => {
   }
 };
 
-// Initialize the database connection with failover
 const initializeDb = async () => {
-  // Attempt primary (remote) connection first
   db = await attemptConnection(remoteConfig, true);
   if (!db) {
-    // Fallback to local connection
-    db = await attemptConnection(localConfig, false);
-    if (!db) {
-      throw new Error('Failed to initialize database: Both remote and local connections failed');
-    }
+    throw new Error('Failed to initialize database: Remote connection failed');
   }
+};
+
+const startConnectionMonitor = () => {
+  setInterval(async () => {
+    if (!db) {
+      console.log('No active connection, attempting to reinitialize...');
+      await initializeDb();
+      return;
+    }
+    const testConnection = await attemptConnection(db.config, true);
+    if (!testConnection) {
+      console.log('Active connection failed, attempting to reconnect...');
+      const newDb = await attemptConnection(remoteConfig, true);
+      if (newDb) {
+        db = newDb;
+        console.log('Switched to new active connection');
+      } else {
+        console.log('Failed to reconnect, no viable database available');
+      }
+    }
+  }, 60000);
 };
 
 // Function to create the database if it doesn't exist
@@ -80,28 +82,6 @@ const ensureDatabaseExists = async () => {
   } finally {
     await connection.end();
   }
-};
-
-// Periodic connection check and failover
-const startConnectionMonitor = () => {
-  setInterval(async () => {
-    if (!db) {
-      console.log('No active connection, attempting to reinitialize...');
-      await initializeDb();
-      return;
-    }
-    const testConnection = await attemptConnection(db.config, true);
-    if (!testConnection) {
-      console.log('Active connection failed, attempting to switch...');
-      const newDb = await attemptConnection(remoteConfig, true) || await attemptConnection(localConfig, false);
-      if (newDb) {
-        db = newDb;
-        console.log('Switched to new active connection');
-      } else {
-        console.log('Failed to switch connections, no viable database available');
-      }
-    }
-  }, 60000); // Check every 60 seconds
 };
 
 // Initialize the database connection
