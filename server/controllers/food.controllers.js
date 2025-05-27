@@ -466,13 +466,13 @@ class FoodDiaryController {
         return res.status(404).json({ error: "User not found in the database" });
       }
       const userId = userRows[0].id;
-
+  
       const [rows] = await db.query(
         "SELECT DATE(date_logged) as logDate, SUM(calories) as totalCalories FROM food_logs WHERE user_id = ? AND date_logged >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) GROUP BY DATE(date_logged) ORDER BY logDate",
         [userId]
       );
       logToFile(`Retrieved ${rows.length} days of calorie data for user ${userId}`);
-
+  
       let predictions = [];
       if (rows.length < 7) {
         logToFile(`Insufficient data: only ${rows.length} days available`, "WARN");
@@ -486,7 +486,10 @@ class FoodDiaryController {
           };
         });
       } else {
-        const csvPath = path.join(tempDir, `calories_${firebaseUid}.csv`);
+        // Use /tmp for Heroku's ephemeral file system
+        const csvPath = path.join("/tmp", `calories_${firebaseUid}.csv`);
+        const outputPath = path.join("/tmp", `predictions_${firebaseUid}.json`);
+  
         const csvContent = [
           "date,calories\n",
           ...rows.map((row) => {
@@ -497,61 +500,77 @@ class FoodDiaryController {
         ].join("");
         fs.writeFileSync(csvPath, csvContent);
         logToFile(`CSV file created at: ${csvPath}`);
-
+  
         const pythonScriptPath = path.join(__dirname, "arima_predict.py");
-        const outputPath = path.join(tempDir, `predictions_${firebaseUid}.json`);
-
-        let pythonExecutable = path.join(projectRoot, ".venv", "Scripts", "python.exe");
-        if (!fs.existsSync(pythonExecutable)) {
-          logToFile(`Python executable not found at ${pythonExecutable}, trying system Python`, "WARN");
-          pythonExecutable = "python";
+  
+        // Determine the Python executable path
+        let pythonExecutable;
+        if (process.env.HEROKU) {
+          // On Heroku, use the system Python
+          pythonExecutable = "python3";
         }
-
+  
         const result = spawn(pythonExecutable, [pythonScriptPath, csvPath, outputPath]);
-
+  
         let pythonOutput = "";
         let pythonError = "";
-
+  
         result.stdout.on("data", (data) => {
           pythonOutput += data.toString();
+          logToFile(`Python stdout: ${data.toString().trim()}`);
         });
-
+  
         result.stderr.on("data", (data) => {
           pythonError += data.toString();
+          logToFile(`Python stderr: ${data.toString().trim()}`, "ERROR");
         });
-
+  
         const predictionPromise = new Promise((resolve, reject) => {
           result.on("close", (code) => {
             if (code === 0) {
-              try {
-                const outputContent = fs.readFileSync(outputPath, "utf-8");
-                predictions = JSON.parse(outputContent);
-                fs.unlinkSync(csvPath);
-                fs.unlinkSync(outputPath);
-                logToFile(`Predictions generated and files cleaned up`);
-                resolve();
-              } catch (parseError) {
-                logToFile(`Failed to parse prediction output: ${parseError.message}`, "ERROR");
-                reject(new Error(`Failed to parse prediction output: ${parseError.message}`));
+              if (fs.existsSync(outputPath)) {
+                try {
+                  const outputContent = fs.readFileSync(outputPath, "utf-8");
+                  predictions = JSON.parse(outputContent);
+                  logToFile(`Predictions generated successfully: ${JSON.stringify(predictions)}`);
+                  resolve();
+                } catch (parseError) {
+                  logToFile(`Failed to parse prediction output: ${parseError.message}`, "ERROR");
+                  reject(new Error(`Failed to parse prediction output: ${parseError.message}`));
+                }
+              } else {
+                logToFile(`Prediction output file not found at: ${outputPath}`, "ERROR");
+                reject(new Error(`Prediction output file not found at: ${outputPath}`));
               }
             } else {
               logToFile(`Prediction script failed with code ${code}: ${pythonError}`, "ERROR");
               reject(new Error(`Prediction script failed with code ${code}: ${pythonError}`));
             }
           });
-
+  
           result.on("error", (err) => {
             logToFile(`Spawn error: ${err.message}`, "ERROR");
             reject(new Error(`Spawn error: ${err.message}`));
           });
         });
-
-        await predictionPromise;
+  
+        try {
+          await predictionPromise;
+        } finally {
+          // Clean up temporary files
+          try {
+            if (fs.existsSync(csvPath)) fs.unlinkSync(csvPath);
+            if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+            logToFile(`Temporary files cleaned up`);
+          } catch (cleanupError) {
+            logToFile(`Error cleaning up temporary files: ${cleanupError.message}`, "ERROR");
+          }
+        }
       }
-
+  
       await firebaseDb.ref(`calorie_predictions/${firebaseUid}`).set(predictions);
       logToFile(`Firebase sync completed for calorie predictions`);
-
+  
       return res.status(200).json(predictions);
     } catch (error) {
       logToFile(`Error predicting caloric intake: ${error.message}\n${error.stack}`, "ERROR");

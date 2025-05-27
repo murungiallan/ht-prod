@@ -13,8 +13,9 @@
     },
     "engines": {
       "node": "22.x",
-      "npm": "11.x"
+      "npm": "11.x",
+      "python": "3.x"
     },
     "author": "",
     "license": "ISC"
-  }
+}
