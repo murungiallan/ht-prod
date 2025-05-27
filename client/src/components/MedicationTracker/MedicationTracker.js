@@ -863,10 +863,10 @@ const MedicationTracker = () => {
 
   const checkDosesForPrompt = useCallback(() => {
     if (!user) return;
-
+  
     const now = moment().local();
     const currentDateKey = now.format("YYYY-MM-DD");
-
+  
     for (const med of medications) {
       const doses = med.doses?.[currentDateKey] || med.times.map((time) => ({
         time,
@@ -874,16 +874,16 @@ const MedicationTracker = () => {
         missed: false,
         takenAt: null,
       }));
-
+  
       for (let doseIndex = 0; doseIndex < doses.length; doseIndex++) {
         const dose = doses[doseIndex];
-        const { isTaken, isMissed, isWithinWindow } = getDoseStatus(med, new Date(), doseIndex);
+        const { isTaken, isMissed, isWithinWindow } = getDoseStatus(med, doseIndex, new Date());
         const doseKey = `${med.id}-${currentDateKey}-${doseIndex}`;
-
+  
         if (isTaken || isMissed || !isWithinWindow || promptedDoses.has(doseKey)) {
           continue;
         }
-
+  
         const hasReminder = reminders.some((reminder) => {
           const reminderDateKey = reminder.type === "daily" ? currentDateKey : reminder.date;
           return (
@@ -893,7 +893,7 @@ const MedicationTracker = () => {
             reminder.status !== "sent"
           );
         });
-
+  
         if (!hasReminder) {
           setShowTakePrompt({
             medicationId: med.id,
