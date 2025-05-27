@@ -1,174 +1,169 @@
-import { createPool, createConnection } from 'mysql2/promise';
-import dotenv from 'dotenv';
-import moment from 'moment';
-import { db as firebaseDb } from '../server.js';
-import url from 'url';
+import { createPool, createConnection } from "mysql2/promise";
+import dotenv from "dotenv";
+import moment from "moment";
+import url from "url";
 
 dotenv.config();
 
-// Validate JAWSDB_URL
-if (!process.env.JAWSDB_URL) {
-  console.error('JAWSDB_URL environment variable is missing');
-  process.exit(1);
-}
+// Logging helper
+const logToFile = (message, level = "INFO") => {
+  const timestamp = moment().format("YYYY-MM-DD HH:mm:ss");
+  const logMessage = `[${timestamp}] [${level}] ${message}\n`;
+  console.log(logMessage); // Log to console for Heroku
+};
 
-// Parse JAWSDB_URL
-let remoteConfig;
-try {
-  const parsedUrl = url.parse(process.env.JAWSDB_URL);
-  const [user, password] = parsedUrl.auth ? parsedUrl.auth.split(':') : [null, null];
-  if (!user || !password || !parsedUrl.hostname || !parsedUrl.pathname) {
-    throw new Error('Invalid JAWSDB_URL format');
-  }
-  remoteConfig = {
-    host: parsedUrl.hostname,
-    user: user,
-    password: password,
-    database: parsedUrl.pathname.slice(1),
-    port: parsedUrl.port ? parseInt(parsedUrl.port) : 3306,
-    waitForConnections: true,
-    connectionLimit: 5,
-    queueLimit: 0,
-    connectTimeout: 30000,
-    // ssl: { rejectUnauthorized: true },
-  };
-  console.log(`Using JawsDB configuration: ${remoteConfig.host}:${remoteConfig.port}`);
-} catch (error) {
-  console.error(`Failed to parse JAWSDB_URL: ${error.message}`);
-  process.exit(1);
-}
+// Configuration and initialization state
+let pool = null;
+let poolPromise = null;
 
-let db;
+// Function to initialize the database pool
+const initializePool = async () => {
+  if (pool) return pool; // Return existing pool if already initialized
+  if (poolPromise) return await poolPromise; // Return ongoing initialization promise
 
-// Function to attempt connection with retry logic
-const attemptConnectionWithRetry = async (config, isPrimary = true, retries = 3, delay = 5000) => {
-  for (let i = 0; i < retries; i++) {
+  poolPromise = (async () => {
+    // Validate JAWSDB_URL
+    if (!process.env.JAWSDB_URL) {
+      logToFile("JAWSDB_URL environment variable is missing", "ERROR");
+      throw new Error("JAWSDB_URL is required for database connection");
+    }
+
+    let remoteConfig;
     try {
-      const pool = createPool({ ...config });
-      pool.config = config;
+      const parsedUrl = url.parse(process.env.JAWSDB_URL);
+      const [user, password] = parsedUrl.auth ? parsedUrl.auth.split(":") : [null, null];
+      if (!user || !password || !parsedUrl.hostname || !parsedUrl.pathname) {
+        throw new Error("Invalid JAWSDB_URL format");
+      }
+      remoteConfig = {
+        host: parsedUrl.hostname,
+        user,
+        password,
+        database: parsedUrl.pathname.slice(1),
+        port: parsedUrl.port ? parseInt(parsedUrl.port) : 3306,
+        waitForConnections: true,
+        connectionLimit: 5,
+        queueLimit: 0,
+        connectTimeout: 30000,
+      };
+      logToFile(`Using JawsDB configuration: ${remoteConfig.host}:${remoteConfig.port}`);
+    } catch (error) {
+      logToFile(`Failed to parse JAWSDB_URL: ${error.message}`, "ERROR");
+      throw error;
+    }
+
+    // Attempt connection with retry logic
+    const attemptConnectionWithRetry = async (config, retries = 3, delay = 5000) => {
+      for (let i = 0; i < retries; i++) {
+        try {
+          const pool = createPool({ ...config });
+          const connection = await pool.getConnection();
+          logToFile(`Connection established to ${config.host}:${config.port}`);
+          connection.release();
+          return pool;
+        } catch (error) {
+          logToFile(
+            `Connection attempt ${i + 1}/${retries} to ${config.host}:${config.port} failed: ${error.message}`,
+            "ERROR"
+          );
+          if (i < retries - 1) {
+            logToFile(`Retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          } else {
+            throw error;
+          }
+        }
+      }
+    };
+
+    // Check table existence
+    const checkTableExistsAndIsReachable = async (pool, tableName) => {
       const connection = await pool.getConnection();
-      console.log(`Connection established to ${config.host}:${config.port}`);
-      connection.release();
+      try {
+        const [rows] = await connection.query(`SHOW TABLES LIKE ?`, [tableName]);
+        if (rows.length === 0) {
+          logToFile(`Table ${tableName} does not exist in the database`, "ERROR");
+          return { exists: false, reachable: false };
+        }
+        await connection.query(`SELECT 1 FROM ${tableName} LIMIT 1`);
+        logToFile(`Table ${tableName} exists and is reachable`);
+        return { exists: true, reachable: true };
+      } catch (error) {
+        logToFile(`Error checking table ${tableName}: ${error.message}`, "ERROR");
+        return { exists: false, reachable: false };
+      } finally {
+        connection.release();
+      }
+    };
+
+    // Ensure database exists
+    const ensureDatabaseExists = async (config) => {
+      const tempConfig = { ...remoteConfig, database: undefined };
+      const connection = await createConnection(tempConfig);
+      try {
+        const [databases] = await connection.query("SHOW DATABASES LIKE ?", [remoteConfig.database]);
+        if (databases.length === 0) {
+          await connection.query(`CREATE DATABASE \`${remoteConfig.database}\``);
+          logToFile(`Database ${remoteConfig.database} created successfully`);
+        } else {
+          logToFile(`Database ${remoteConfig.database} already exists`);
+        }
+      } catch (error) {
+        logToFile(`Error creating database: ${error.message}`, "ERROR");
+        throw error;
+      } finally {
+        await connection.end();
+      }
+    };
+
+    try {
+      const createdPool = await attemptConnectionWithRetry(remoteConfig);
+      await ensureDatabaseExists(remoteConfig);
+
+      // Check all tables
+      const tables = ["users", "exercises", "food_logs", "medications", "reminders"];
+      for (const table of tables) {
+        const tableStatus = await checkTableExistsAndIsReachable(createdPool, table);
+        if (!tableStatus.exists) {
+          throw new Error(`Critical: Table ${table} does not exist. Run migrations first.`);
+        }
+      }
+
+      logToFile("Database initialization completed");
+      pool = createdPool; // Set the pool after successful initialization
+      poolPromise = null; // Clear the promise
       return pool;
     } catch (error) {
-      console.error(`Connection attempt ${i + 1}/${retries} to ${config.host}:${config.port} failed: ${error.message}`);
-      if (error.code === 'ER_CON_COUNT_ERROR') {
-        console.log('Too many connections, retrying after delay...');
-        await new Promise(resolve => setTimeout(resolve, delay));
-      } else if (error.code === 'ENOTFOUND') {
-        console.log('DNS resolution failed, retrying after delay...');
-        await new Promise(resolve => setTimeout(resolve, delay));
-      } else {
-        throw error;
-      }
+      poolPromise = null; // Clear the promise to allow retries
+      logToFile(`Failed to initialize database: ${error.message}`, "ERROR");
+      throw error;
     }
-  }
-  throw new Error(`Failed to connect to ${config.host}:${config.port} after ${retries} attempts`);
+  })();
+
+  return await poolPromise;
 };
 
-// Function to check if a table exists and is reachable
-const checkTableExistsAndIsReachable = async (pool, tableName) => {
-  const connection = await pool.getConnection();
-  try {
-    const [rows] = await connection.query(`SHOW TABLES LIKE ?`, [tableName]);
-    if (rows.length === 0) {
-      console.error(`Table ${tableName} does not exist in the database`);
-      return { exists: false, reachable: false };
-    }
-    await connection.query(`SELECT 1 FROM ${tableName} LIMIT 1`);
-    console.log(`Table ${tableName} exists and is reachable`);
-    return { exists: true, reachable: true };
-  } catch (error) {
-    console.error(`Error checking table ${tableName}: ${error.message}`);
-    return { exists: false, reachable: false };
-  } finally {
-    connection.release();
-  }
+// Define db with a query method that ensures initialization
+const db = {
+  query: async (...args) => {
+    const initializedPool = await initializePool();
+    return initializedPool.query(...args);
+  },
+  getConnection: async () => {
+    const initializedPool = await initializePool();
+    return initializedPool.getConnection();
+  },
+  // Add other pool methods as needed
+  end: async () => {
+    const initializedPool = await initializePool();
+    return initializedPool.end();
+  },
 };
 
-// Function to create the database if it doesn't exist
-const ensureDatabaseExists = async () => {
-  const tempConfig = { ...remoteConfig, database: undefined };
-  const connection = await createConnection(tempConfig);
-  try {
-    const [databases] = await connection.query("SHOW DATABASES LIKE ?", [remoteConfig.database]);
-    if (databases.length === 0 && process.env.NODE_ENV !== 'production') {
-      await connection.query(`CREATE DATABASE \`${remoteConfig.database}\``);
-      console.log(`Database ${remoteConfig.database} created successfully.`);
-    } else {
-      console.log(`Database ${remoteConfig.database} already exists or production environment detected.`);
-    }
-  } catch (error) {
-    console.error('Error creating database:', error.message);
-    throw error;
-  } finally {
-    await connection.end();
-  }
-};
+// Start initialization on module load (non-blocking)
+initializePool().catch(error => {
+  logToFile(`Initial database initialization failed: ${error.message}`, "ERROR");
+});
 
-// Initialize the database connection and perform checks
-const initializeDb = async () => {
-  db = await attemptConnectionWithRetry(remoteConfig);
-  if (!db) {
-    throw new Error('Failed to initialize database: Connection failed');
-  }
-
-  await ensureDatabaseExists();
-
-  // Check all tables
-  const tables = ['users', 'exercises', 'food_logs', 'medications', 'reminders'];
-  for (const table of tables) {
-    const tableStatus = await checkTableExistsAndIsReachable(db, table);
-    if (!tableStatus.exists) {
-      throw new Error(`Critical: Table ${table} does not exist. Run migrations first.`);
-    }
-  }
-};
-
-// Periodic connection check and table verification
-const startConnectionMonitor = () => {
-  setInterval(async () => {
-    if (!db) {
-      console.log('No active connection, attempting to reinitialize...');
-      await initializeDb();
-      return;
-    }
-    const testConnection = await attemptConnectionWithRetry(db.config);
-    if (!testConnection) {
-      console.log('Active connection failed, attempting to reconnect...');
-      const newDb = await attemptConnectionWithRetry(remoteConfig);
-      if (newDb) {
-        db = newDb;
-        console.log('Switched to new active connection');
-      } else {
-        console.log('Failed to reconnect, no viable database available');
-        return;
-      }
-    }
-    const tables = ['users', 'exercises', 'food_logs', 'medications', 'reminders'];
-    for (const table of tables) {
-      const tableStatus = await checkTableExistsAndIsReachable(db, table);
-      if (!tableStatus.exists) {
-        console.error(`Critical: Table ${table} does not exist. Run migrations first.`);
-      } else if (!tableStatus.reachable) {
-        console.error(`Critical: Table ${table} is not reachable`);
-      }
-    }
-    const [status] = await db.query("SHOW STATUS LIKE 'Threads_connected'");
-    console.log(`Current connections: ${status[0].Value}`);
-  }, 60000);
-};
-
-// Initialize the database connection
-(async () => {
-  try {
-    await initializeDb();
-    console.log('Database initialization completed');
-    startConnectionMonitor();
-  } catch (error) {
-    console.error('Failed to initialize database:', error.message);
-    process.exit(1);
-  }
-})();
-
+// Export db directly
 export default db;
