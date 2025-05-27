@@ -194,18 +194,18 @@ app.get("*", (req, res) => {
 });
 
 // Global error handling middleware
-app.use((err, req, res, next) => {
-  logger.error({
-    error: err.message,
-    stack: err.stack,
-    request: {
-      method: req.method,
-      url: req.url,
-      headers: req.headers.authorization ? { authorization: "Bearer [REDACTED]" } : req.headers,
-    },
-  }, "Unhandled error in request");
-  res.status(500).json({ error: "Internal Server Error" });
-});
+// app.use((err, req, res, next) => {
+//   logger.error({
+//     error: err.message,
+//     stack: err.stack,
+//     request: {
+//       method: req.method,
+//       url: req.url,
+//       headers: req.headers.authorization ? { authorization: "Bearer [REDACTED]" } : req.headers,
+//     },
+//   }, "Unhandled error in request");
+//   res.status(500).json({ error: "Internal Server Error" });
+// });
 
 // Socket.IO connection handling
 io.on("connection", (socket) => {
