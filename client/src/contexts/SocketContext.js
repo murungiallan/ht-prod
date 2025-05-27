@@ -23,11 +23,15 @@ export const SocketProvider = ({ children }) => {
     try {
       const token = await getCachedToken();
       console.log("Connecting with token:");
-      const newSocket = io("http://127.0.0.1:5000", {
+      const socketUrl = process.env.NODE_ENV === 'production'
+        ? window.location.origin // e.g., https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com
+        : 'http://127.0.0.1:5000';
+      const newSocket = io(socketUrl, {
         auth: { token },
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
+        transports: ['websocket', 'polling'], // Ensuring WebSocket is prioritized
       });
 
       // Listen to connections

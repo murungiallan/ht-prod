@@ -5,7 +5,13 @@ import { ref as storageRef, getStorage, uploadBytes, getDownloadURL, uploadBytes
 import { storage } from "../firebase/config.js";
 import { debounce } from "lodash";
 
-const api = axios.create({ baseURL: "http://127.0.0.1:5000/api" });
+// Determine the API base URL based on the environment
+const API_BASE_URL = process.env.NODE_ENV === 'production'
+  ? 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api'
+  : 'http://127.0.0.1:5000/api';
+
+// Create axios instance with dynamic base URL
+const api = axios.create({ baseURL: API_BASE_URL });
 
 // Retry logic with exponential backoff for rate-limited requests
 const retryWithBackoff = async (operation, maxAttempts = 3, baseDelay = 1000) => {
@@ -40,7 +46,7 @@ const authFetch = async (endpoint, options = {}, token) => {
   }
 
   try {
-    const response = await fetch(`http://127.0.0.1:5000/api${endpoint}`, {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers,
     });
@@ -179,8 +185,6 @@ export const saveWeeklyGoals = async (weeklyFoodCalorieGoal, weeklyExerciseCalor
 export const getWeeklyGoals = async (token) => {
   return authFetch("/users/weekly-goals", {}, token);
 };
-
-
 
 // Medication API
 export const createMedication = async (medicationData, token) => {
@@ -412,7 +416,6 @@ export const deleteMedication = async (id, token) => {
 
   return response.data;
 };
-
 
 // Fetch taken medication history from MySQL using the medications table
 export const getTakenMedicationHistory = async (limit = 3) => {
@@ -1029,7 +1032,6 @@ export const saveFcmToken = async (token, fcmToken) => {
   }
 };
 
-
 // Exercise API
 export const createExercise = async (exerciseData, token) => {
   const user = auth.currentUser;
@@ -1187,7 +1189,6 @@ export const createFoodLog = async (foodData, token, onProgress = () => {}) => {
     throw new Error(error.message || "Failed to create food log");
   }
 };
-
 
 export const getUserFoodLogs = async (token) => {
   const user = auth.currentUser;
@@ -1901,7 +1902,7 @@ export const exportAdminData = async (table, token) => {
   const validTables = ["users", "medications", "reminders", "food_logs", "exercises"];
   if (!validTables.includes(table)) throw new Error("Invalid table name");
   try {
-    const response = await fetch(`/api/admin/export/${table}`, {
+    const response = await fetch(`${API_BASE_URL}/admin/export/${table}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,

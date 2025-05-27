@@ -70,11 +70,22 @@ const app = express();
 // Change to HTTP server since Heroku handles SSL
 const server = http.createServer(app);
 
-// Attach Socket.IO to the HTTP server
+// Define allowed origins dynamically
+const allowedOrigins = [
+  process.env.CLIENT_URL || "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:5000",
+];
+if (process.env.NODE_ENV === 'production') {
+  allowedOrigins.push('https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com');
+}
+
+// Attach Socket.IO to the HTTP server with updated CORS
 const io = new Server(server, {
   cors: {
-    origin: [process.env.CLIENT_URL || "http://localhost:3000", "http://127.0.0.1:5000", "http://127.0.0.1:3000"],
+    origin: allowedOrigins,
     methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true, // Allow credentials if needed (e.g., for authenticated sockets)
   },
 });
 
@@ -134,9 +145,10 @@ const applyBodyParsing = (req, res, next) => {
 
 // Apply middleware
 app.use(cors({
-  origin: [process.env.CLIENT_URL || "http://localhost:3000", "http://127.0.0.1:3000"],
+  origin: allowedOrigins,
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
 }));
 app.use(applyBodyParsing);
 

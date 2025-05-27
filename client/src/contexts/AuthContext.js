@@ -99,18 +99,21 @@ export const AuthProvider = ({ children }) => {
             emailVerified: firebaseUser.emailVerified,
             displayName: firebaseUser.displayName || "",
           };
-  
+
           const fetchUserData = async (retry = true) => {
             try {
               const token = await getCachedToken();
-              const response = await fetch("http://127.0.0.1:5000/api/users", {
+              const apiUrl = process.env.NODE_ENV === 'production'
+                ? 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api/users'
+                : 'http://127.0.0.1:5000/api/users';
+              const response = await fetch(apiUrl, {
                 method: "GET",
                 headers: {
                   "Content-Type": "application/json",
                   Authorization: `Bearer ${token}`,
                 },
               });
-  
+
               if (response.ok) {
                 const mysqlUserData = await response.json();
                 userData = { ...userData, ...mysqlUserData };
@@ -124,9 +127,9 @@ export const AuthProvider = ({ children }) => {
               console.error("Error fetching user from MySQL:", error);
             }
           };
-  
+
           await fetchUserData();
-  
+
           const userRef = ref(database, `users/${uid}`);
           onValue(
             userRef,
@@ -141,12 +144,15 @@ export const AuthProvider = ({ children }) => {
                   lastLogin: new Date().toISOString(),
                 };
               }
-  
+
               // Update last login with retry logic
               const updateLastLogin = async (retry = true) => {
                 try {
                   const token = await getCachedToken();
-                  const response = await fetch("http://127.0.0.1:5000/api/users/last-login", {
+                  const apiUrl = process.env.NODE_ENV === 'production'
+                    ? 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api/users/last-login'
+                    : 'http://127.0.0.1:5000/api/users/last-login';
+                  const response = await fetch(apiUrl, {
                     method: "POST",
                     headers: {
                       "Content-Type": "application/json",
@@ -158,7 +164,7 @@ export const AuthProvider = ({ children }) => {
                       lastLogin: userData.lastLogin,
                     }),
                   });
-  
+
                   if (response.ok) {
                     const updatedUserData = await response.json();
                     userData = { ...userData, ...updatedUserData };
@@ -172,7 +178,7 @@ export const AuthProvider = ({ children }) => {
                   console.error("Error syncing with MySQL:", error);
                 }
               };
-  
+
               await updateLastLogin();
               setUser({ ...userData, emailVerified: firebaseUser.emailVerified });
             },
@@ -194,7 +200,7 @@ export const AuthProvider = ({ children }) => {
       }
       setLoading(false);
     });
-  
+
     return () => unsubscribe();
   }, [getCachedToken, retryWithBackoff]);
 
@@ -216,7 +222,10 @@ export const AuthProvider = ({ children }) => {
 
       // Update lastLogin in MySQL via API
       const token = await getCachedToken();
-      const response = await fetch("http://127.0.0.1:5000/api/users/last-login", {
+      const apiUrl = process.env.NODE_ENV === 'production'
+        ? 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api/users/last-login'
+        : 'http://127.0.0.1:5000/api/users/last-login';
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -267,7 +276,10 @@ export const AuthProvider = ({ children }) => {
       );
 
       const token = await getCachedToken();
-      const response = await fetch("http://127.0.0.1:5000/api/users/register", {
+      const apiUrl = process.env.NODE_ENV === 'production'
+        ? 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api/users/register'
+        : 'http://127.0.0.1:5000/api/users/register';
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -326,7 +338,10 @@ export const AuthProvider = ({ children }) => {
       );
 
       const token = await getCachedToken();
-      const response = await fetch("http://127.0.0.1:5000/api/users/profile", {
+      const apiUrl = process.env.NODE_ENV === 'production'
+        ? 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api/users/profile'
+        : 'http://127.0.0.1:5000/api/users/profile';
+      const response = await fetch(apiUrl, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -354,19 +369,22 @@ export const AuthProvider = ({ children }) => {
 
   const resetPassword = async (email) => {
     try {
-      const response = await fetch("http://127.0.0.1:5000/api/users/reset-password", {
+      const apiUrl = process.env.NODE_ENV === 'production'
+        ? 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api/users/reset-password'
+        : 'http://127.0.0.1:5000/api/users/reset-password';
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email }),
       });
-  
+
       const result = await response.json();
       if (!response.ok) {
         throw new Error(result.error || "Failed to reset password");
       }
-  
+
       toast(result.message);
     } catch (error) {
       toast.error(error.message || "Password reset failed");
