@@ -1,15 +1,19 @@
 import axios from "axios";
 import { auth, database } from "../firebase/config.js";
 import { ref, update, get, push } from "firebase/database";
-import { ref as storageRef, getStorage, uploadBytes, getDownloadURL, uploadBytesResumable, deleteObject } from "firebase/storage";
-import { storage } from "../firebase/config.js";
 import { debounce } from "lodash";
 
-// Determine the API base URL based on the environment
+// Production API base URL
 const API_BASE_URL = 'https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api';
 
 // Create axios instance with dynamic base URL
-const api = axios.create({ baseURL: API_BASE_URL });
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
 // Retry logic with exponential backoff for rate-limited requests
 const retryWithBackoff = async (operation, maxAttempts = 3, baseDelay = 1000) => {
@@ -17,7 +21,9 @@ const retryWithBackoff = async (operation, maxAttempts = 3, baseDelay = 1000) =>
     try {
       return await operation();
     } catch (error) {
-      if (error.code === "auth/too-many-requests" || error.message.includes("Too Many Requests")) {
+      if (error.code === "auth/too-many-requests" || 
+          error.message.includes("Too Many Requests") ||
+          error.response?.status === 429) {
         if (attempt === maxAttempts) {
           throw error;
         }
@@ -31,44 +37,109 @@ const retryWithBackoff = async (operation, maxAttempts = 3, baseDelay = 1000) =>
   }
 };
 
-// Helper function to make authenticated requests
-const authFetch = async (endpoint, options = {}, token) => {
-  const headers = {
-    ...options.headers,
-    Authorization: `Bearer ${token}`,
-  };
-
-  // Avoid setting Content-Type for FormData to let the browser handle it
-  if (!(options.body instanceof FormData)) {
-    headers["Content-Type"] = "application/json";
-  }
-
+// Helper functions for API operations
+const apiPost = async (endpoint, data, token, config = {}) => {
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({
-        error: "An unknown error occurred",
-      }));
-      if (response.status === 401) {
-        if (errorData.code === "auth/id-token-expired") {
-          const error = new Error("Unauthorized - ID token expired");
-          error.code = "auth/id-token-expired";
-          throw error;
-        }
-        throw new Error("Unauthorized - Invalid or expired token");
-      } else if (response.status === 429) {
-        throw new Error("Too Many Requests - Please try again later");
-      } else {
-        throw new Error(errorData.error || `Request failed with status ${response.status}`);
-      }
-    }
-
-    return response.json();
+    const response = await retryWithBackoff(() =>
+      api.post(endpoint, data, {
+        headers: { Authorization: `Bearer ${token}`, ...config.headers },
+        ...config,
+      })
+    );
+    return response.data;
   } catch (error) {
+    if (error.response?.status === 401) {
+      const err = new Error("Unauthorized - Invalid or expired token");
+      if (error.response.data?.code === "auth/id-token-expired") {
+        err.code = "auth/id-token-expired";
+      }
+      throw err;
+    } else if (error.response?.status === 429) {
+      throw new Error("Too Many Requests - Please try again later");
+    } else if (error.response) {
+      throw new Error(error.response.data?.error || `Request failed with status ${error.response.status}`);
+    } else if (error.request) {
+      throw new Error("Network error - Unable to reach server");
+    }
+    throw error;
+  }
+};
+
+const apiGet = async (endpoint, token, config = {}) => {
+  try {
+    const response = await api.get(endpoint, {
+      headers: { Authorization: `Bearer ${token}`, ...config.headers },
+      ...config,
+    });
+    return response.data;
+  } catch (error) {
+    if (error.response?.status === 401) {
+      const err = new Error("Unauthorized - Invalid or expired token");
+      if (error.response.data?.code === "auth/id-token-expired") {
+        err.code = "auth/id-token-expired";
+      }
+      throw err;
+    } else if (error.response?.status === 429) {
+      throw new Error("Too Many Requests - Please try again later");
+    } else if (error.response) {
+      throw new Error(error.response.data?.error || `Request failed with status ${error.response.status}`);
+    } else if (error.request) {
+      throw new Error("Network error - Unable to reach server");
+    }
+    throw error;
+  }
+};
+
+const apiPut = async (endpoint, data, token, config = {}) => {
+  try {
+    const response = await retryWithBackoff(() =>
+      api.put(endpoint, data, {
+        headers: { Authorization: `Bearer ${token}`, ...config.headers },
+        ...config,
+      })
+    );
+    return response.data;
+  } catch (error) {
+    if (error.response?.status === 401) {
+      const err = new Error("Unauthorized - Invalid or expired token");
+      if (error.response.data?.code === "auth/id-token-expired") {
+        err.code = "auth/id-token-expired";
+      }
+      throw err;
+    } else if (error.response?.status === 429) {
+      throw new Error("Too Many Requests - Please try again later");
+    } else if (error.response) {
+      throw new Error(error.response.data?.error || `Request failed with status ${error.response.status}`);
+    } else if (error.request) {
+      throw new Error("Network error - Unable to reach server");
+    }
+    throw error;
+  }
+};
+
+const apiDelete = async (endpoint, token, config = {}) => {
+  try {
+    const response = await retryWithBackoff(() =>
+      api.delete(endpoint, {
+        headers: { Authorization: `Bearer ${token}`, ...config.headers },
+        ...config,
+      })
+    );
+    return response.data;
+  } catch (error) {
+    if (error.response?.status === 401) {
+      const err = new Error("Unauthorized - Invalid or expired token");
+      if (error.response.data?.code === "auth/id-token-expired") {
+        err.code = "auth/id-token-expired";
+      }
+      throw err;
+    } else if (error.response?.status === 429) {
+      throw new Error("Too Many Requests - Please try again later");
+    } else if (error.response) {
+      throw new Error(error.response.data?.error || `Request failed with status ${error.response.status}`);
+    } else if (error.request) {
+      throw new Error("Network error - Unable to reach server");
+    }
     throw error;
   }
 };
@@ -86,14 +157,7 @@ export const registerUser = async (uid, username, email, displayName, password, 
   };
   await retryWithBackoff(() => update(ref(database), { [userPath]: userData }));
 
-  return authFetch(
-    "/users/register",
-    {
-      method: "POST",
-      body: JSON.stringify({ uid, username, email, displayName, password, role }),
-    },
-    token
-  );
+  return apiPost("/users/register", { uid, username, email, displayName, password, role }, token);
 };
 
 export const updateLastLogin = async (email, displayName, lastLogin, token) => {
@@ -103,22 +167,15 @@ export const updateLastLogin = async (email, displayName, lastLogin, token) => {
   const userPath = `users/${user.uid}/lastLogin`;
   await retryWithBackoff(() => update(ref(database), { [userPath]: lastLogin }));
 
-  return authFetch(
-    "/users/last-login",
-    {
-      method: "POST",
-      body: JSON.stringify({ email, displayName, lastLogin }),
-    },
-    token
-  );
+  return apiPost("/users/last-login", { email, displayName, lastLogin }, token);
 };
 
 export const getUser = async (token) => {
-  return authFetch("/users", {}, token);
+  return apiGet("/users", token);
 };
 
 export const getAllUsers = async (token) => {
-  return authFetch("/users/all", {}, token);
+  return apiGet("/users/all", token);
 };
 
 export const updateProfile = async (userData, token) => {
@@ -134,29 +191,15 @@ export const updateProfile = async (userData, token) => {
     address: userData.address || null,
     height: userData.height || null,
     weight: userData.weight || null,
-    profile_image: userData.profile_image || null
+    profile_image: userData.profile_image || null,
   };
   await retryWithBackoff(() => update(ref(database), { [userPath]: updatedUserData }));
 
-  return authFetch(
-    "/users/profile",
-    {
-      method: "PUT",
-      body: JSON.stringify(updatedUserData),
-    },
-    token
-  );
+  return apiPut("/users/profile", updatedUserData, token);
 };
 
 export const resetPassword = async (email, token) => {
-  return authFetch(
-    "/users/reset-password",
-    {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    },
-    token
-  );
+  return apiPost("/users/reset-password", { email }, token);
 };
 
 export const saveWeeklyGoals = async (weeklyFoodCalorieGoal, weeklyExerciseCalorieGoal, token) => {
@@ -170,18 +213,11 @@ export const saveWeeklyGoals = async (weeklyFoodCalorieGoal, weeklyExerciseCalor
   };
   await retryWithBackoff(() => update(ref(database), { [userPath]: goalsData }));
 
-  return authFetch(
-    "/users/weekly-goals",
-    {
-      method: "POST",
-      body: JSON.stringify({ weeklyFoodCalorieGoal, weeklyExerciseCalorieGoal }),
-    },
-    token
-  );
+  return apiPost("/users/weekly-goals", { weeklyFoodCalorieGoal, weeklyExerciseCalorieGoal }, token);
 };
 
 export const getWeeklyGoals = async (token) => {
-  return authFetch("/users/weekly-goals", {}, token);
+  return apiGet("/users/weekly-goals", token);
 };
 
 // Medication API
@@ -201,11 +237,9 @@ export const createMedication = async (medicationData, token) => {
     notes: medicationData.notes,
   };
 
-  const response = await api.post("/medications/add", medicationEntry, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await apiPost("/medications/add", medicationEntry, token);
 
-  const medicationId = response.data.id.toString();
+  const medicationId = response.id.toString();
   const medicationPath = `medications/${user.uid}/${medicationId}`;
   const firebaseEntry = {
     ...medicationEntry,
@@ -215,21 +249,14 @@ export const createMedication = async (medicationData, token) => {
   };
   await retryWithBackoff(() => update(ref(database), { [medicationPath]: firebaseEntry }));
 
-  return response.data;
+  return response;
 };
 
 export const getUserMedications = async (token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  let medicationsFromMySQL;
-  try {
-    const response = await authFetch("/medications/get-medications", {}, token);
-    medicationsFromMySQL = response;
-  } catch (error) {
-    console.error("Error fetching medications from MySQL:", error);
-    throw new Error("Failed to fetch medications from server");
-  }
+  const medicationsFromMySQL = await apiGet("/medications/get-medications", token);
 
   // Remove duplicates based on medication_name, dosage, times_per_day, and frequency
   const uniqueMedications = Array.from(
@@ -268,17 +295,12 @@ export const getUserMedications = async (token) => {
   return uniqueMedications;
 };
 
-// Update Medication
 export const updateMedication = async (id, medicationData, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  // Sync with MySQL
-  const response = await api.put(`/medications/update/${id}`, medicationData, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await apiPut(`/medications/update/${id}`, medicationData, token);
 
-  // Fetch the existing medication data from Firebase
   const medicationPath = `medications/${user.uid}/${id}`;
   let existingData = {};
   try {
@@ -290,7 +312,6 @@ export const updateMedication = async (id, medicationData, token) => {
     console.error("Error fetching existing medication data from Firebase:", error);
   }
 
-  // Merge the existing data with the updated data
   const updatedData = {
     ...existingData,
     id,
@@ -303,13 +324,11 @@ export const updateMedication = async (id, medicationData, token) => {
     missed: medicationData.missed ?? existingData.missed ?? false,
   };
 
-  // Update Firebase with the merged data
   updateMedicationDebounced(user.uid, id, updatedData);
 
-  return response.data;
+  return response;
 };
 
-// Debounced update for general medication updates
 const updateMedicationDebounced = debounce((userId, id, medicationData) => {
   const medicationPath = `medications/${userId}/${id}`;
   update(ref(database), {
@@ -317,57 +336,35 @@ const updateMedicationDebounced = debounce((userId, id, medicationData) => {
   });
 }, 2000);
 
-// Update medication as taken
 export const updateMedicationTakenStatus = async (id, doseIndex, taken, token, date) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  try {
-    const response = await api.put(
-      `/medications/${id}/taken`,
-      { doseIndex, taken, date },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
+  const response = await apiPut(`/medications/${id}/taken`, { doseIndex, taken, date }, token);
 
-    // Update Firebase
-    const medicationPath = `medications/${user.uid}/${id}`;
-    const updatedData = response.data;
+  const medicationPath = `medications/${user.uid}/${id}`;
+  await retryWithBackoff(() => update(ref(database), { [medicationPath]: response }));
 
-    // Update Firebase with the latest data from the server
-    await update(ref(database), {
-      [medicationPath]: updatedData
-    });
-
-    // Add to history if taken
-    if (taken) {
-      const historyPath = `medication_history/${user.uid}`;
-      const historyEntry = {
-        medicationId: id,
-        medication_name: updatedData.medication_name,
-        doseIndex,
-        takenAt: new Date().toISOString(),
-        date,
-      };
-      await push(ref(database, historyPath), historyEntry);
-    }
-
-    return updatedData;
-  } catch (error) {
-    console.error("Error updating medication taken status:", error);
-    throw error;
+  if (taken) {
+    const historyPath = `medication_history/${user.uid}`;
+    const historyEntry = {
+      medicationId: id,
+      medication_name: response.medication_name,
+      doseIndex,
+      takenAt: new Date().toISOString(),
+      date,
+    };
+    await push(ref(database, historyPath), historyEntry);
   }
+
+  return response;
 };
 
-// Mark medication as missed
 export const markMedicationAsMissed = async (id, doseIndex, missed, token, date) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  const response = await api.put(
-    `/medications/${id}/missed`,
-    { doseIndex, missed, date },
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
+  const response = await apiPut(`/medications/${id}/missed`, { doseIndex, missed, date }, token);
 
   const medicationPath = `medications/${user.uid}/${id}`;
   let existingData = {};
@@ -396,124 +393,104 @@ export const markMedicationAsMissed = async (id, doseIndex, missed, token, date)
   const updatedData = { ...existingData, doses };
   updateMedicationDebounced(user.uid, id, updatedData);
 
-  return response.data;
+  return response;
 };
 
 export const deleteMedication = async (id, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  // Sync with MySQL
-  const response = await api.delete(`/medications/delete/${id}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await apiDelete(`/medications/delete/${id}`, token);
 
-  // Delete in Firebase with a single request
   const medicationPath = `medications/${user.uid}/${id}`;
   await retryWithBackoff(() => update(ref(database), { [medicationPath]: null }));
 
-  return response.data;
+  return response;
 };
 
-// Fetch taken medication history from MySQL using the medications table
 export const getTakenMedicationHistory = async (limit = 3) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
   const token = await user.getIdToken(true);
-  try {
-    const response = await authFetch("/medications/get-medications", {}, token);
+  const response = await apiGet("/medications/get-medications", token);
 
-    const takenDoses = [];
-    response.forEach((medication) => {
-      if (!medication.doses || typeof medication.doses !== "object") return;
+  const takenDoses = [];
+  response.forEach((medication) => {
+    if (!medication.doses || typeof medication.doses !== "object") return;
 
-      Object.entries(medication.doses).forEach(([date, dosesForDate]) => {
-        if (!Array.isArray(dosesForDate)) return;
-        dosesForDate.forEach((dose, doseIndex) => {
-          if (dose.taken && dose.takenAt) {
-            takenDoses.push({
-              id: `${medication.id}-${doseIndex}-${date}`,
-              medicationId: medication.id.toString(),
-              medication_name: medication.medication_name,
-              doseIndex: doseIndex,
-              date: date,
-              takenAt: dose.takenAt,
-            });
-          }
-        });
+    Object.entries(medication.doses).forEach(([date, dosesForDate]) => {
+      if (!Array.isArray(dosesForDate)) return;
+      dosesForDate.forEach((dose, doseIndex) => {
+        if (dose.taken && dose.takenAt) {
+          takenDoses.push({
+            id: `${medication.id}-${doseIndex}-${date}`,
+            medicationId: medication.id.toString(),
+            medication_name: medication.medication_name,
+            doseIndex: doseIndex,
+            date: date,
+            takenAt: dose.takenAt,
+          });
+        }
       });
     });
+  });
 
-    takenDoses.sort((a, b) => new Date(b.takenAt) - new Date(a.takenAt));
-    return limit > 0 ? takenDoses.slice(0, limit) : takenDoses;
-  } catch (error) {
-    console.error("Error fetching taken medication history from MySQL:", error);
-    throw new Error("Failed to fetch taken medication history");
-  }
+  takenDoses.sort((a, b) => new Date(b.takenAt) - new Date(a.takenAt));
+  return limit > 0 ? takenDoses.slice(0, limit) : takenDoses;
 };
 
-// Calculate medication adherence streak using MySQL medications table
 export const calculateMedicationStreak = async () => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
   const token = await user.getIdToken(true);
-  try {
-    const response = await authFetch("/medications/get-medications", {}, token);
-    if (!response || response.length === 0) {
-      return 0;
-    }
+  const response = await apiGet("/medications/get-medications", token);
+  if (!response || response.length === 0) {
+    return 0;
+  }
 
-    const takenTimestamps = [];
-    response.forEach((medication) => {
-      if (!medication.doses || typeof medication.doses !== "object") return;
+  const takenTimestamps = [];
+  response.forEach((medication) => {
+    if (!medication.doses || typeof medication.doses !== "object") return;
 
-      Object.values(medication.doses).forEach((dosesForDate) => {
-        if (!Array.isArray(dosesForDate)) return;
-        dosesForDate.forEach((dose) => {
-          if (dose.taken && dose.takenAt) {
-            takenTimestamps.push(dose.takenAt);
-          }
-        });
+    Object.values(medication.doses).forEach((dosesForDate) => {
+      if (!Array.isArray(dosesForDate)) return;
+      dosesForDate.forEach((dose) => {
+        if (dose.taken && dose.takenAt) {
+          takenTimestamps.push(dose.takenAt);
+        }
       });
     });
+  });
 
-    if (takenTimestamps.length === 0) {
-      return 0;
-    }
-
-    const takenDates = [...new Set(
-      takenTimestamps.map((timestamp) => new Date(timestamp).toISOString().split("T")[0])
-    )].sort();
-
-    let streak = 1;
-    for (let i = 1; i < takenDates.length; i++) {
-      const prevDate = new Date(takenDates[i - 1]);
-      const currDate = new Date(takenDates[i]);
-      const diffDays = (currDate - prevDate) / (1000 * 60 * 60 * 24);
-      if (diffDays === 1) {
-        streak++;
-      } else {
-        break;
-      }
-    }
-
-    return streak;
-  } catch (error) {
-    console.error("Error calculating medication streak:", error);
-    throw new Error("Failed to calculate medication streak");
+  if (takenTimestamps.length === 0) {
+    return 0;
   }
+
+  const takenDates = [...new Set(
+    takenTimestamps.map((timestamp) => new Date(timestamp).toISOString().split("T")[0])
+  )].sort();
+
+  let streak = 1;
+  for (let i = 1; i < takenDates.length; i++) {
+    const prevDate = new Date(takenDates[i - 1]);
+    const currDate = new Date(takenDates[i]);
+    const diffDays = (currDate - prevDate) / (1000 * 60 * 60 * 24);
+    if (diffDays === 1) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
 };
 
 // Fetching drug names from RxNorm API
-
-// Cache to store recent drug search results
 const drugSearchCache = new Map();
-// Cache to store minimal drug details
 const drugDetailsCache = new Map();
 
-// Function to simplify drug names
 const simplifyDrugName = (name) => {
   let simplified = name;
   let brandName = null;
@@ -554,13 +531,11 @@ const simplifyDrugName = (name) => {
   return { simplifiedName: simplified, brandName };
 };
 
-// Extract dosage from drug name (as a fallback)
 const extractDosageFromName = (name) => {
   const dosageMatch = name.match(/\d+\s*(MG|G|ML)/gi);
   return dosageMatch ? dosageMatch.join(" / ") : null;
 };
 
-// Get detailed drug information for MedicationDetailModal
 export const getDrugDetails = async (rxcui, fallbackName = "Unknown Drug") => {
   if (drugDetailsCache.has(rxcui)) {
     return drugDetailsCache.get(rxcui);
@@ -580,7 +555,6 @@ export const getDrugDetails = async (rxcui, fallbackName = "Unknown Drug") => {
       foodInteractions: [],
     };
 
-    // Step 1: Fetch basic properties from RxNorm
     const propertiesResponse = await fetch(
       `https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/allproperties.json`
     );
@@ -602,7 +576,6 @@ export const getDrugDetails = async (rxcui, fallbackName = "Unknown Drug") => {
       drugInfo.brandName = brandName;
     }
 
-    // Step 2: Fetch related concepts from RxNorm
     const relatedResponse = await fetch(
       `https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/allrelated.json`
     );
@@ -641,7 +614,6 @@ export const getDrugDetails = async (rxcui, fallbackName = "Unknown Drug") => {
       drugInfo.dosages = [extractDosageFromName(fallbackName) || "Not specified"].filter(Boolean);
     }
 
-    // Step 3: Fetch interactions from RxNorm
     const interactionResponse = await fetch(
       `https://rxnav.nlm.nih.gov/REST/interaction/interaction.json?rxcui=${rxcui}`
     );
@@ -659,9 +631,8 @@ export const getDrugDetails = async (rxcui, fallbackName = "Unknown Drug") => {
       console.warn(`Interactions not found for RxCUI ${rxcui}: ${interactionResponse.status}`);
     }
 
-    // Step 4: Fetch additional details from OpenFDA and map names
     const apiKey = "WkMLQgXOeQev5LZ35i4bOoNgdtaOgtA4p6jHFvHN";
-    const genericNameForOpenFDA = drugInfo.name.toUpperCase(); // Format for OpenFDA
+    const genericNameForOpenFDA = drugInfo.name.toUpperCase();
     let openFDABrandName = drugInfo.brandName;
     let openFDAGenericName = genericNameForOpenFDA;
 
@@ -674,39 +645,32 @@ export const getDrugDetails = async (rxcui, fallbackName = "Unknown Drug") => {
       if (openFDAData.results?.[0]) {
         const result = openFDAData.results[0];
 
-        // Map OpenFDA names
         openFDABrandName = result.openfda?.brand_name?.[0] || drugInfo.brandName || "Unknown Brand";
         openFDAGenericName = result.openfda?.generic_name?.[0] || genericNameForOpenFDA;
 
-        // Side Effects (adverse_reactions)
         drugInfo.sideEffects = result.adverse_reactions?.[0]
           ? result.adverse_reactions[0].split(/,\s*(?![^\(]*\))/).slice(0, 5)
           : [];
 
-        // Storage Instructions (storage_and_handling)
         drugInfo.storage = result.storage_and_handling?.[0] || "Store at room temperature.";
 
-        // Missed Dose Instructions (extract from dosage_and_administration)
         drugInfo.missedDose = result.dosage_and_administration?.[0]
           ? result.dosage_and_administration[0].match(/missed dose[^.]*\./i)?.[0] ||
             "Consult your doctor for missed dose instructions."
           : "Consult your doctor for missed dose instructions.";
 
-        // Food/Drink Interactions (food_effect or drug_interactions)
         drugInfo.foodInteractions = result.food_effect?.[0]
           ? result.food_effect[0].split(/,\s*(?![^\(]*\))/)
           : result.drug_interactions?.[0]?.match(/food|alcohol|grapefruit/i)
           ? [result.drug_interactions[0].match(/food|alcohol|grapefruit[^.]*\./i)[0]]
           : [];
 
-        // Usage Instructions (dosage_and_administration)
         drugInfo.usage = result.dosage_and_administration?.[0] || drugInfo.usage;
       }
     } else {
       console.warn(`OpenFDA data not found for RxCUI ${rxcui}: ${openFDAResponse.status}`);
     }
 
-    // Step 5: Prepare data for storage in OpenFDA-compatible format
     const medicationDataForStorage = {
       rxcui: rxcui,
       rxnorm_name: drugInfo.name,
@@ -722,7 +686,6 @@ export const getDrugDetails = async (rxcui, fallbackName = "Unknown Drug") => {
       description: drugInfo.description,
     };
 
-    // Cache the result
     if (drugDetailsCache.size > 500) {
       drugDetailsCache.clear();
     }
@@ -735,7 +698,6 @@ export const getDrugDetails = async (rxcui, fallbackName = "Unknown Drug") => {
   }
 };
 
-// Search drugs by name using RxNorm API (prioritize SCD and BN)
 export const searchDrugsByName = async (query) => {
   if (!query || query.length < 2) return [];
 
@@ -766,11 +728,11 @@ export const searchDrugsByName = async (query) => {
 
             return {
               id: drug.rxcui,
-              name: drug.name, // Raw RxNorm name
-              displayName: brandName || simplifiedName, // Prefer brand name, fall back to simplified generic
+              name: drug.name,
+              displayName: brandName || simplifiedName,
               type: group.tty || "Unknown",
               dosage,
-              brandName // Include for reference
+              brandName
             };
           })
         )
@@ -778,7 +740,6 @@ export const searchDrugsByName = async (query) => {
           index === self.findIndex(d => d.id === drug.id)
         );
 
-      // Sort to prioritize SCDs, then BNs, then by displayName
       medications.sort((a, b) => {
         if (a.type === "SCD" && b.type !== "SCD") return -1;
         if (a.type !== "SCD" && b.type === "SCD") return 1;
@@ -787,11 +748,9 @@ export const searchDrugsByName = async (query) => {
         return a.displayName.localeCompare(b.displayName);
       });
 
-      // Limit to 10 results
       medications = medications.slice(0, 10);
     }
 
-    // Update cache with a larger limit
     if (drugSearchCache.size > 500) {
       drugSearchCache.clear();
     }
@@ -816,56 +775,34 @@ export const createReminder = async (reminderData, token) => {
     type: reminderData.type || "single",
   };
 
-  console.log("Sending reminder data to server:", reminderEntry);
-
-  try {
-    const response = await api.post("/reminders/add", reminderEntry, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    const data = response.data;
-    if (!data.success) {
-      throw new Error(data.message || "Failed to create reminder");
-    }
-
-    const reminderId = data.reminder.id.toString();
-    const reminderPath = `reminders/${user.uid}/${reminderId}`;
-    const firebaseEntry = {
-      ...reminderEntry,
-      id: reminderId,
-      userId: user.uid,
-      status: "pending",
-      createdAt: new Date().toISOString(),
-    };
-    await retryWithBackoff(() => update(ref(database), { [reminderPath]: firebaseEntry }));
-
-    return { id: reminderId, ...firebaseEntry };
-  } catch (error) {
-    if (error.response?.data?.message) {
-      throw new Error(error.response.data.message);
-    }
-    throw new Error(error.message || "Failed to create reminder");
+  const response = await apiPost("/reminders/add", reminderEntry, token);
+  if (!response.success) {
+    throw new Error(response.message || "Failed to create reminder");
   }
+
+  const reminderId = response.reminder.id.toString();
+  const reminderPath = `reminders/${user.uid}/${reminderId}`;
+  const firebaseEntry = {
+    ...reminderEntry,
+    id: reminderId,
+    userId: user.uid,
+    status: "pending",
+    createdAt: new Date().toISOString(),
+  };
+  await retryWithBackoff(() => update(ref(database), { [reminderPath]: firebaseEntry }));
+
+  return { id: reminderId, ...firebaseEntry };
 };
 
 export const getUserReminders = async (token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  let remindersFromMySQL;
-  try {
-    const response = await api.get("/reminders/get-reminders", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = response.data;
-    if (!data.success) {
-      throw new Error(data.message || "Failed to fetch reminders from server");
-    }
-    remindersFromMySQL = data.reminders || [];
-  } catch (error) {
-    console.error("Error fetching reminders from MySQL:", error);
-    throw new Error(error.message || "Failed to fetch reminders from server");
+  const response = await apiGet("/reminders/get-reminders", token);
+  if (!response.success) {
+    throw new Error(response.message || "Failed to fetch reminders from server");
   }
+  const remindersFromMySQL = response.reminders || [];
 
   try {
     const updates = {};
@@ -911,24 +848,15 @@ export const deleteReminder = async (reminderId, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  try {
-    const response = await api.delete(`/reminders/delete/${reminderId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    const data = response.data;
-    if (!data.success) {
-      throw new Error(data.message || "Failed to delete reminder");
-    }
-
-    const reminderPath = `reminders/${user.uid}/${reminderId}`;
-    await retryWithBackoff(() => update(ref(database), { [reminderPath]: null }));
-
-    return { success: true, message: data.message };
-  } catch (error) {
-    console.error("Error deleting reminder:", error);
-    throw new Error(error.message || "Failed to delete reminder");
+  const response = await apiDelete(`/reminders/delete/${reminderId}`, token);
+  if (!response.success) {
+    throw new Error(response.message || "Failed to delete reminder");
   }
+
+  const reminderPath = `reminders/${user.uid}/${reminderId}`;
+  await retryWithBackoff(() => update(ref(database), { [reminderPath]: null }));
+
+  return { success: true, message: response.message };
 };
 
 export const updateReminderStatus = async (reminderId, status, token) => {
@@ -939,24 +867,15 @@ export const updateReminderStatus = async (reminderId, status, token) => {
     throw new Error("Status must be 'pending' or 'sent'");
   }
 
-  try {
-    const response = await api.put(`/reminders/update/${reminderId}/status`, { status }, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    const data = response.data;
-    if (!data.success) {
-      throw new Error(data.message || "Failed to update reminder status");
-    }
-
-    const reminderPath = `reminders/${user.uid}/${reminderId}`;
-    await retryWithBackoff(() => update(ref(database), { [reminderPath + "/status"]: status }));
-
-    return data.reminder;
-  } catch (error) {
-    console.error("Error updating reminder status:", error);
-    throw new Error(error.message || "Failed to update reminder status");
+  const response = await apiPut(`/reminders/update/${reminderId}/status`, { status }, token);
+  if (!response.success) {
+    throw new Error(response.message || "Failed to update reminder status");
   }
+
+  const reminderPath = `reminders/${user.uid}/${reminderId}`;
+  await retryWithBackoff(() => update(ref(database), { [reminderPath + "/status"]: status }));
+
+  return response.reminder;
 };
 
 export const updateReminder = async (reminderId, reminderData, token) => {
@@ -973,61 +892,44 @@ export const updateReminder = async (reminderId, reminderData, token) => {
     throw new Error("Invalid reminder data format");
   }
 
-  try {
-    const response = await api.put(
-      `/reminders/update/${reminderId}`,
-      {
+  const response = await apiPut(`/reminders/update/${reminderId}`, {
+    reminderTime: reminderData.reminderTime,
+    date: reminderData.date,
+    type: reminderData.type,
+    status: reminderData.status || "pending",
+  }, token);
+  if (!response.success) {
+    throw new Error(response.message || "Failed to update reminder");
+  }
+
+  const reminderPath = `reminders/${user.uid}/${reminderId}`;
+  await retryWithBackoff(() =>
+    update(ref(database), {
+      [reminderPath]: {
+        id: reminderId,
+        userId: user.uid,
+        medicationId: reminderData.medicationId,
+        doseIndex: reminderData.doseIndex,
         reminderTime: reminderData.reminderTime,
         date: reminderData.date,
         type: reminderData.type,
         status: reminderData.status || "pending",
+        createdAt: reminderData.createdAt || new Date().toISOString(),
       },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
+    })
+  );
 
-    const data = response.data;
-    if (!data.success) {
-      throw new Error(data.message || "Failed to update reminder");
-    }
-
-    const reminderPath = `reminders/${user.uid}/${reminderId}`;
-    await retryWithBackoff(() =>
-      update(ref(database), {
-        [reminderPath]: {
-          id: reminderId,
-          userId: user.uid,
-          medicationId: reminderData.medicationId,
-          doseIndex: reminderData.doseIndex,
-          reminderTime: reminderData.reminderTime,
-          date: reminderData.date,
-          type: reminderData.type,
-          status: reminderData.status || "pending",
-          createdAt: reminderData.createdAt || new Date().toISOString(),
-        },
-      })
-    );
-
-    return data.reminder;
-  } catch (error) {
-    console.error("Error updating reminder:", error);
-    throw new Error(error.message || "Failed to update reminder");
-  }
+  return response.reminder;
 };
 
 export const saveFcmToken = async (token, fcmToken) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  try {
-    // Update Firebase
-    await update(ref(database), {
-      [`users/${user.uid}/fcm_token`]: fcmToken,
-    });
-    return { success: true };
-  } catch (error) {
-    console.error("Error saving FCM token:", error);
-    throw new Error("Failed to save FCM token");
-  }
+  await retryWithBackoff(() =>
+    update(ref(database), { [`users/${user.uid}/fcm_token`]: fcmToken })
+  );
+  return { success: true };
 };
 
 // Exercise API
@@ -1035,22 +937,17 @@ export const createExercise = async (exerciseData, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  // Validate exercise data
   const exerciseEntry = {
     userId: user.uid,
     activity: exerciseData.activity,
     duration: exerciseData.duration,
     calories_burned: exerciseData.calories_burned,
-    date_logged: exerciseData.date_logged
+    date_logged: exerciseData.date_logged,
   };
 
-  // Sync with MySQL
-  const response = await api.post("/exercises/add", exerciseEntry, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await apiPost("/exercises/add", exerciseEntry, token);
 
-  // Write to Firebase with a single update
-  const exerciseId = response.data.id.toString();
+  const exerciseId = response.id.toString();
   const exercisePath = `exercises/${user.uid}/${exerciseId}`;
   const firebaseEntry = {
     ...exerciseEntry,
@@ -1058,18 +955,15 @@ export const createExercise = async (exerciseData, token) => {
   };
   await retryWithBackoff(() => update(ref(database), { [exercisePath]: firebaseEntry }));
 
-  return response.data;
+  return response;
 };
 
 export const getUserExercises = async (token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  // Fetch from MySQL
-  const response = await authFetch("/exercises/get-exercises", {}, token);
-  const exercisesFromMySQL = response;
+  const exercisesFromMySQL = await apiGet("/exercises/get-exercises", token);
 
-  // Update Firebase with the latest data from MySQL
   const updates = {};
   exercisesFromMySQL.forEach((exercise) => {
     const exercisePath = `exercises/${user.uid}/${exercise.id}`;
@@ -1079,7 +973,7 @@ export const getUserExercises = async (token) => {
       activity: exercise.activity,
       duration: exercise.duration,
       calories_burned: exercise.calories_burned,
-      date_logged: exercise.date_logged
+      date_logged: exercise.date_logged,
     };
   });
   await retryWithBackoff(() => update(ref(database), updates));
@@ -1104,38 +998,30 @@ const updateExerciseDebounced = debounce((userId, id, exerciseData) => {
 export const updateExercise = async (id, exerciseData, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
-  const response = await api.put(`/exercises/update/${id}`, exerciseData, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+
+  const response = await apiPut(`/exercises/update/${id}`, exerciseData, token);
   updateExerciseDebounced(user.uid, id, exerciseData);
-  return response.data;
+  return response;
 };
 
 export const deleteExercise = async (id, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  // Sync with MySQL
-  const response = await api.delete(`/exercises/delete/${id}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await apiDelete(`/exercises/delete/${id}`, token);
 
-  // Delete in Firebase with a single request
   const exercisePath = `exercises/${user.uid}/${id}`;
   await retryWithBackoff(() => update(ref(database), { [exercisePath]: null }));
 
-  return response.data;
+  return response;
 };
 
 export const getExerciseStats = async (token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  // Fetch from MySQL
-  const response = await authFetch("/exercises/exercise-stats", {}, token);
-  const stats = response;
+  const stats = await apiGet("/exercises/exercise-stats", token);
 
-  // Update Firebase
   const statsPath = `exercise_stats/${user.uid}`;
   await retryWithBackoff(() => update(ref(database), { [statsPath]: stats }));
 
@@ -1159,41 +1045,38 @@ export const createFoodLog = async (foodData, token, onProgress = () => {}) => {
     formData.append('image', foodData.get('image'));
   }
 
-  try {
-    const response = await authFetch("/food-logs/add", {
-      method: "POST",
-      body: formData,
-    }, token);
+  const response = await apiPost("/food-logs/add", formData, token, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: (progressEvent) => {
+      const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+      onProgress(percentCompleted);
+    },
+  });
 
-    const foodId = response.id.toString();
-    const foodPath = `food_logs/${user.uid}/${foodId}`;
-    const firebaseEntry = {
-      userId: user.uid,
-      food_name: response.food_name,
-      calories: response.calories,
-      carbs: response.carbs,
-      protein: response.protein,
-      fats: response.fats,
-      image_data: response.image_data || null, // Use image_data from server
-      date_logged: response.date_logged,
-      meal_type: response.meal_type,
-      id: foodId,
-    };
+  const foodId = response.id.toString();
+  const foodPath = `food_logs/${user.uid}/${foodId}`;
+  const firebaseEntry = {
+    userId: user.uid,
+    food_name: response.food_name,
+    calories: response.calories,
+    carbs: response.carbs,
+    protein: response.protein,
+    fats: response.fats,
+    image_data: response.image_data || null,
+    date_logged: response.date_logged,
+    meal_type: response.meal_type,
+    id: foodId,
+  };
 
-    await retryWithBackoff(() => update(ref(database), { [foodPath]: firebaseEntry }));
-    return response;
-  } catch (error) {
-    console.error("Error creating food log:", error);
-    throw new Error(error.message || "Failed to create food log");
-  }
+  await retryWithBackoff(() => update(ref(database), { [foodPath]: firebaseEntry }));
+  return response;
 };
 
 export const getUserFoodLogs = async (token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  const response = await authFetch("/food-logs/get-food-logs", {}, token);
-  const foodLogsFromMySQL = response;
+  const foodLogsFromMySQL = await apiGet("/food-logs/get-food-logs", token);
 
   const updates = {};
   foodLogsFromMySQL.forEach((foodLog) => {
@@ -1206,7 +1089,7 @@ export const getUserFoodLogs = async (token) => {
       carbs: foodLog.carbs,
       protein: foodLog.protein,
       fats: foodLog.fats,
-      image_data: foodLog.image_data || null, // Use image_data from server, default to null
+      image_data: foodLog.image_data || null,
       date_logged: foodLog.date_logged,
       meal_type: foodLog.meal_type,
     };
@@ -1227,7 +1110,7 @@ const updateFoodLogDebounced = debounce((userId, id, foodData) => {
       carbs: foodData.carbs,
       protein: foodData.protein,
       fats: foodData.fats,
-      image_url: foodData.image_url,
+      image_url: foodData.image_data || null,
       date_logged: foodData.date_logged,
       meal_type: foodData.meal_type,
     },
@@ -1250,47 +1133,41 @@ export const updateFoodLog = async (id, foodData, imageFile, token) => {
     formData.append('image', imageFile);
   }
 
-  try {
-    const response = await authFetch(`/food-logs/update/${id}`, {
-      method: "PUT",
-      body: formData,
-    }, token);
+  const response = await apiPut(`/food-logs/update/${id}`, formData, token, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
 
-    const foodPath = `food_logs/${user.uid}/${id}`;
-    const snapshot = await get(ref(database, foodPath));
-    if (snapshot.exists()) {
-      const existingData = snapshot.val();
-      const hasChanges = JSON.stringify(existingData) !== JSON.stringify({
-        ...existingData,
-        food_name: response.food_name,
-        calories: response.calories,
-        carbs: response.carbs,
-        protein: response.protein,
-        fats: response.fats,
-        image_data: response.image_data || null, // Use image_data from server
-        date_logged: response.date_logged,
-        meal_type: response.meal_type,
+  const foodPath = `food_logs/${user.uid}/${id}`;
+  const snapshot = await get(ref(database, foodPath));
+  if (snapshot.exists()) {
+    const existingData = snapshot.val();
+    const hasChanges = JSON.stringify(existingData) !== JSON.stringify({
+      ...existingData,
+      food_name: response.food_name,
+      calories: response.calories,
+      carbs: response.carbs,
+      protein: response.protein,
+      fats: response.fats,
+      image_data: response.image_data || null,
+      date_logged: response.date_logged,
+      meal_type: response.meal_type,
+    });
+    if (hasChanges) {
+      updateFoodLogDebounced(user.uid, id, {
+        ...response,
+        image_data: response.image_data || null,
       });
-      if (hasChanges) {
-        updateFoodLogDebounced(user.uid, id, {
-          ...response,
-          image_data: response.image_data || null,
-        });
-      }
     }
-
-    return response;
-  } catch (error) {
-    console.error("Error updating food log:", error);
-    throw error;
   }
+
+  return response;
 };
 
 export const deleteFoodLog = async (id, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  const response = await authFetch(`/food-logs/delete/${id}`, { method: "DELETE" }, token);
+  const response = await apiDelete(`/food-logs/delete/${id}`, token);
 
   const foodPath = `food_logs/${user.uid}/${id}`;
   await retryWithBackoff(() => update(ref(database), { [foodPath]: null }));
@@ -1302,8 +1179,7 @@ export const getFoodStats = async (token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  const response = await authFetch("/food-logs/food-stats", {}, token);
-  const stats = response;
+  const stats = await apiGet("/food-logs/food-stats", token);
 
   const statsPath = `food_stats/${user.uid}`;
   await retryWithBackoff(() => update(ref(database), { [statsPath]: stats }));
@@ -1315,20 +1191,12 @@ export const copyFoodLog = async (id, newDate, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  const response = await authFetch(
-    "/food-logs/copy",
-    {
-      method: "POST",
-      body: JSON.stringify({ id, newDate }),
-    },
-    token
-  );
+  const response = await apiPost("/food-logs/copy", { id, newDate }, token);
 
   const foodPath = `food_logs/${user.uid}/${response.id}`;
-  await retryWithBackoff(() => update(ref(database), { [foodPath]: {
-    ...response,
-    image_data: response.image_data || null, // Use image_data from server
-  }}));
+  await retryWithBackoff(() => update(ref(database), {
+    [foodPath]: { ...response, image_data: response.image_data || null },
+  }));
 
   return response;
 };
@@ -1413,16 +1281,14 @@ export const clusterEatingPatterns = async (token) => {
     };
   }).filter(data => data !== null);
 
-  const k = 3; // Number of clusters
+  const k = 3;
   const centroids = [];
   const featureVectors = userData.map(d => d.features);
 
-  // Initialize centroids randomly
   for (let i = 0; i < k; i++) {
     centroids.push(featureVectors[Math.floor(Math.random() * featureVectors.length)]);
   }
 
-  // K-Means clustering
   let clusters = new Array(featureVectors.length).fill(0);
   let changed = true;
   const maxIterations = 100;
@@ -1432,7 +1298,6 @@ export const clusterEatingPatterns = async (token) => {
     changed = false;
     const newClusters = [];
 
-    // Assign points to nearest centroid
     for (let i = 0; i < featureVectors.length; i++) {
       let minDist = Infinity;
       let cluster = 0;
@@ -1455,7 +1320,6 @@ export const clusterEatingPatterns = async (token) => {
 
     clusters = newClusters;
 
-    // Update centroids
     for (let j = 0; j < k; j++) {
       const clusterPoints = featureVectors.filter((_, idx) => clusters[idx] === j);
       if (clusterPoints.length > 0) {
@@ -1489,18 +1353,12 @@ export const predictCaloricIntake = async (token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  try {
-    const response = await authFetch("/food-logs/predict-calories", {}, token);
-    const predictions = response;
+  const predictions = await apiGet("/food-logs/predict-calories", token);
 
-    const predictionsPath = `calorie_predictions/${user.uid}`;
-    await retryWithBackoff(() => update(ref(database), { [predictionsPath]: predictions }));
+  const predictionsPath = `calorie_predictions/${user.uid}`;
+  await retryWithBackoff(() => update(ref(database), { [predictionsPath]: predictions }));
 
-    return predictions;
-  } catch (error) {
-    console.error("Error predicting caloric intake:", error);
-    throw new Error(error.message || "Failed to predict caloric intake");
-  }
+  return predictions;
 };
 
 // Helper to validate and normalize response
@@ -1517,417 +1375,185 @@ const normalizeResponse = (response, resourceKey) => {
   };
 };
 
-// Users
+// Admin APIs
 export const getAllAdminUsers = async (token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
-  try {
-    const response = await authFetch(
-      `/admin/users?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
-      {},
-      token
-    );
-    return normalizeResponse(response, "users");
-  } catch (error) {
-    console.error("getAllAdminUsers error:", error);
-    throw error;
-  }
+  const response = await apiGet(
+    `/admin/users?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+    token
+  );
+  return normalizeResponse(response, "users");
 };
 
 export const searchAdminUsers = async (query, token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
   if (!query || query.length < 2) throw new Error("Query must be at least 2 characters long");
-  try {
-    const response = await authFetch(
-      `/admin/users/search?query=${encodeURIComponent(query)}&page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
-      {},
-      token
-    );
-    return normalizeResponse(response, "users");
-  } catch (error) {
-    console.error("searchAdminUsers error:", error);
-    throw error;
-  }
+  const response = await apiGet(
+    `/admin/users/search?query=${encodeURIComponent(query)}&page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+    token
+  );
+  return normalizeResponse(response, "users");
 };
 
 export const deleteSelectedAdminUsers = async (uids, token) => {
   if (!Array.isArray(uids) || uids.length === 0) throw new Error("Invalid or empty UIDs array");
-  try {
-    const response = await authFetch(
-      "/admin/users/delete",
-      {
-        method: "POST",
-        body: JSON.stringify({ uids }),
-      },
-      token
-    );
-    return response; // Expecting { message: "Selected users deleted successfully" }
-  } catch (error) {
-    console.error("deleteSelectedAdminUsers error:", error);
-    throw error;
-  }
+  return apiPost("/admin/users/delete", { uids }, token);
 };
 
-// Medications
 export const getAllAdminMedications = async (token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
-  try {
-    const response = await authFetch(
-      `/admin/medications?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
-      {},
-      token
-    );
-    return normalizeResponse(response, "medications");
-  } catch (error) {
-    console.error("getAllAdminMedications error:", error);
-    throw error;
-  }
+  const response = await apiGet(
+    `/admin/medications?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+    token
+  );
+  return normalizeResponse(response, "medications");
 };
 
 export const searchAdminMedications = async (query, token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
   if (!query || query.length < 2) throw new Error("Query must be at least 2 characters long");
-  try {
-    const response = await authFetch(
-      `/admin/medications/search?query=${encodeURIComponent(query)}&page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
-      {},
-      token
-    );
-    return normalizeResponse(response, "medications");
-  } catch (error) {
-    console.error("searchAdminMedications error:", error);
-    throw error;
-  }
+  const response = await apiGet(
+    `/admin/medications/search?query=${encodeURIComponent(query)}&page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+    token
+  );
+  return normalizeResponse(response, "medications");
 };
 
 export const getAdminMedicationAdherence = async (token) => {
-  try {
-    const response = await authFetch("/admin/medications/adherence", {}, token);
-    return response; // Expecting { totalDoses, takenDoses, adherenceRate }
-  } catch (error) {
-    console.error("getAdminMedicationAdherence error:", error);
-    throw error;
-  }
+  return apiGet("/admin/medications/adherence", token);
 };
 
 export const deleteSelectedAdminMedications = async (ids, token) => {
   if (!Array.isArray(ids) || ids.length === 0) throw new Error("Invalid or empty IDs array");
-  try {
-    const response = await authFetch(
-      "/admin/medications/delete",
-      {
-        method: "POST",
-        body: JSON.stringify({ ids }),
-      },
-      token
-    );
-    return response; // Expecting { message: "Selected medications deleted successfully" }
-  } catch (error) {
-    console.error("deleteSelectedAdminMedications error:", error);
-    throw error;
-  }
+  return apiPost("/admin/medications/delete", { ids }, token);
 };
 
-// Reminders
 export const getAllAdminReminders = async (token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
-  try {
-    const response = await authFetch(
-      `/admin/reminders?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
-      {},
-      token
-    );
-    return normalizeResponse(response, "reminders");
-  } catch (error) {
-    console.error("getAllAdminReminders error:", error);
-    throw error;
-  }
+  const response = await apiGet(
+    `/admin/reminders?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+    token
+  );
+  return normalizeResponse(response, "reminders");
 };
 
 export const searchAdminReminders = async (query, token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
   if (!query || query.length < 2) throw new Error("Query must be at least 2 characters long");
-  try {
-    const response = await authFetch(
-      `/admin/reminders/search?query=${encodeURIComponent(query)}&page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
-      {},
-      token
-    );
-    return normalizeResponse(response, "reminders");
-  } catch (error) {
-    console.error("searchAdminReminders error:", error);
-    throw error;
-  }
+  const response = await apiGet(
+    `/admin/reminders/search?query=${encodeURIComponent(query)}&page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+    token
+  );
+  return normalizeResponse(response, "reminders");
 };
 
 export const updateAdminReminderStatus = async (reminderId, status, token) => {
   if (!["pending", "sent"].includes(status)) throw new Error("Status must be 'pending' or 'sent'");
-  try {
-    const response = await authFetch(
-      `/admin/reminders/${reminderId}/status`,
-      {
-        method: "PUT",
-        body: JSON.stringify({ status }),
-      },
-      token
-    );
-    return response; // Expecting { message: "Reminder status updated" }
-  } catch (error) {
-    console.error("updateAdminReminderStatus error:", error);
-    throw error;
-  }
+  return apiPut(`/admin/reminders/${reminderId}/status`, { status }, token);
 };
 
 export const deleteSelectedAdminReminders = async (ids, token) => {
   if (!Array.isArray(ids) || ids.length === 0) throw new Error("Invalid or empty IDs array");
-  try {
-    const response = await authFetch(
-      "/admin/reminders/delete",
-      {
-        method: "POST",
-        body: JSON.stringify({ ids }),
-      },
-      token
-    );
-    return response; // Expecting { message: "Selected reminders deleted successfully" }
-  } catch (error) {
-    console.error("deleteSelectedAdminReminders error:", error);
-    throw error;
-  }
+  return apiPost("/admin/reminders/delete", { ids }, token);
 };
 
-// Food Logs
 export const getAllAdminFoodLogs = async (token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
-  try {
-    const response = await authFetch(
-      `/admin/food-logs?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
-      {},
-      token
-    );
-    return normalizeResponse(response, "foodLogs");
-  } catch (error) {
-    console.error("getAllAdminFoodLogs error:", error);
-    throw error;
-  }
+  const response = await apiGet(
+    `/admin/food-logs?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+    token
+  );
+  return normalizeResponse(response, "foodLogs");
 };
 
 export const searchAdminFoodLogs = async (query, token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
   if (!query || query.length < 2) throw new Error("Query must be at least 2 characters long");
-  try {
-    const response = await authFetch(
-      `/admin/food-logs/search?query=${encodeURIComponent(query)}&page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
-      {},
-      token
-    );
-    return normalizeResponse(response, "foodLogs");
-  } catch (error) {
-    console.error("searchAdminFoodLogs error:", error);
-    throw error;
-  }
+  const response = await apiGet(
+    `/admin/food-logs/search?query=${encodeURIComponent(query)}&page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+    token
+  );
+  return normalizeResponse(response, "foodLogs");
 };
 
 export const getAdminFoodStats = async (token) => {
-  try {
-    const response = await authFetch("/admin/food-logs/stats", {}, token);
-    return response; // Expecting { totalFoodLogs, avgCalories, avgCarbs, avgProtein, avgFats }
-  } catch (error) {
-    console.error("getAdminFoodStats error:", error);
-    throw error;
-  }
+  return apiGet("/admin/food-logs/stats", token);
 };
 
 export const deleteSelectedAdminFoodLogs = async (ids, token) => {
   if (!Array.isArray(ids) || ids.length === 0) throw new Error("Invalid or empty IDs array");
-  try {
-    const response = await authFetch(
-      "/admin/food-logs/delete",
-      {
-        method: "POST",
-        body: JSON.stringify({ ids }),
-      },
-      token
-    );
-    return response; // Expecting { message: "Selected food logs deleted successfully" }
-  } catch (error) {
-    console.error("deleteSelectedAdminFoodLogs error:", error);
-    throw error;
-  }
+  return apiPost("/admin/food-logs/delete", { ids }, token);
 };
 
-// Exercises
 export const getAllAdminExercises = async (token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
-  try {
-    const response = await authFetch(
-      `/admin/exercises?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
-      {},
-      token
-    );
-    return normalizeResponse(response, "exercises");
-  } catch (error) {
-    console.error("getAllAdminExercises error:", error);
-    throw error;
-  }
+  const response = await apiGet(
+    `/admin/exercises?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+    token
+  );
+  return normalizeResponse(response, "exercises");
 };
 
 export const getAdminExerciseStats = async (token) => {
-  try {
-    const response = await authFetch("/admin/exercises/stats", {}, token);
-    return response; // Expecting { totalExercises, avgDuration, avgCaloriesBurned }
-  } catch (error) {
-    console.error("getAdminExerciseStats error:", error);
-    throw error;
-  }
+  return apiGet("/admin/exercises/stats", token);
 };
 
 export const searchAdminExercises = async (query, token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
   if (!query || query.length < 2) throw new Error("Query must be at least 2 characters long");
-  try {
-    const response = await authFetch(
-      `/admin/exercises/search?query=${encodeURIComponent(query)}&page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
-      {},
-      token
-    );
-    return normalizeResponse(response, "exercises");
-  } catch (error) {
-    console.error("searchAdminExercises error:", error);
-    throw error;
-  }
+  const response = await apiGet(
+    `/admin/exercises/search?query=${encodeURIComponent(query)}&page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+    token
+  );
+  return normalizeResponse(response, "exercises");
 };
 
 export const deleteSelectedAdminExercises = async (ids, token) => {
   if (!Array.isArray(ids) || ids.length === 0) throw new Error("Invalid or empty IDs array");
-  try {
-    const response = await authFetch(
-      "/admin/exercises/delete",
-      {
-        method: "POST",
-        body: JSON.stringify({ ids }),
-      },
-      token
-    );
-    return response; // Expecting { message: "Selected exercises deleted successfully" }
-  } catch (error) {
-    console.error("deleteSelectedAdminExercises error:", error);
-    throw error;
-  }
+  return apiPost("/admin/exercises/delete", { ids }, token);
 };
 
-// System Settings
 export const getAdminSystemSettings = async (token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
-  try {
-    const response = await authFetch(
-      `/admin/settings?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
-      {},
-      token
-    );
-    return normalizeResponse(response, "settings");
-  } catch (error) {
-    console.error("getAdminSystemSettings error:", error);
-    throw error;
-  }
+  const response = await apiGet(
+    `/admin/settings?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+    token
+  );
+  return normalizeResponse(response, "settings");
 };
 
 export const searchAdminSystemSettings = async (query, token, limit, page, sortConfig = { key: "", direction: "asc" }) => {
   if (!query || query.length < 2) throw new Error("Query must be at least 2 characters long");
-  try {
-    const response = await authFetch(
-      `/admin/settings/search?query=${encodeURIComponent(query)}&page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
-      {},
-      token
-    );
-    return normalizeResponse(response, "settings");
-  } catch (error) {
-    console.error("searchAdminSystemSettings error:", error);
-    throw error;
-  }
+  const response = await apiGet(
+    `/admin/settings/search?query=${encodeURIComponent(query)}&page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`,
+    token
+  );
+  return normalizeResponse(response, "settings");
 };
 
 export const updateAdminSystemSettings = async (settingKey, settingValue, token) => {
-  try {
-    const response = await authFetch(
-      "/admin/settings",
-      {
-        method: "PUT",
-        body: JSON.stringify({ settingKey, settingValue }),
-      },
-      token
-    );
-    return response; // Expecting { message: "System setting updated" }
-  } catch (error) {
-    console.error("updateAdminSystemSettings error:", error);
-    throw error;
-  }
+  return apiPut("/admin/settings", { settingKey, settingValue }, token);
 };
 
 export const deleteAdminSetting = async (settingKey, token) => {
-  try {
-    const response = await authFetch(
-      `/admin/settings/${encodeURIComponent(settingKey)}`,
-      { method: "DELETE" },
-      token
-    );
-    return response; // Expecting { message: "Setting deleted" }
-  } catch (error) {
-    console.error("deleteAdminSetting error:", error);
-    throw error;
-  }
+  return apiDelete(`/admin/settings/${encodeURIComponent(settingKey)}`, token);
 };
 
 export const deleteSelectedAdminSettings = async (settingKeys, token) => {
   if (!Array.isArray(settingKeys) || settingKeys.length === 0) throw new Error("Invalid or empty setting keys array");
-  try {
-    const response = await authFetch(
-      "/admin/settings/delete",
-      {
-        method: "POST",
-        body: JSON.stringify({ settingKeys }),
-      },
-      token
-    );
-    return response; // Expecting { message: "Selected settings deleted successfully" }
-  } catch (error) {
-    console.error("deleteSelectedAdminSettings error:", error);
-    throw error;
-  }
+  return apiPost("/admin/settings/delete", { settingKeys }, token);
 };
 
-// Analytics
 export const getAdminUserActivityTrends = async (token) => {
-  try {
-    const response = await authFetch("/admin/analytics/user-activity", {}, token);
-    return response; // Expecting [{ date, activeUsers }, ...]
-  } catch (error) {
-    console.error("getAdminUserActivityTrends error:", error);
-    throw error;
-  }
+  return apiGet("/admin/analytics/user-activity", token);
 };
 
-// Data Export
 export const exportAdminData = async (table, token) => {
   const validTables = ["users", "medications", "reminders", "food_logs", "exercises"];
   if (!validTables.includes(table)) throw new Error("Invalid table name");
-  try {
-    const response = await fetch(`${API_BASE_URL}/admin/export/${table}`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "text/csv",
-      },
-    });
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: "An unknown error occurred" }));
-      throw new Error(errorData.error || `Request failed with status ${response.status}`);
-    }
-    return await response.text(); // CSV content
-  } catch (error) {
-    console.error("exportAdminData error:", error);
-    throw error;
-  }
+  const response = await api.get(`/admin/export/${table}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "text/csv",
+    },
+    responseType: 'text',
+  });
+  return response.data;
 };
 
-// Audit Logs
 export const getAdminAuditLogs = async (token, limit, page, sortConfig = { key: "", direction: "asc" }, query = "") => {
-  try {
-    const url = query
-      ? `/admin/audit-logs?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}&query=${encodeURIComponent(query)}`
-      : `/admin/audit-logs?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`;
-    const response = await authFetch(url, {}, token);
-    return normalizeResponse(response, "logs");
-  } catch (error) {
-    console.error("getAdminAuditLogs error:", error);
-    throw error;
-  }
+  const url = query
+    ? `/admin/audit-logs?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}&query=${encodeURIComponent(query)}`
+    : `/admin/audit-logs?page=${page}&pageSize=${limit}&sortKey=${sortConfig.key}&sortDirection=${sortConfig.direction}`;
+  const response = await apiGet(url, token);
+  return normalizeResponse(response, "logs");
 };
