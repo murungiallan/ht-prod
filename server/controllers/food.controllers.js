@@ -121,19 +121,37 @@ class FoodDiaryController {
   }
 
   static async getUserFoodLogs(req, res) {
-    logToFile(`Starting getUserFoodLogs for user ${req.user.uid}`);
+    logToFile(`Starting getUserFoodLogs for user ${req.user?.uid || "unknown"}`);
     try {
+      if (!req.user || !req.user.uid) {
+        logToFile("Missing or invalid user authentication", "ERROR");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
       const firebaseUid = req.user.uid;
-      const [userRows] = await db.query("SELECT id FROM users WHERE uid = ?", [firebaseUid]);
+  
+      let userRows;
+      try {
+        [userRows] = await db.query("SELECT id FROM users WHERE uid = ?", [firebaseUid]);
+      } catch (dbError) {
+        logToFile(`Database query error: ${dbError.message}\n${dbError.stack}`, "ERROR");
+        return res.status(500).json({ error: "Database query failed" });
+      }
+  
       if (!userRows || userRows.length === 0) {
         logToFile(`User not found for uid: ${firebaseUid}`, "ERROR");
         return res.status(404).json({ error: "User not found in the database" });
       }
       const userId = userRows[0].id;
-
-      const foodLogs = await FoodDiary.getByUser(userId);
+  
+      let foodLogs;
+      try {
+        foodLogs = await FoodDiary.getByUser(userId);
+      } catch (dbError) {
+        logToFile(`Error fetching food logs: ${dbError.message}\n${dbError.stack}`, "ERROR");
+        return res.status(500).json({ error: "Failed to fetch food logs from database" });
+      }
       logToFile(`Retrieved ${foodLogs.length} food logs for user ${userId}`);
-
+  
       const processedLogs = await Promise.all(
         foodLogs.map(async (log) => {
           let imageData = null;
@@ -144,6 +162,8 @@ class FoodDiaryController {
               if (fs.existsSync(filePath)) {
                 const fileBuffer = fs.readFileSync(filePath);
                 imageData = `data:image/jpeg;base64,${fileBuffer.toString("base64")}`;
+              } else {
+                logToFile(`Image file not found: ${filePath}`, "WARN");
               }
             } catch (err) {
               logToFile(`Error reading image for log ${log.id}: ${err.message}`, "ERROR");
@@ -157,28 +177,32 @@ class FoodDiaryController {
           };
         })
       );
-
+  
       if (processedLogs.length > 0) {
-        const updates = {};
-        processedLogs.forEach((log) => {
-          updates[`food_logs/${firebaseUid}/${log.id}`] = {
-            id: log.id,
-            userId: log.user_id,
-            food_name: log.food_name,
-            calories: log.calories,
-            carbs: log.carbs,
-            protein: log.protein,
-            fats: log.fats,
-            image_data: log.image_data,
-            date_logged: log.date_logged.toISOString(),
-            meal_type: log.meal_type,
-            createdAt: log.createdAt ? log.createdAt.toISOString() : new Date().toISOString(),
-          };
-        });
-        await firebaseDb.ref().update(updates);
-        logToFile(`Firebase sync completed for ${processedLogs.length} food logs`);
+        try {
+          const updates = {};
+          processedLogs.forEach((log) => {
+            updates[`food_logs/${firebaseUid}/${log.id}`] = {
+              id: log.id,
+              userId: log.user_id,
+              food_name: log.food_name,
+              calories: log.calories,
+              carbs: log.carbs,
+              protein: log.protein,
+              fats: log.fats,
+              image_data: log.image_data,
+              date_logged: log.date_logged.toISOString(),
+              meal_type: log.meal_type,
+              createdAt: log.createdAt ? log.createdAt.toISOString() : new Date().toISOString(),
+            };
+          });
+          await firebaseDb.ref().update(updates);
+          logToFile(`Firebase sync completed for ${processedLogs.length} food logs`);
+        } catch (firebaseError) {
+          logToFile(`Firebase sync error: ${firebaseError.message}\n${firebaseError.stack}`, "ERROR");
+        }
       }
-
+  
       return res.status(200).json(processedLogs);
     } catch (error) {
       logToFile(`Error getting food logs: ${error.message}\n${error.stack}`, "ERROR");
