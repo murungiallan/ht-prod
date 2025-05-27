@@ -259,6 +259,7 @@ const MedicationTracker = () => {
   const getDoseStatus = useCallback((med, doseIndex, date = selectedDate) => {
     if (typeof doseIndex !== "number" || doseIndex < 0) {
       console.error(`Invalid doseIndex for medication ${med.id}: ${doseIndex}`);
+      // return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false };
     }
   
     const dateKey = moment(date).format("YYYY-MM-DD");
@@ -271,7 +272,7 @@ const MedicationTracker = () => {
   
     if (!doses[doseIndex]) {
       console.log(`Dose not found for medication ${med.id}, doseIndex ${doseIndex}`);
-      return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false };
+      // return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false };
     }
   
     const dose = doses[doseIndex];
@@ -381,18 +382,29 @@ const MedicationTracker = () => {
       const token = await getUserToken();
       const meds = await getUserMedications(token);
   
-      // Validate medications
-      const validMeds = meds.filter((med) => {
-        if (!Array.isArray(med.times) || med.times.length === 0) {
-          console.error(`Invalid times for medication ${med.id}: ${med.times}`);
-          return false;
-        }
-        if (!med.doses || typeof med.doses !== "object") {
-          console.error(`Invalid doses for medication ${med.id}: ${med.doses}`);
-          return false;
-        }
-        return true;
-      });
+      // Validate and process medications
+      const validMeds = meds
+        .filter((med) => {
+          if (!Array.isArray(med.times) || med.times.length === 0) {
+            console.error(`Invalid times for medication ${med.id}: ${med.times}`);
+            return false;
+          }
+          if (!med.doses || typeof med.doses !== "object") {
+            console.error(`Invalid doses for medication ${med.id}: ${med.doses}`);
+            return false;
+          }
+          return true;
+        })
+        .map((med) => {
+          const updatedDoses = {};
+          Object.keys(med.doses || {}).forEach((date) => {
+            updatedDoses[date] = med.doses[date].map((dose, index) => ({
+              ...dose,
+              doseIndex: dose.doseIndex !== undefined ? dose.doseIndex : index,
+            }));
+          });
+          return { ...med, doses: updatedDoses };
+        });
   
       const uniqueMeds = Array.from(
         new Map(
@@ -874,11 +886,11 @@ const MedicationTracker = () => {
   }, [medications, user, handleSessionExpired]);
 
   const checkDosesForPrompt = useCallback(() => {
-    if (!user) return;
-
+    if (!user || !medications.length) return;
+  
     const now = moment().local();
     const currentDateKey = now.format("YYYY-MM-DD");
-
+  
     for (const med of medications) {
       const doses = med.doses?.[currentDateKey] || med.times.map((time) => ({
         time,
@@ -886,16 +898,16 @@ const MedicationTracker = () => {
         missed: false,
         takenAt: null,
       }));
-
+  
       for (let doseIndex = 0; doseIndex < doses.length; doseIndex++) {
         const dose = doses[doseIndex];
-        const { isTaken, isMissed, isWithinWindow } = getDoseStatus(med, new Date(), doseIndex);
+        const { isTaken, isMissed, isWithinWindow } = getDoseStatus(med, doseIndex, new Date());
         const doseKey = `${med.id}-${currentDateKey}-${doseIndex}`;
-
+  
         if (isTaken || isMissed || !isWithinWindow || promptedDoses.has(doseKey)) {
           continue;
         }
-
+  
         const hasReminder = reminders.some((reminder) => {
           const reminderDateKey = reminder.type === "daily" ? currentDateKey : reminder.date;
           return (
@@ -905,7 +917,7 @@ const MedicationTracker = () => {
             reminder.status !== "sent"
           );
         });
-
+  
         if (!hasReminder) {
           setShowTakePrompt({
             medicationId: med.id,
@@ -920,17 +932,19 @@ const MedicationTracker = () => {
   }, [medications, reminders, user, getDoseStatus, promptedDoses]);
 
   const checkReminders = useCallback(() => {
+    if (!user || !medications.length || !reminders.length) return;
+  
     const now = moment().local();
     const currentDateKey = now.format("YYYY-MM-DD");
-
+  
     reminders.forEach((reminder) => {
       if (reminder.status === "sent") return;
-
+  
       const reminderTimeParts = reminder.reminderTime.split(":");
       const hours = parseInt(reminderTimeParts[0], 10);
       const minutes = parseInt(reminderTimeParts[1], 10);
       const seconds = reminderTimeParts[2] ? parseInt(reminderTimeParts[2], 10) : 0;
-
+  
       let reminderDateTime;
       if (reminder.type === "daily") {
         reminderDateTime = moment(currentDateKey, "YYYY-MM-DD").set({
@@ -947,11 +961,11 @@ const MedicationTracker = () => {
           millisecond: 0,
         });
       }
-
+  
       const windowStart = moment(reminderDateTime).subtract(30, "seconds");
       const windowEnd = moment(reminderDateTime).add(30, "seconds");
       const isTimeToTrigger = now.isBetween(windowStart, windowEnd, undefined, "[]");
-
+  
       if (isTimeToTrigger) {
         const med = medications.find((m) => m.id === reminder.medicationId);
         const doseKey = `${reminder.medicationId}-${currentDateKey}-${reminder.doseIndex}`;
@@ -1006,11 +1020,12 @@ const MedicationTracker = () => {
     const result = medications
       .flatMap((med) => {
         const dateKey = moment(selectedDate).format("YYYY-MM-DD");
-        const doses = med.doses?.[dateKey] || med.times.map((time) => ({
+        const doses = med.doses?.[dateKey] || med.times.map((time, index) => ({
           time,
           taken: false,
           missed: false,
           takenAt: null,
+          doseIndex: index,
         }));
         return doses.map((dose, index) => {
           const [hours] = dose.time.split(":").map(Number);
@@ -1039,11 +1054,12 @@ const MedicationTracker = () => {
     const result = medications
       .flatMap((med) => {
         const dateKey = moment(selectedDate).format("YYYY-MM-DD");
-        const doses = med.doses?.[dateKey] || med.times.map((time) => ({
+        const doses = med.doses?.[dateKey] || med.times.map((time, index) => ({
           time,
           taken: false,
           missed: false,
           takenAt: null,
+          doseIndex: index,
         }));
         return doses.map((dose, index) => {
           const [hours] = dose.time.split(":").map(Number);
@@ -1072,11 +1088,12 @@ const MedicationTracker = () => {
     const result = medications
       .flatMap((med) => {
         const dateKey = moment(selectedDate).format("YYYY-MM-DD");
-        const doses = med.doses?.[dateKey] || med.times.map((time) => ({
+        const doses = med.doses?.[dateKey] || med.times.map((time, index) => ({
           time,
           taken: false,
           missed: false,
           takenAt: null,
+          doseIndex: index,
         }));
         return doses.map((dose, index) => {
           const [hours] = dose.time.split(":").map(Number);
