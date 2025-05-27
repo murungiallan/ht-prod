@@ -257,36 +257,24 @@ const MedicationTracker = () => {
   const isFutureDate = (date) => isAfter(new Date(date), new Date(), { granularity: "day" });
 
   const getDoseStatus = useCallback((med, doseIndex, date = selectedDate) => {
-    if (typeof doseIndex !== "number" || doseIndex < 0) {
-      console.error(`Invalid doseIndex for medication ${med.id}: ${doseIndex}`);
-      // Determine doseIndex based on time of day
-      const dateKey = moment(date).format("YYYY-MM-DD");
-      const doses = med.doses?.[dateKey] || med.times.map((time) => ({
-        time,
-        taken: false,
-        missed: false,
-        takenAt: null,
-      }));
-      const dose = doses[0]; 
-      if (dose) {
-        const [hours] = dose.time.split(":").map(Number);
-        doseIndex = hours >= 5 && hours < 12 ? 1 : hours >= 12 && hours < 17 ? 2 : 3;
-      } else {
-        return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false, canTake: false };
-      }
-    }
-  
     const dateKey = moment(date).format("YYYY-MM-DD");
-    const doses = med.doses?.[dateKey] || med.times.map((time) => ({
+    const doses = med.doses?.[dateKey] || med.times.map((time, index) => ({
       time,
       taken: false,
       missed: false,
       takenAt: null,
+      doseIndex: index,
     }));
+  
+    // Validate doseIndex
+    if (typeof doseIndex !== "number" || doseIndex < 0 || doseIndex >= doses.length) {
+      console.error(`Invalid doseIndex for medication ${med.id}: ${doseIndex}, defaulting to 0`);
+      doseIndex = 0;
+    }
   
     if (!doses[doseIndex]) {
       console.log(`Dose not found for medication ${med.id}, doseIndex ${doseIndex}`);
-      // return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false, canTake: false };
+      return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false, canTake: false };
     }
   
     const dose = doses[doseIndex];
@@ -890,10 +878,10 @@ const MedicationTracker = () => {
 
   const checkDosesForPrompt = useCallback(() => {
     if (!user) return;
-
+  
     const now = moment().local();
     const currentDateKey = now.format("YYYY-MM-DD");
-
+  
     for (const med of medications) {
       const doses = med.doses?.[currentDateKey] || med.times.map((time) => ({
         time,
@@ -901,16 +889,16 @@ const MedicationTracker = () => {
         missed: false,
         takenAt: null,
       }));
-
+  
       for (let doseIndex = 0; doseIndex < doses.length; doseIndex++) {
         const dose = doses[doseIndex];
-        const { isTaken, isMissed, isWithinWindow } = getDoseStatus(med, new Date(), doseIndex);
+        const { isTaken, isMissed, isWithinWindow } = getDoseStatus(med, doseIndex, new Date());
         const doseKey = `${med.id}-${currentDateKey}-${doseIndex}`;
-
+  
         if (isTaken || isMissed || !isWithinWindow || promptedDoses.has(doseKey)) {
           continue;
         }
-
+  
         const hasReminder = reminders.some((reminder) => {
           const reminderDateKey = reminder.type === "daily" ? currentDateKey : reminder.date;
           return (
@@ -920,7 +908,7 @@ const MedicationTracker = () => {
             reminder.status !== "sent"
           );
         });
-
+  
         if (!hasReminder) {
           setShowTakePrompt({
             medicationId: med.id,
@@ -1037,7 +1025,8 @@ const MedicationTracker = () => {
             return {
               ...med,
               doseTime: dose.time,
-              doseIndex: 1,
+              doseIndex: index,
+              timeOfDayIndex: 1,
               timeOfDay: "Morning",
               selectedDate,
             };
@@ -1071,7 +1060,8 @@ const MedicationTracker = () => {
             return {
               ...med,
               doseTime: dose.time,
-              doseIndex: 2,
+              doseIndex: index,
+              timeOfDayIndex: 2,
               timeOfDay: "Afternoon",
               selectedDate,
             };
@@ -1105,7 +1095,8 @@ const MedicationTracker = () => {
             return {
               ...med,
               doseTime: dose.time,
-              doseIndex: 3,
+              doseIndex: index, // Uses actual index
+              timeOfDayIndex: 3, // Stores time-of-day index for reference
               timeOfDay: "Evening",
               selectedDate,
             };
