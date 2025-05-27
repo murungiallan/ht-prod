@@ -2,21 +2,41 @@ import { createPool, createConnection } from 'mysql2/promise';
 import dotenv from 'dotenv';
 import moment from 'moment';
 import { db as firebaseDb } from '../server.js';
+import url from 'url';
 
 dotenv.config();
 
-const remoteConfig = {
-  host: process.env.STACKHERO_MYSQL_HOST || 'ukxdor.stackhero-network.com',
-  user: process.env.STACKHERO_MYSQL_USER || 'root',
-  password: process.env.STACKHERO_MYSQL_root_PASSWORD || 'IJ4v2fbIXl2P3uZvnOhKJjQhNi9gN6JT',
-  database: 'healthtrack_db',
-  port: parseInt(process.env.STACKHERO_MYSQL_PORT) || 4779,
-  waitForConnections: true,
-  connectionLimit: 5,
-  queueLimit: 0,
-  connectTimeout: 30000,
-  ssl: { rejectUnauthorized: true },
-};
+// Validate JAWSDB_URL
+if (!process.env.JAWSDB_URL) {
+  console.error('JAWSDB_URL environment variable is missing');
+  process.exit(1);
+}
+
+// Parse JAWSDB_URL
+let remoteConfig;
+try {
+  const parsedUrl = url.parse(process.env.JAWSDB_URL);
+  const [user, password] = parsedUrl.auth ? parsedUrl.auth.split(':') : [null, null];
+  if (!user || !password || !parsedUrl.hostname || !parsedUrl.pathname) {
+    throw new Error('Invalid JAWSDB_URL format');
+  }
+  remoteConfig = {
+    host: parsedUrl.hostname,
+    user: user,
+    password: password,
+    database: parsedUrl.pathname.slice(1),
+    port: parsedUrl.port ? parseInt(parsedUrl.port) : 3306,
+    waitForConnections: true,
+    connectionLimit: 5,
+    queueLimit: 0,
+    connectTimeout: 30000,
+    ssl: { rejectUnauthorized: true },
+  };
+  console.log(`Using JawsDB configuration: ${remoteConfig.host}:${remoteConfig.port}`);
+} catch (error) {
+  console.error(`Failed to parse JAWSDB_URL: ${error.message}`);
+  process.exit(1);
+}
 
 let db;
 
@@ -27,11 +47,11 @@ const attemptConnectionWithRetry = async (config, isPrimary = true, retries = 3,
       const pool = createPool({ ...config });
       pool.config = config;
       const connection = await pool.getConnection();
-      console.log(`${isPrimary ? 'Primary' : 'Secondary'} connection established to ${config.host}:${config.port}`);
+      console.log(`Connection established to ${config.host}:${config.port}`);
       connection.release();
       return pool;
     } catch (error) {
-      console.error(`Connection attempt ${i + 1}/${retries} to ${config.host}:${config.port} failed:`, error.message);
+      console.error(`Connection attempt ${i + 1}/${retries} to ${config.host}:${config.port} failed: ${error.message}`);
       if (error.code === 'ER_CON_COUNT_ERROR') {
         console.log('Too many connections, retrying after delay...');
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -59,7 +79,7 @@ const checkTableExistsAndIsReachable = async (pool, tableName) => {
     console.log(`Table ${tableName} exists and is reachable`);
     return { exists: true, reachable: true };
   } catch (error) {
-    console.error(`Error checking table ${tableName}:`, error.message);
+    console.error(`Error checking table ${tableName}: ${error.message}`);
     return { exists: false, reachable: false };
   } finally {
     connection.release();
@@ -71,12 +91,12 @@ const ensureDatabaseExists = async () => {
   const tempConfig = { ...remoteConfig, database: undefined };
   const connection = await createConnection(tempConfig);
   try {
-    const [databases] = await connection.query("SHOW DATABASES LIKE 'healthtrack_db'");
+    const [databases] = await connection.query("SHOW DATABASES LIKE ?", [remoteConfig.database]);
     if (databases.length === 0 && process.env.NODE_ENV !== 'production') {
-      await connection.query('CREATE DATABASE healthtrack_db');
-      console.log('Database healthtrack_db created successfully.');
+      await connection.query(`CREATE DATABASE \`${remoteConfig.database}\``);
+      console.log(`Database ${remoteConfig.database} created successfully.`);
     } else {
-      console.log('Database healthtrack_db already exists or production environment detected.');
+      console.log(`Database ${remoteConfig.database} already exists or production environment detected.`);
     }
   } catch (error) {
     console.error('Error creating database:', error.message);
@@ -88,9 +108,9 @@ const ensureDatabaseExists = async () => {
 
 // Initialize the database connection and perform checks
 const initializeDb = async () => {
-  db = await attemptConnectionWithRetry(remoteConfig, true);
+  db = await attemptConnectionWithRetry(remoteConfig);
   if (!db) {
-    throw new Error('Failed to initialize database: Remote connection failed');
+    throw new Error('Failed to initialize database: Connection failed');
   }
 
   await ensureDatabaseExists();
@@ -113,10 +133,10 @@ const startConnectionMonitor = () => {
       await initializeDb();
       return;
     }
-    const testConnection = await attemptConnectionWithRetry(db.config, true);
+    const testConnection = await attemptConnectionWithRetry(db.config);
     if (!testConnection) {
       console.log('Active connection failed, attempting to reconnect...');
-      const newDb = await attemptConnectionWithRetry(remoteConfig, true);
+      const newDb = await attemptConnectionWithRetry(remoteConfig);
       if (newDb) {
         db = newDb;
         console.log('Switched to new active connection');
