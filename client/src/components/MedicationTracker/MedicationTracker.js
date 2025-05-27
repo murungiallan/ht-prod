@@ -271,8 +271,6 @@ const MedicationTracker = () => {
       if (dose) {
         const [hours] = dose.time.split(":").map(Number);
         doseIndex = hours >= 5 && hours < 12 ? 1 : hours >= 12 && hours < 17 ? 2 : 3;
-      } else {
-        return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false, canTake: false };
       }
     }
   
@@ -286,7 +284,7 @@ const MedicationTracker = () => {
   
     if (!doses[doseIndex]) {
       console.log(`Dose not found for medication ${med.id}, doseIndex ${doseIndex}`);
-      return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false, canTake: false };
+      // return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false, canTake: false };
     }
   
     const dose = doses[doseIndex];
