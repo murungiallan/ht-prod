@@ -256,12 +256,7 @@ const MedicationTracker = () => {
   const isPastDate = (date) => isBefore(new Date(date), new Date(), { granularity: "day" });
   const isFutureDate = (date) => isAfter(new Date(date), new Date(), { granularity: "day" });
 
-  const getDoseStatus = useCallback((med, doseIndex, date = selectedDate) => {
-    if (typeof doseIndex !== "number" || doseIndex < 0) {
-      console.error(`Invalid doseIndex for medication ${med.id}: ${doseIndex}`);
-      // return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false };
-    }
-  
+  const getDoseStatus = useCallback((med, date, doseIndex) => {
     const dateKey = moment(date).format("YYYY-MM-DD");
     const doses = med.doses?.[dateKey] || med.times.map((time) => ({
       time,
@@ -269,34 +264,34 @@ const MedicationTracker = () => {
       missed: false,
       takenAt: null,
     }));
-  
+
     if (!doses[doseIndex]) {
       console.log(`Dose not found for medication ${med.id}, doseIndex ${doseIndex}`);
       // return { isTaken: false, isMissed: false, isTimeToTake: false, isWithinWindow: false };
     }
-  
+
     const dose = doses[doseIndex];
     const doseTime = dose.time;
     const now = moment().local();
-  
+
     const [hours, minutes] = doseTime.split(":").map(Number);
     const doseDateTime = moment(date)
       .set({ hour: hours, minute: minutes, second: 0, millisecond: 0 })
       .local();
-  
+
     const windowStart = moment(doseDateTime).subtract(2, "hours");
     const windowEnd = moment(doseDateTime).add(2, "hours");
-  
+
     const isWithinWindow = now.isBetween(windowStart, windowEnd, undefined, "[]");
     const isTimeToTake = now.isSameOrAfter(doseDateTime);
-  
+
     const canTake =
       !dose.taken &&
       !dose.missed &&
       isWithinWindow &&
       !isPastDate(date) &&
       !isFutureDate(date);
-  
+
     return {
       isTaken: dose.taken,
       isMissed: dose.missed,
@@ -304,7 +299,7 @@ const MedicationTracker = () => {
       isWithinWindow,
       canTake,
     };
-  }, [selectedDate, isPastDate, isFutureDate]);
+  }, []);
 
   const confirmTakenStatus = (medicationId, doseIndex, taken) => {
     setConfirmMessage(
@@ -1134,7 +1129,7 @@ const MedicationTracker = () => {
       const permission = await Notification.requestPermission();
       if (permission === "granted") {
         const fcmToken = await getToken(messaging, {
-          vapidKey: "BKw9yzIU2m8qKZTF4pj1dR37XLpvkn95Sv2UC-ySWFIosmiLHTBX-RkyRv2wi5-C83SRsJv_ewuDnBvqpbvkJC0",
+          vapidKey: "BHo0F2FHBX8okHJ8ejib_7nHTTlXhJlZ4O0e4VQ1jKa0UJWhXBDJdp8KS4Ox2cWSn9ppw_m_Pz4L0KBkKN15CHI",
         });
         if (fcmToken) {
           const token = await getUserToken();
