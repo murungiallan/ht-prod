@@ -1,14 +1,16 @@
 import { createPool, createConnection } from 'mysql2/promise';
 import dotenv from 'dotenv';
+import moment from 'moment';
+import { db as firebaseDb } from '../server.js';
 
 dotenv.config();
 
 const remoteConfig = {
-  host: process.env.STACKHERO_MARIADB_HOST, // er4nv2.stackhero-network.com
-  user: process.env.STACKHERO_MARIADB_USER,
-  password: process.env.STACKHERO_MARIADB_PASSWORD,
-  database: process.env.STACKHERO_MARIADB_DATABASE || 'healthtrack_db',
-  port: parseInt(process.env.STACKHERO_MARIADB_PORT) || 3306,
+  host: process.env.STACKHERO_MYSQL_HOST || 'ukxdor.stackhero-network.com',
+  user: process.env.STACKHERO_MYSQL_USER || 'root',
+  password: process.env.STACKHERO_MYSQL_root_PASSWORD || 'IJ4v2fbIXl2P3uZvnOhKJjQhNi9gN6JT',
+  database: 'healthtrack_db',
+  port: parseInt(process.env.STACKHERO_MYSQL_PORT) || 4779,
   waitForConnections: true,
   connectionLimit: 5,
   queueLimit: 0,
@@ -66,7 +68,7 @@ const checkTableExistsAndIsReachable = async (pool, tableName) => {
 
 // Function to create the database if it doesn't exist
 const ensureDatabaseExists = async () => {
-  const tempConfig = { ...remoteConfig, database: undefined }; // Connect without specifying a database
+  const tempConfig = { ...remoteConfig, database: undefined };
   const connection = await createConnection(tempConfig);
   try {
     const [databases] = await connection.query("SHOW DATABASES LIKE 'healthtrack_db'");
@@ -84,81 +86,7 @@ const ensureDatabaseExists = async () => {
   }
 };
 
-// Function to create the users table (aligned with Stackhero example and app requirements)
-const createUsersTable = async (pool) => {
-  const connection = await pool.getConnection();
-  try {
-    const query = `
-      CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        uid VARCHAR(255) NOT NULL UNIQUE,
-        username VARCHAR(255) NOT NULL,
-        email VARCHAR(255) NOT NULL UNIQUE,
-        display_name VARCHAR(255),
-        password VARCHAR(255),
-        role ENUM('user', 'admin') DEFAULT 'user',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        last_login DATETIME,
-        phone VARCHAR(20),
-        address TEXT,
-        height DECIMAL(5,2),
-        weight DECIMAL(5,2),
-        profile_image VARCHAR(255),
-        weekly_food_calorie_goal INT,
-        weekly_exercise_calorie_goal INT,
-        fcm_token VARCHAR(255)
-      ) ENGINE=InnoDB;
-    `;
-    await connection.query(query);
-    console.log('Successfully created or verified "users" table');
-  } catch (error) {
-    console.error('Failed to create "users" table:', error.message);
-    throw error;
-  } finally {
-    connection.release();
-  }
-};
-
-// Function to insert a fake user (from Stackhero example)
-const insertFakeUser = async (pool) => {
-  const connection = await pool.getConnection();
-  try {
-    const fakeUserId = Math.round(Math.random() * 100000);
-    await connection.query(
-      'INSERT INTO users (uid, username, email, display_name, address) VALUES (?, ?, ?, ?, ?)',
-      [
-        `fake-${fakeUserId}`,
-        'User name',
-        'user@email.com',
-        'Fake User',
-        'User address',
-      ]
-    );
-    console.log(`Inserted fake user with UID: fake-${fakeUserId}`);
-  } catch (error) {
-    console.error('Failed to insert fake user:', error.message);
-    throw error;
-  } finally {
-    connection.release();
-  }
-};
-
-// Function to count users (from Stackhero example)
-const countUsers = async (pool) => {
-  const connection = await pool.getConnection();
-  try {
-    const [usersCount] = await connection.query('SELECT COUNT(*) AS cpt FROM users');
-    console.log(`There are now ${usersCount[0].cpt} users in the "users" table`);
-    return usersCount[0].cpt;
-  } catch (error) {
-    console.error('Failed to count users:', error.message);
-    throw error;
-  } finally {
-    connection.release();
-  }
-};
-
-// Initialize the database connection
+// Initialize the database connection and perform checks
 const initializeDb = async () => {
   db = await attemptConnectionWithRetry(remoteConfig, true);
   if (!db) {
@@ -167,15 +95,14 @@ const initializeDb = async () => {
 
   await ensureDatabaseExists();
 
-  const tableStatus = await checkTableExistsAndIsReachable(db, 'users');
-  if (!tableStatus.exists) {
-    await createUsersTable(db);
-    // Insert a fake user only if the table was just created
-    await insertFakeUser(db);
+  // Check all tables
+  const tables = ['users', 'exercises', 'food_logs', 'medications', 'reminders'];
+  for (const table of tables) {
+    const tableStatus = await checkTableExistsAndIsReachable(db, table);
+    if (!tableStatus.exists) {
+      throw new Error(`Critical: Table ${table} does not exist. Run migrations first.`);
+    }
   }
-
-  // Log the number of users
-  await countUsers(db);
 };
 
 // Periodic connection check and table verification
@@ -198,13 +125,14 @@ const startConnectionMonitor = () => {
         return;
       }
     }
-    const tableStatus = await checkTableExistsAndIsReachable(db, 'users');
-    if (!tableStatus.exists) {
-      console.error('Critical: "users" table does not exist. Attempting to create...');
-      await createUsersTable(db);
-      await insertFakeUser(db);
-    } else if (!tableStatus.reachable) {
-      console.error('Critical: "users" table is not reachable');
+    const tables = ['users', 'exercises', 'food_logs', 'medications', 'reminders'];
+    for (const table of tables) {
+      const tableStatus = await checkTableExistsAndIsReachable(db, table);
+      if (!tableStatus.exists) {
+        console.error(`Critical: Table ${table} does not exist. Run migrations first.`);
+      } else if (!tableStatus.reachable) {
+        console.error(`Critical: Table ${table} is not reachable`);
+      }
     }
     const [status] = await db.query("SHOW STATUS LIKE 'Threads_connected'");
     console.log(`Current connections: ${status[0].Value}`);
