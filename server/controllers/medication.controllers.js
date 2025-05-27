@@ -166,16 +166,23 @@ class MedicationController {
       const { date, doseIndex, taken } = req.body;
       const firebaseUid = req.user.uid;
       logToFile(`Received data: ${JSON.stringify({ id, date, doseIndex, taken })}`);
-  
+
       if (!id || date === undefined || doseIndex === undefined || taken === undefined) {
         logToFile("Missing required parameters", "ERROR");
         return res.status(400).json({ error: "Missing required parameters" });
       }
-  
+
       const [userMedRows] = await db.query(
         "SELECT m.*, u.uid as firebase_uid FROM medications m JOIN users u ON m.user_id = u.id WHERE m.id = ? AND u.uid = ?",
         [id, firebaseUid]
       );
+      logToFile("Medication lookup: ", {
+        medicationId: id,
+        firebaseUid,
+        foundRows: userMedRows ? userMedRows.length : 0,
+        firstRow: userMedRows && userMedRows[0] ? { id: userMedRows[0].id, user_id: userMedRows[0].user_id, firebase_uid: userMedRows[0].firebase_uid } : null,
+      });
+
       if (!userMedRows || userMedRows.length === 0) {
         const [medRows] = await db.query("SELECT * FROM medications WHERE id = ?", [id]);
         if (medRows && medRows.length > 0) {
@@ -191,37 +198,35 @@ class MedicationController {
           details: { medicationId: id, firebaseUid },
         });
       }
-  
+
       const medication = userMedRows[0];
       let doses = safeParseJSON(medication.doses);
       const times = safeParseJSON(medication.times, []);
       const times_per_day = medication.times_per_day;
-  
+
       if (!doses[date]) {
         doses[date] = Array.from({ length: times_per_day }, (_, index) => ({
-          doseIndex: index,
           time: times[index] || "",
           taken: false,
           missed: false,
           takenAt: null,
         }));
       }
-  
+
       if (doseIndex >= times_per_day || doseIndex < 0) {
         logToFile(`Invalid doseIndex: ${doseIndex}`, "ERROR");
         return res.status(400).json({ error: `Invalid doseIndex: ${doseIndex}. Must be between 0 and ${times_per_day - 1}` });
       }
-  
+
       if (!doses[date][doseIndex]) {
         doses[date][doseIndex] = {
-          doseIndex: doseIndex,
           time: times[doseIndex] || "",
           taken: false,
           missed: false,
           takenAt: null,
         };
       }
-  
+
       if (taken && times[doseIndex]) {
         const doseTime = times[doseIndex];
         const doseDateTime = moment(`${date} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
@@ -232,30 +237,29 @@ class MedicationController {
           return res.status(400).json({ error: "Can only mark medication as taken within 2 hours of the scheduled time" });
         }
       }
-  
+
       doses[date][doseIndex] = {
         ...doses[date][doseIndex],
-        doseIndex: doseIndex,
         taken,
         missed: taken ? false : doses[date][doseIndex].missed,
         takenAt: taken ? new Date().toISOString() : null,
       };
-  
+
       await db.query("UPDATE medications SET doses = ? WHERE id = ?", [JSON.stringify(doses), id]);
       logToFile(`Updated doses for medication id: ${id}`);
-  
+
       const updatedMedication = {
         ...medication,
         doses,
         times,
       };
-  
+
       await firebaseDb.ref(`medications/${firebaseUid}/${id}`).update({
         doses,
         times,
       });
       logToFile(`Firebase sync completed for medication id: ${id}`);
-  
+
       return res.status(200).json(updatedMedication);
     } catch (error) {
       logToFile(`Error updating taken status: ${error.message}\n${error.stack}`, "ERROR");
