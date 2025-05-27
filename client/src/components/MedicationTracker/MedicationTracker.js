@@ -1048,7 +1048,7 @@ const MedicationTracker = () => {
             return {
               ...med,
               doseTime: dose.time,
-              doseIndex: dose.doseIndex !== undefined ? dose.doseIndex : index,
+              doseIndex: 1,
               timeOfDay: "Morning",
               selectedDate,
             };
@@ -1057,10 +1057,10 @@ const MedicationTracker = () => {
         });
       })
       .filter(Boolean);
-      console.log(`Morning meds computed: ${JSON.stringify(result)}`);
-      return result;
+    console.log(`Morning meds computed: ${JSON.stringify(result)}`);
+    return result;
   }, [medications, selectedDate]);
-
+  
   const afternoonMeds = useMemo(() => {
     const seen = new Set();
     const result = medications
@@ -1082,7 +1082,7 @@ const MedicationTracker = () => {
             return {
               ...med,
               doseTime: dose.time,
-              doseIndex: dose.doseIndex !== undefined ? dose.doseIndex : index,
+              doseIndex: 2,
               timeOfDay: "Afternoon",
               selectedDate,
             };
@@ -1091,10 +1091,10 @@ const MedicationTracker = () => {
         });
       })
       .filter(Boolean);
-      console.log(`Afternoon meds computed: ${JSON.stringify(result)}`);
-      return result;
+    console.log(`Afternoon meds computed: ${JSON.stringify(result)}`);
+    return result;
   }, [medications, selectedDate]);
-
+  
   const eveningMeds = useMemo(() => {
     const seen = new Set();
     const result = medications
@@ -1116,7 +1116,7 @@ const MedicationTracker = () => {
             return {
               ...med,
               doseTime: dose.time,
-              doseIndex: dose.doseIndex !== undefined ? dose.doseIndex : index,
+              doseIndex: 3,
               timeOfDay: "Evening",
               selectedDate,
             };
@@ -1125,8 +1125,8 @@ const MedicationTracker = () => {
         });
       })
       .filter(Boolean);
-      console.log(`Evening meds computed: ${JSON.stringify(result)}`);
-      return result;
+    console.log(`Evening meds computed: ${JSON.stringify(result)}`);
+    return result;
   }, [medications, selectedDate]);
 
   const timeofdaymeds = { morningMeds, afternoonMeds, eveningMeds };
