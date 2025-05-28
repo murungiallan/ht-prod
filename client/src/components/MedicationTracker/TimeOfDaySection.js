@@ -76,23 +76,38 @@ const SectionWrapper = styled.section`
 `;
 
 const TimeOfDaySection = React.memo(
-  ({ meds, reminders, setShowReminderModal, setSelectedMedication, getDoseStatus, selectedDate }) => {
+  ({ meds, reminders, setShowReminderModal, setSelectedMedication, getDoseStatus }) => {
     const [activeTab, setActiveTab] = useState(0);
+
+    const getTimeOfDay = (doseTime) => {
+      const hour = moment(doseTime, "HH:mm:ss").hour();
+      if (hour >= 0 && hour < 12) return "Morning";
+      if (hour >= 12 && hour < 18) return "Afternoon";
+      return "Evening";
+    };
+
+    const morningMedsList = meds?.morningMeds || [];
+    const afternoonMedsList = meds?.afternoonMeds || [];
+    const eveningMedsList = meds?.eveningMeds || [];
+
+    const morningMeds = morningMedsList.filter((med) => getTimeOfDay(med.doseTime) === "Morning");
+    const afternoonMeds = afternoonMedsList.filter((med) => getTimeOfDay(med.doseTime) === "Afternoon");
+    const eveningMeds = eveningMedsList.filter((med) => getTimeOfDay(med.doseTime) === "Evening");
 
     const tabs = [
       {
         name: "Morning",
-        meds: meds?.morningMeds || [],
+        meds: morningMeds,
         icon: <WiDaySunnyOvercast style={{ fontSize: "1.2em", color: "#ffca28", marginRight: '4px' }} />
       },
       {
         name: "Afternoon",
-        meds: meds?.afternoonMeds || [],
+        meds: afternoonMeds,
         icon: <WiDaySunny style={{ fontSize: "1.2em", color: "#ffb300", marginRight: '4px' }} />
       },
       {
         name: "Evening",
-        meds: meds?.eveningMeds || [],
+        meds: eveningMeds,
         icon: <WiDayWindy style={{ fontSize: "1.2em", color: "#ff8f00", marginRight: '4px' }} />
       },
     ];
@@ -128,8 +143,7 @@ const TimeOfDaySection = React.memo(
             </h2>
             <div className="divide-y divide-gray-200">
               {activeMeds.map((med) => {
-                // Validate doseIndex
-                if (!Number.isInteger(med.doseIndex) || med.doseIndex < 0) {
+                if (typeof med.doseIndex !== "number") {
                   console.error(`Invalid doseIndex for medication ${med.id}: ${med.doseIndex}`);
                   return null;
                 }
@@ -138,10 +152,10 @@ const TimeOfDaySection = React.memo(
                   (rem) =>
                     rem.medicationId === med.id &&
                     rem.doseIndex === med.doseIndex &&
-                    rem.effectiveDate === moment(selectedDate).format("YYYY-MM-DD")
+                    rem.effectiveDate === moment(med.selectedDate).format("YYYY-MM-DD")
                 );
 
-                const doseStatus = getDoseStatus(med, med.doseIndex, selectedDate);
+                const doseStatus = getDoseStatus(med, med.doseIndex, med.selectedDate);
 
                 return (
                   <div
@@ -210,7 +224,6 @@ TimeOfDaySection.propTypes = {
   setShowReminderModal: PropTypes.func.isRequired,
   setSelectedMedication: PropTypes.func.isRequired,
   getDoseStatus: PropTypes.func.isRequired,
-  selectedDate: PropTypes.instanceOf(Date).isRequired,
 };
 
 export default TimeOfDaySection;

@@ -46,7 +46,7 @@ const MedicationStatusBadge = React.memo(({ med, getDoseStatus }) => {
     console.error("getDoseStatus function is required in MedicationStatusBadge");
     return (
       <StatusBadge className="pending">
-        <CiWarning /> Pending (Status Unavailable)
+        <CiWarning />
       </StatusBadge>
     );
   }
@@ -56,7 +56,7 @@ const MedicationStatusBadge = React.memo(({ med, getDoseStatus }) => {
   if (isTaken) {
     return (
       <StatusBadge className="taken">
-        <BsCheck2Circle /> Taken
+        <BsCheck2Circle />
       </StatusBadge>
     );
   }
@@ -64,7 +64,7 @@ const MedicationStatusBadge = React.memo(({ med, getDoseStatus }) => {
   if (isMissed) {
     return (
       <StatusBadge className="missed">
-        <BsXCircle /> Missed
+        <BsXCircle />
       </StatusBadge>
     );
   }
@@ -75,11 +75,11 @@ const MedicationStatusBadge = React.memo(({ med, getDoseStatus }) => {
     <StatusBadge className={isOverdue ? "overdue" : "pending"}>
       {isOverdue ? (
         <>
-          <BsClock /> Overdue
+          <BsClock />
         </>
       ) : (
         <>
-          <CiWarning /> Pending
+          <CiWarning />
         </>
       )}
     </StatusBadge>
