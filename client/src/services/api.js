@@ -1084,7 +1084,7 @@ export const getExerciseStats = async (token) => {
 };
 
 // Food Diary API
-export const createFoodLog = async (foodData, token, onProgress = () => {}) => {
+export const createFoodLog = async (foodData, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
@@ -1115,7 +1115,7 @@ export const createFoodLog = async (foodData, token, onProgress = () => {}) => {
       carbs: response.carbs,
       protein: response.protein,
       fats: response.fats,
-      image_data: response.image_data || null, // Use image_data from server
+      image_data: response.image_data || null,
       date_logged: response.date_logged,
       meal_type: response.meal_type,
       id: foodId,

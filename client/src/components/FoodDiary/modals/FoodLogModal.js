@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { createFoodLog, searchFoods } from '../../../services/api';
 import moment from 'moment-timezone';
-import { auth } from '../../../firebase/config';
+// import { auth } from '../../../firebase/config';
 
 const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessionExpired }) => {
   const [foodInput, setFoodInput] = useState({
@@ -18,7 +18,6 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
   const [image, setImage] = useState(null);
   const [foodSuggestions, setFoodSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [searchLoading, setSearchLoading] = useState(false);
   const [suggestionSelected, setSuggestionSelected] = useState(false);
   const [lastQuery, setLastQuery] = useState('');
@@ -37,7 +36,6 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
     setFoodSuggestions([]);
     setSuggestionSelected(false);
     setLastQuery('');
-    setUploadProgress(0);
   };
 
   const searchFoodSuggestions = useCallback(
@@ -111,14 +109,6 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
 
     try {
       setLoading(true);
-      const getUserToken = async () => {
-        try {
-          return await auth.currentUser.getIdToken(true);
-        } catch (err) {
-          throw new Error('Failed to get user token');
-        }
-      };
-      
       const token = await getUserToken();
       const formData = new FormData();
       formData.append('food_name', foodInput.name.trim());
@@ -130,9 +120,7 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
       formData.append('date_logged', moment(foodInput.dateLogged).tz("Asia/Singapore").toISOString());
       if (image) formData.append('image', image);
 
-      const newLog = await createFoodLog(formData, token, (progress) => {
-        setUploadProgress(progress);
-      });
+      const newLog = await createFoodLog(formData, token);
 
       if (!newLog || !newLog.id) {
         throw new Error('Invalid response from server');
@@ -267,17 +255,6 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
                 accept="image/jpeg,image/png,image/gif"
                 disabled={loading}
               />
-              {image && uploadProgress > 0 && uploadProgress < 100 && (
-                <div className="mt-2">
-                  <p className="text-sm text-gray-600">Uploading: {Math.round(uploadProgress)}%</p>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div
-                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
-                    ></div>
-                  </div>
-                </div>
-              )}
             </div>
             <div className="flex justify-end space-x-4">
               <button
