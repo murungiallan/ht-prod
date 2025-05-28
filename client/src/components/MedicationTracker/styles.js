@@ -258,49 +258,48 @@ export const Textarea = styled.textarea`
   }
 `;
 
-export const ModalOverlay = {
-  backgroundColor: theme.colors.overlay,
-  zIndex: 1000,
-  position: "fixed",
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  inset: 0,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 0,
-  backdropFilter: "blur(4px)",
-  WebkitBackdropFilter: "blur(4px)",
-  transition: "opacity 0.3s ease-in-out",
-};
+export const ModalOverlay = styled.div`
+  background-color: ${({ theme }) => theme.colors.overlay};
+  z-index: 1000;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: ${({ theme }) => theme.spacing.medium};
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transition: opacity 0.3s ease-in-out;
+`;
 
-export const ModalContent = {
-  background: theme.colors.background,
-  border: "none",
-  borderRadius: "16px",
-  padding: 0,
-  position: "relative",
-  maxWidth: "500px",
-  maxHeight: "60vh",
-  width: "fit-content",
-  height: "fit-content",
-  margin: "0 auto",
-  overflowX: "scroll",
-  overflowY: "scroll",
-  boxShadow: "0 10px 25px rgba(0, 0, 0, 0.2)",
-  "@media screen and (max-width: 640px)": {
-    width: "100%",
-    margin: theme.spacing.small,
-    maxHeight: "85vh",
-  },
-  "@media screen and (minWidth: 1080px)": {
-    maxHeight: "70vh",
-    maxWidth: "50vw",
-  },
-  scrollbarWidth: "none",
-};
+export const ModalContent = styled.div`
+  background: ${({ theme }) => theme.colors.background};
+  border: none;
+  border-radius: 16px;
+  padding: 0;
+  position: relative;
+  max-width: 500px;
+  max-height: 60vh;
+  width: 90%;
+  margin: 0 auto;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
+    width: 95%;
+    max-height: 85vh;
+  }
+
+  @media (min-width: 1080px) {
+    max-height: 70vh;
+    max-width: 50vw;
+  }
+`;
 
 export const ModalContentWrapper = styled.div`
   background-color: ${({ theme }) => theme.colors.background};
