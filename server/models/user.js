@@ -47,12 +47,17 @@ class User {
   }
 
   static async updateProfile(userId, { username, displayName, role, phone, address, height, weight, profile_image }) {
+    // Validate profile_image as a URL (basic validation)
+    if (profile_image && !profile_image.startsWith("/uploads/") && !profile_image.startsWith("http")) {
+      throw new Error("Invalid profile image URL");
+    }
+
     const query = `
       UPDATE users
       SET username = ?, display_name = ?, role = ?, phone = ?, address = ?, height = ?, weight = ?, profile_image = ?
       WHERE uid = ?
     `;
-    await db.query(query, [
+    const [result] = await db.query(query, [
       username,
       displayName,
       role,
@@ -63,6 +68,11 @@ class User {
       profile_image || null,
       userId,
     ]);
+
+    if (result.affectedRows === 0) {
+      throw new Error("User not found");
+    }
+
     return { uid: userId, username, displayName, role, phone, address, height, weight, profile_image };
   }
 

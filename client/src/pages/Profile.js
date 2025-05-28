@@ -6,8 +6,8 @@ import { toast } from 'react-toastify';
 import { auth } from '../firebase/config';
 
 const Profile = () => {
-  const { user, loading: authLoading } = useContext(AuthContext);
-  
+  const { user, loading: authLoading, updateProfile: updateAuthProfile } = useContext(AuthContext);
+
   // States
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,8 +25,9 @@ const Profile = () => {
     created_at: '',
     last_login: '',
     role: 'user',
-    profile_image: placeholder
+    profile_image: placeholder,
   });
+  const [profileImageFile, setProfileImageFile] = useState(null); // Store file for upload
 
   useEffect(() => {
     let isMounted = true;
@@ -40,7 +41,7 @@ const Profile = () => {
 
         const token = await auth.currentUser.getIdToken(true);
         const userResponse = await getUser(token);
-        
+
         if (isMounted) {
           setUserData({
             username: userResponse?.username || 'Not provided',
@@ -55,7 +56,7 @@ const Profile = () => {
             created_at: userResponse?.created_at || '',
             last_login: userResponse?.last_login || '',
             role: userResponse?.role || 'user',
-            profile_image: userResponse?.profile_image || placeholder
+            profile_image: userResponse?.profile_image || placeholder,
           });
         }
       } catch (err) {
@@ -85,13 +86,15 @@ const Profile = () => {
         toast.error('Image size must be less than 5MB');
         return;
       }
+      setProfileImageFile(file); // Store file for submission
       const reader = new FileReader();
       reader.onloadend = () => {
-        setUserData(prev => ({ ...prev, profile_image: reader.result }));
-        toast.success('Profile picture updated (client-side preview)');
+        setUserData(prev => ({ ...prev, profile_image: reader.result })); // Preview only
+        toast.success('Profile picture selected (client-side preview)');
       };
       reader.onerror = () => {
-        toast.error('Failed to upload profile picture.');
+        toast.error('Failed to read profile picture.');
+        setProfileImageFile(null);
         setUserData(prev => ({ ...prev, profile_image: placeholder }));
       };
       reader.readAsDataURL(file);
@@ -105,44 +108,50 @@ const Profile = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
     try {
       const token = await auth.currentUser.getIdToken(true);
-      const updatedData = {
-        username: userData.username,
-        displayName: userData.display_name,
-        role: userData.role,
-        phone: userData.phone,
-        address: userData.address,
-        birthdate: userData.birthdate,
-        height: parseFloat(userData.height) || null,
-        weight: parseFloat(userData.weight) || null,
-        bio: userData.bio,
-        profile_image: userData.profile_image || null, // Ensure profile_image is not undefined
-      };
-      await updateProfile(updatedData, token);
+      const formData = new FormData();
+      formData.append('username', userData.username);
+      formData.append('displayName', userData.display_name);
+      formData.append('role', userData.role);
+      formData.append('phone', userData.phone || '');
+      formData.append('address', userData.address || '');
+      formData.append('birthdate', userData.birthdate || '');
+      formData.append('height', parseFloat(userData.height) || null);
+      formData.append('weight', parseFloat(userData.weight) || null);
+      formData.append('bio', userData.bio || '');
+      if (profileImageFile) {
+        formData.append('profile_image', profileImageFile); // Send file directly
+      }
+
+      const response = await updateProfile(formData, token);
       toast.success('Profile updated successfully');
+
+      // Update AuthContext and local state
+      await updateAuthProfile(
+        userData.username,
+        userData.display_name,
+        userData.role,
+        userData.phone,
+        userData.address,
+        parseFloat(userData.height) || null,
+        parseFloat(userData.weight) || null,
+        response.profile_image || placeholder
+      );
+      setUserData(prev => ({
+        ...prev,
+        profile_image: response.profile_image || placeholder,
+        email: response.email || prev.email,
+      }));
       setIsEditing(false);
-  
-      // Refresh user data after update
-      const userResponse = await getUser(token);
-      setUserData({
-        username: userResponse?.username || 'Not provided',
-        display_name: userResponse?.display_name || 'Not provided',
-        email: userResponse?.email || 'Not provided',
-        phone: userResponse?.phone || '',
-        address: userResponse?.address || '',
-        birthdate: userResponse?.birthdate || '',
-        height: userResponse?.height || '',
-        weight: userResponse?.weight || '',
-        bio: userResponse?.bio || '',
-        created_at: userResponse?.created_at || '',
-        last_login: userResponse?.last_login || '',
-        role: userResponse?.role || 'user',
-        profile_image: userResponse?.profile_image || placeholder,
-      });
+      setProfileImageFile(null);
     } catch (err) {
       console.error('Error updating profile:', err);
       toast.error(err.message || 'Failed to update profile');
+      setUserData(prev => ({ ...prev, profile_image: placeholder })); // Revert on error
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -241,7 +250,7 @@ const Profile = () => {
                 </div>
                 <p className="text-sm text-gray-500">Upload a profile picture</p>
               </div>
-              
+
               {/* Form Fields */}
               <div className="flex-1">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -337,11 +346,15 @@ const Profile = () => {
                     />
                   </div>
                 </div>
-                
+
                 <div className="flex justify-end mt-6 space-x-4">
                   <button
                     type="button"
-                    onClick={() => setIsEditing(false)}
+                    onClick={() => {
+                      setIsEditing(false);
+                      setProfileImageFile(null);
+                      setUserData(prev => ({ ...prev, profile_image: user.profile_image || placeholder }));
+                    }}
                     className="px-4 py-2 bg-gray-100 text-gray-800 font-medium rounded-md hover:bg-gray-200 transition-colors"
                   >
                     Cancel
@@ -349,8 +362,9 @@ const Profile = () => {
                   <button
                     type="submit"
                     className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"
+                    disabled={isLoading}
                   >
-                    Save Changes
+                    {isLoading ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </div>
@@ -397,7 +411,7 @@ const Profile = () => {
 
               <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">{userData.display_name}</h2>
               <p className="text-gray-600 text-center">@{userData.username}</p>
-              
+
               <div className="bg-white rounded-lg p-4 shadow-sm w-full mt-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">Contact Info</h3>
                 <p className="text-gray-700 mb-2 flex items-center">
@@ -420,7 +434,7 @@ const Profile = () => {
                   {userData.address || 'Not provided'}
                 </p>
               </div>
-              
+
               <button
                 onClick={() => setIsEditing(true)}
                 className="w-full mt-6 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"
@@ -428,7 +442,7 @@ const Profile = () => {
                 Edit Profile
               </button>
             </div>
-            
+
             {/* Right Column - Detailed Info */}
             <div className="p-6 md:w-2/3">
               <div className="mb-8">
@@ -437,7 +451,7 @@ const Profile = () => {
                   {userData.bio || 'No bio provided yet. Tell us about yourself!'}
                 </p>
               </div>
-              
+
               <div className="mb-8">
                 <h3 className="text-xl font-semibold text-gray-800 mb-3 border-b pb-2">Personal Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -455,7 +469,7 @@ const Profile = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div>
                 <h3 className="text-xl font-semibold text-gray-800 mb-3 border-b pb-2">Account Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

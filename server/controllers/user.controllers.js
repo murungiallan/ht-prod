@@ -30,6 +30,54 @@ const logToFile = (message, level = "INFO") => {
 };
 
 class AuthController {
+  static async updateProfile(req, res) {
+    logToFile(`Starting updateProfile for user ${req.user.uid} at 07:15 PM +08 on May 28, 2025`);
+    try {
+      const { username, displayName, role, phone, address, height, weight } = req.body;
+      const userId = req.user.uid;
+      logToFile(`Received data: ${JSON.stringify({ username, displayName, role, phone, address, height, weight })}`);
+
+      let profile_image = null;
+      if (req.file) {
+        profile_image = `/uploads/${req.file.filename}`;
+        logToFile(`Profile image uploaded: ${profile_image}`);
+      } else if (req.body.profile_image) {
+        profile_image = req.body.profile_image;
+        if (profile_image.startsWith("data:image")) {
+          throw new Error("Base64 images are not allowed. Please upload the image file.");
+        }
+      }
+
+      const updatedUser = await User.updateProfile(userId, {
+        username,
+        displayName,
+        role,
+        phone,
+        address,
+        height,
+        weight,
+        profile_image,
+      });
+      logToFile(`Profile updated successfully for user ${userId} in MySQL`);
+
+      await firebaseDb.ref(`users/${userId}`).update({
+        username,
+        displayName,
+        role,
+        phone: phone || null,
+        address: address || null,
+        height: height || null,
+        weight: weight || null,
+        profile_image: profile_image || null,
+      });
+      logToFile(`Firebase sync completed for user ${userId}`);
+
+      res.status(200).json(updatedUser);
+    } catch (error) {
+      logToFile(`Error updating profile: ${error.message}\n${error.stack}`, "ERROR");
+      res.status(500).json({ error: "Failed to update profile", details: error.message });
+    }
+  }
   static async register(req, res) {
     logToFile(`Starting register for uid ${req.body.uid}`);
     try {
@@ -182,49 +230,6 @@ class AuthController {
     } catch (error) {
       logToFile(`Error fetching all users: ${error.message}\n${error.stack}`, "ERROR");
       res.status(500).json({ error: "Failed to fetch users" });
-    }
-  }
-
-  static async updateProfile(req, res) {
-    logToFile(`Starting updateProfile for user ${req.user.uid}`);
-    try {
-      const { username, displayName, role, phone, address, height, weight, profile_image } = req.body;
-      const userId = req.user.uid;
-      logToFile(`Received data: ${JSON.stringify({ username, displayName, role, phone, address, height, weight, profile_image })}`);
-  
-      // Validate that profile_image is a URL, not a base64 string
-      if (profile_image && profile_image.startsWith('data:image')) {
-        throw new Error('Base64 images are not allowed. Please upload to storage and provide a URL.');
-      }
-  
-      const updatedUser = await User.updateProfile(userId, {
-        username,
-        displayName,
-        role,
-        phone,
-        address,
-        height,
-        weight,
-        profile_image,
-      });
-      logToFile(`Profile updated successfully for user ${userId}`);
-  
-      await firebaseDb.ref(`users/${userId}`).update({
-        username,
-        displayName,
-        role,
-        phone: phone || null,
-        address: address || null,
-        height: height || null,
-        weight: weight || null,
-        profile_image: profile_image || null,
-      });
-      logToFile(`Firebase sync completed for user ${userId}`);
-  
-      res.status(200).json(updatedUser);
-    } catch (error) {
-      logToFile(`Error updating profile: ${error.message}\n${error.stack}`, "ERROR");
-      res.status(500).json({ error: "Failed to update profile" });
     }
   }
 

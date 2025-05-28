@@ -178,24 +178,37 @@ export const getAllUsers = async (token) => {
   return apiGet("/users/all", token);
 };
 
-export const updateProfile = async (userData, token) => {
+export const updateProfile = async (formData, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
   const userPath = `users/${user.uid}`;
   const updatedUserData = {
-    username: userData.username,
-    displayName: userData.displayName,
-    role: userData.role,
-    phone: userData.phone || null,
-    address: userData.address || null,
-    height: userData.height || null,
-    weight: userData.weight || null,
-    profile_image: userData.profile_image || null,
+    username: formData.get('username'),
+    displayName: formData.get('displayName'),
+    role: formData.get('role'),
+    phone: formData.get('phone') || null,
+    address: formData.get('address') || null,
+    height: parseFloat(formData.get('height')) || null,
+    weight: parseFloat(formData.get('weight')) || null,
+    profile_image: formData.get('profile_image') || null,
   };
   await retryWithBackoff(() => update(ref(database), { [userPath]: updatedUserData }));
 
-  return apiPut("/users/profile", updatedUserData, token);
+  const response = await fetch('https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com/api/users/profile', {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to update profile: ${errorText}`);
+  }
+
+  return response.json();
 };
 
 export const resetPassword = async (email, token) => {
