@@ -161,9 +161,9 @@ const AddMedicationModal = ({
     
     if (field === "time") {
       const [hours] = value.split(":").map(Number);
-      if (hours >= 5 && hours < 12) {
+      if (hours >= 0 && hours < 11) {
         newDoseTimes[index].period = "Morning";
-      } else if (hours >= 12 && hours < 17) {
+      } else if (hours >= 11 && hours < 15) {
         newDoseTimes[index].period = "Afternoon";
       } else {
         newDoseTimes[index].period = "Evening";

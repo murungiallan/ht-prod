@@ -81,9 +81,13 @@ const TimeOfDaySection = React.memo(
     // Function to categorize doseTime into Morning, Afternoon, or Evening
     const getTimeOfDay = (doseTime) => {
       const hour = moment(doseTime, "HH:mm:ss").hour();
-      if (hour >= 0 && hour < 12) return "Morning";
-      if (hour >= 12 && hour < 18) return "Afternoon";
-      return "Evening";
+      if (hour >= 0 && hour < 11){ 
+        return "Morning"; 
+      } else if (hour >= 11 && hour < 15) {
+        return "Afternoon";
+      } else {
+        return "Evening";
+      }
     };
 
     const morningMedsList = meds?.morningMeds || [];

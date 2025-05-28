@@ -1095,9 +1095,13 @@ const MedicationTracker = () => {
           doseIndex: index,
           timeOfDay: (() => {
             const [hours] = dose.time.split(":").map(Number);
-            if (hours >= 5 && hours < 12) return "Morning";
-            if (hours >= 12 && hours < 17) return "Afternoon";
-            return "Evening";
+            if (hours >= 0 && hours < 11){ 
+              return "Morning"; 
+            } else if (hours >= 11 && hours < 15) {
+              return "Afternoon";
+            } else {
+              return "Evening";
+            }
           })(),
         }));
       })
