@@ -47,6 +47,7 @@ import {
 Modal.setAppElement('#root');
 
 const ITEMS_PER_PAGE = 5;
+
 const TakePromptModal = ({
   isOpen,
   onRequestClose,
@@ -237,6 +238,7 @@ const MedicationTracker = () => {
   } = useMedicationManager();
 
   const { modals, openModal, closeModal, closeAllModals } = useModalState();
+  
   const {
     loading: reminderLoading,
     fetchReminders: fetchRemindersFromManager,
@@ -250,7 +252,15 @@ const MedicationTracker = () => {
     openModal,
     setPromptedDoses,
   });
-  const { getDoseStatus, getMedicationsByTimeOfDay, isPastDate, isFutureDate } = useDoseCalculations(medications, selectedDate);
+
+  // Initialize dose calculations hook with proper error handling
+  const doseCalculations = useDoseCalculations(medications, selectedDate);
+  const { 
+    getDoseStatus, 
+    getMedicationsByTimeOfDay, 
+    isPastDate, 
+    isFutureDate 
+  } = doseCalculations || {};
 
   // Sync reminders between useMedicationManager and useReminderManager
   useEffect(() => {
@@ -270,17 +280,76 @@ const MedicationTracker = () => {
 
   // Auto-mark missed doses
   useEffect(() => {
-    markDosesAsMissed();
+    if (markDosesAsMissed) {
+      markDosesAsMissed();
+    }
   }, [markDosesAsMissed]);
 
-  // Check for dose prompts and reminders
+  // Check for dose prompts and reminders - define the callback first
+  const checkDosesForPrompt = useCallback(() => {
+    const now = moment().local();
+    const dateKey = now.format('YYYY-MM-DD');
+  
+    medications.forEach((med) => {
+      const doses = med.doses?.[dateKey] || [];
+      if (!doses.length) return;
+  
+      doses.forEach((dose) => {
+        // Validate doseIndex before proceeding
+        if (!Number.isInteger(dose.doseIndex) || dose.doseIndex < 0) {
+          console.warn(`Invalid doseIndex (${dose.doseIndex}) for medication ${med.id}, skipping dose prompt.`);
+          return;
+        }
+  
+        const [hours, minutes] = dose.time.split(':').map(Number);
+        const doseDateTime = moment(dateKey, 'YYYY-MM-DD').set({
+          hour: hours,
+          minute: minutes,
+          second: 0,
+          millisecond: 0,
+        });
+        const windowStart = moment(doseDateTime).subtract(2, 'hours');
+        const windowEnd = moment(doseDateTime).add(2, 'hours');
+        const isWithinWindow = now.isBetween(windowStart, windowEnd, undefined, '[]');
+        const doseKey = `${med.id}-${dateKey}-${dose.doseIndex}`;
+  
+        if (now.isAfter(windowEnd) && !dose.taken && !dose.missed) {
+          try {
+            if (markDosesAsMissed) {
+              markDosesAsMissed();
+            }
+          } catch (error) {
+            console.error('Error marking dose as missed:', error);
+          }
+          return;
+        }
+  
+        if (isWithinWindow && !dose.taken && !dose.missed && !promptedDoses.has(doseKey)) {
+          openModal('showTakePrompt', {
+            medicationId: med.id,
+            doseIndex: dose.doseIndex,
+            doseTime: dose.time,
+          });
+          setPromptedDoses((prev) => new Set(prev).add(doseKey));
+        }
+      });
+    });
+  }, [medications, promptedDoses, openModal, setPromptedDoses, markDosesAsMissed]);
+
+  // Use the callback in useEffect
   useEffect(() => {
     const interval = setInterval(() => {
       checkDosesForPrompt();
-      checkReminders();
+      if (checkReminders) {
+        checkReminders();
+      }
     }, 60 * 1000);
+    
     checkDosesForPrompt();
-    checkReminders();
+    if (checkReminders) {
+      checkReminders();
+    }
+    
     return () => clearInterval(interval);
   }, [checkDosesForPrompt, checkReminders]);
 
@@ -390,55 +459,6 @@ const MedicationTracker = () => {
     return Math.max(0, end.diff(today, 'days'));
   };
 
-  // Check for doses that need prompting
-  const checkDosesForPrompt = useCallback(() => {
-    const now = moment().local();
-    const dateKey = now.format('YYYY-MM-DD');
-  
-    medications.forEach((med) => {
-      const doses = med.doses?.[dateKey] || [];
-      if (!doses.length) return;
-  
-      doses.forEach((dose) => {
-        // Validate doseIndex before proceeding
-        if (!Number.isInteger(dose.doseIndex) || dose.doseIndex < 0) {
-          console.warn(`Invalid doseIndex (${dose.doseIndex}) for medication ${med.id}, skipping dose prompt.`);
-          return;
-        }
-  
-        const [hours, minutes] = dose.time.split(':').map(Number);
-        const doseDateTime = moment(dateKey, 'YYYY-MM-DD').set({
-          hour: hours,
-          minute: minutes,
-          second: 0,
-          millisecond: 0,
-        });
-        const windowStart = moment(doseDateTime).subtract(2, 'hours');
-        const windowEnd = moment(doseDateTime).add(2, 'hours');
-        const isWithinWindow = now.isBetween(windowStart, windowEnd, undefined, '[]');
-        const doseKey = `${med.id}-${dateKey}-${dose.doseIndex}`;
-  
-        if (now.isAfter(windowEnd) && !dose.taken && !dose.missed) {
-          try {
-            markDosesAsMissed();
-          } catch (error) {
-            console.error('Error marking dose as missed:', error);
-          }
-          return;
-        }
-  
-        if (isWithinWindow && !dose.taken && !dose.missed && !promptedDoses.has(doseKey)) {
-          openModal('showTakePrompt', {
-            medicationId: med.id,
-            doseIndex: dose.doseIndex,
-            doseTime: dose.time,
-          });
-          setPromptedDoses((prev) => new Set(prev).add(doseKey));
-        }
-      });
-    });
-  }, [medications, promptedDoses, openModal, setPromptedDoses, markDosesAsMissed]);
-
   // Calculate dose status for display
   const calculateDoseStatus = (med) => {
     const dateKey = moment(selectedDate).format('YYYY-MM-DD');
@@ -455,8 +475,14 @@ const MedicationTracker = () => {
     return { totalDoses, takenDoses, missedDoses };
   };
 
-  // Memoized computations for rendering
-  const timeofdaymeds = getMedicationsByTimeOfDay;
+  // Memoized computations for rendering - with proper initialization checks
+  const timeofdaymeds = useMemo(() => {
+    if (getMedicationsByTimeOfDay && typeof getMedicationsByTimeOfDay === 'function') {
+      return getMedicationsByTimeOfDay();
+    }
+    return { morning: [], afternoon: [], evening: [] };
+  }, [getMedicationsByTimeOfDay, medications, selectedDate]);
+
   const dailyDoses = useMemo(() => {
     return medications
       .flatMap((med) => {
