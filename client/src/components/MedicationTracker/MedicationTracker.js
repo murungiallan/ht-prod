@@ -396,45 +396,52 @@ const MedicationTracker = () => {
 
   // Check for doses that need prompting
   const checkDosesForPrompt = useCallback(() => {
-    if (!user) return;
     const now = moment().local();
-    const currentDateKey = now.format('YYYY-MM-DD');
-
-    for (const med of medications) {
-      const doses = med.doses?.[currentDateKey] || [];
-      if (!doses.length) continue;
-
-      for (const dose of doses) {
-        const doseIndex = dose.doseIndex;
-        const { isTaken, isMissed, isWithinWindow } = getDoseStatus(med, doseIndex, new Date());
-        const doseKey = `${med.id}-${currentDateKey}-${doseIndex}`;
-
-        if (isTaken || isMissed || !isWithinWindow || promptedDoses.has(doseKey)) {
-          continue;
+    const dateKey = now.format('YYYY-MM-DD');
+  
+    medications.forEach((med) => {
+      const doses = med.doses?.[dateKey] || [];
+      if (!doses.length) return;
+  
+      doses.forEach((dose) => {
+        // Validate doseIndex before proceeding
+        if (!Number.isInteger(dose.doseIndex) || dose.doseIndex < 0) {
+          console.warn(`Invalid doseIndex (${dose.doseIndex}) for medication ${med.id}, skipping dose prompt.`);
+          return;
         }
-
-        const hasReminder = reminders.some((reminder) => {
-          const reminderDateKey = reminder.type === 'daily' ? currentDateKey : reminder.date;
-          return (
-            reminder.medicationId === med.id &&
-            reminder.doseIndex === doseIndex &&
-            reminderDateKey === currentDateKey &&
-            reminder.status !== 'sent'
-          );
+  
+        const [hours, minutes] = dose.time.split(':').map(Number);
+        const doseDateTime = moment(dateKey, 'YYYY-MM-DD').set({
+          hour: hours,
+          minute: minutes,
+          second: 0,
+          millisecond: 0,
         });
-
-        if (!hasReminder) {
+        const windowStart = moment(doseDateTime).subtract(2, 'hours');
+        const windowEnd = moment(doseDateTime).add(2, 'hours');
+        const isWithinWindow = now.isBetween(windowStart, windowEnd, undefined, '[]');
+        const doseKey = `${med.id}-${dateKey}-${dose.doseIndex}`;
+  
+        if (now.isAfter(windowEnd) && !dose.taken && !dose.missed) {
+          try {
+            markDosesAsMissed();
+          } catch (error) {
+            console.error('Error marking dose as missed:', error);
+          }
+          return;
+        }
+  
+        if (isWithinWindow && !dose.taken && !dose.missed && !promptedDoses.has(doseKey)) {
           openModal('showTakePrompt', {
             medicationId: med.id,
-            doseIndex,
+            doseIndex: dose.doseIndex,
             doseTime: dose.time,
           });
           setPromptedDoses((prev) => new Set(prev).add(doseKey));
-          break;
         }
-      }
-    }
-  }, [user, medications, reminders, getDoseStatus, promptedDoses, openModal]);
+      });
+    });
+  }, [medications, promptedDoses, openModal, setPromptedDoses, markDosesAsMissed]);
 
   // Calculate dose status for display
   const calculateDoseStatus = (med) => {
@@ -516,6 +523,7 @@ const MedicationTracker = () => {
               setShowReminderModal={(data) => openModal('showReminderModal', data)}
               setSelectedMedication={setSelectedMedication}
               getDoseStatus={getDoseStatus}
+              selectedDate={selectedDate}
             />
           </div>
           <div className="lg:w-1/3 md:w-1/3 sm:w-full">

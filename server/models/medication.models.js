@@ -55,11 +55,12 @@ class Medication {
     }
 
     const initialDoses = {
-      [start_date]: times.map((time) => ({
+      [start_date]: times.map((time, index) => ({
         time,
         taken: false,
         missed: false,
         takenAt: null,
+        doseIndex: index,
       })),
     };
 
@@ -287,11 +288,12 @@ class Medication {
       const times_per_day = rows[0].times_per_day;
 
       if (!doses[date]) {
-        doses[date] = times.map((time) => ({
+        doses[date] = times.map((time, index) => ({
           time,
           taken: false,
           missed: false,
           takenAt: null,
+          doseIndex: index,
         }));
       }
       if (!doses[date] || doses[date].length !== times_per_day) {
@@ -343,11 +345,12 @@ class Medication {
       const times_per_day = rows[0].times_per_day;
 
       if (!doses[date]) {
-        doses[date] = times.map((time) => ({
+        doses[date] = times.map((time, index) => ({
           time,
           taken: false,
           missed: false,
           takenAt: null,
+          doseIndex: index,
         }));
       }
       if (!doses[date] || doses[date].length !== times_per_day) {

@@ -76,25 +76,36 @@ const medicationReducer = (state, action) => {
 
 // Helper function to normalize medication data structure
 const normalizeMedication = (med) => {
-  if (!med) return null;
-  const normalizedDoses = {};
-  if (med.doses) {
-    Object.entries(med.doses).forEach(([dateKey, doses]) => {
-      normalizedDoses[dateKey] = doses.map((dose, index) => ({
-        time: dose.time,
-        taken: Boolean(dose.taken),
-        missed: Boolean(dose.missed),
-        takenAt: dose.takenAt || null,
-        doseIndex: dose.doseIndex !== undefined ? dose.doseIndex : index,
+    if (!med) return null;
+    const normalizedDoses = {};
+    if (med.doses) {
+      Object.entries(med.doses).forEach(([dateKey, doses]) => {
+        normalizedDoses[dateKey] = doses.map((dose, index) => ({
+          time: dose.time,
+          taken: Boolean(dose.taken),
+          missed: Boolean(dose.missed),
+          takenAt: dose.takenAt || null,
+          doseIndex: dose.doseIndex !== undefined ? dose.doseIndex : index,
+        }));
+      });
+    } else if (med.times) {
+      // Initialize doses if not present, using times array
+      normalizedDoses[moment().format('YYYY-MM-DD')] = med.times.map((time, index) => ({
+        time,
+        taken: false,
+        missed: false,
+        takenAt: null,
+        doseIndex: index,
       }));
-    });
-  }
-  return {
-    ...med,
-    doses: normalizedDoses,
-    times: med.times || [],
+    }
+    const normalizedMed = {
+      ...med,
+      doses: normalizedDoses,
+      times: med.times || [],
+    };
+    console.log(`Normalized Medication ID ${med.id}:`, normalizedMed);
+    return normalizedMed;
   };
-};
 
 // Helper function to update medication doses
 const updateMedicationDoses = (med, doseIndex, taken, dateKey, takenAt = null, missed = false) => {
@@ -296,19 +307,27 @@ export const useMedicationManager = () => {
   const markDosesAsMissed = useCallback(async () => {
     if (!user) return;
     const now = moment().local();
-    const dateKey = moment().format('YYYY-MM-DD');
+    const dateKey = now.format('YYYY-MM-DD');
     try {
       const token = await getUserToken();
       for (const med of state.medications) {
         const doses = med.doses?.[dateKey] || [];
         if (!doses.length) continue;
-
+  
         for (const dose of doses) {
-          const [hours, minutes] = dose.time.split(':').map(Number);
+          // Validate doseIndex before proceeding
+          if (!Number.isInteger(dose.doseIndex) || dose.doseIndex < 0) {
+            console.warn(`Invalid doseIndex (${dose.doseIndex}) for medication ${med.id}, skipping dose marking.`);
+            continue;
+          }
+  
+          const timeParts = dose.time.split(':').map(Number);
+          const hours = timeParts[0] || 0;
+          const minutes = timeParts[1] || 0;
           const doseDateTime = moment()
             .set({ hour: hours, minute: minutes, second: 0, millisecond: 0 });
           const windowEnd = moment(doseDateTime).add(2, 'hours');
-
+  
           if (now.isAfter(windowEnd) && !dose.taken && !dose.missed) {
             try {
               await markMedicationAsMissed(med.id, dose.doseIndex, true, token, dateKey);
