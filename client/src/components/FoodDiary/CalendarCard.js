@@ -1,28 +1,32 @@
-import React from 'react';
-import Calendar from 'react-calendar';
-import { motion } from 'framer-motion';
+import React from "react";
+import Calendar from "react-calendar";
+import { motion } from "framer-motion";
+import moment from "moment-timezone";
 
 const CalendarCard = ({ selectedDate, setSelectedDate, foodLogs }) => {
   // Calculate total calories per date and check if logs exist
   const getCaloriesForDate = (date) => {
-    const formattedDate = date.toISOString().split('T')[0];
-    const logsForDate = foodLogs.filter(log => new Date(log.date_logged).toISOString().split('T')[0] === formattedDate);
-    const totalCalories = logsForDate.reduce((sum, log) => sum + parseFloat(log.calories) || 0, 0);
+    // Convert date to local timezone (+08) and format as YYYY-MM-DD
+    const formattedDate = moment(date).tz("Asia/Singapore").format("YYYY-MM-DD");
+    const logsForDate = foodLogs.filter((log) =>
+      moment(log.date_logged).tz("Asia/Shanghai").format("YYYY-MM-DD") === formattedDate
+    );
+    const totalCalories = logsForDate.reduce((sum, log) => sum + (parseFloat(log.calories) || 0), 0);
     return { totalCalories, hasLogs: logsForDate.length > 0 };
   };
 
   // Custom tile content to add colored dots only for dates with logged food data
   const tileContent = ({ date, view }) => {
-    if (view !== 'month') return null;
+    if (view !== "month") return null;
     const { totalCalories, hasLogs } = getCaloriesForDate(date);
 
     // Only show a dot if there are logs for the date
     if (!hasLogs) return null;
 
-    let dotColor = 'transparent';
-    if (totalCalories < 300) dotColor = 'green';
-    else if (totalCalories >= 300 && totalCalories <= 900) dotColor = 'orange';
-    else if (totalCalories > 900) dotColor = 'red';
+    let dotColor = "transparent";
+    if (totalCalories < 300) dotColor = "green";
+    else if (totalCalories >= 300 && totalCalories <= 900) dotColor = "orange";
+    else if (totalCalories > 900) dotColor = "red";
 
     return (
       <div className="relative flex justify-center items-start m-1">
@@ -42,15 +46,16 @@ const CalendarCard = ({ selectedDate, setSelectedDate, foodLogs }) => {
       className="bg-white p-4 rounded-xl shadow-md"
     >
       <Calendar
-        onChange={setSelectedDate}
+        onChange={(date) => setSelectedDate(moment(date).tz("Asia/Shanghai").startOf("day").toDate())}
         value={selectedDate}
-        tileContent={tileContent} // Add custom tile content for dots
+        tileContent={tileContent}
         className="border-none w-full font-sans"
       />
+      {/* Styles remain unchanged */}
       <style jsx global>{`
         .react-calendar {
           border: none !important;
-          font-family: 'Inter', sans-serif !important;
+          font-family: "Inter", sans-serif !important;
           width: 100% !important;
         }
         .react-calendar__month-view__weekdays {

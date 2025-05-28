@@ -1,11 +1,13 @@
-import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
-import moment from 'moment';
+import React, { useMemo } from "react";
+import { motion } from "framer-motion";
+import moment from "moment-timezone";
 
 const NutritionalInsights = ({ foodLogs, selectedDate, eatingPattern }) => {
   // Utilities
   const dailyLogs = useMemo(() => {
-    return foodLogs.filter(log => moment(log.date_logged).isSame(selectedDate, "day"));
+    return foodLogs.filter((log) =>
+      moment(log.date_logged).tz("Asia/Singapore").isSame(moment(selectedDate).tz("Asia/Singapore"), "day")
+    );
   }, [foodLogs, selectedDate]);
 
   const calculateDailyTotals = useMemo(() => {
@@ -32,7 +34,7 @@ const NutritionalInsights = ({ foodLogs, selectedDate, eatingPattern }) => {
         Pattern: <span className="font-medium text-blue-600">{eatingPattern}</span>
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {["calories", "carbs", "protein", "fats"].map(nutrient => (
+        {["calories", "carbs", "protein", "fats"].map((nutrient) => (
           <div key={nutrient} className="p-6 bg-gray-50 rounded-lg text-center">
             <p className="text-xs text-gray-500 capitalize">{nutrient}</p>
             <p className="text-sm font-semibold text-gray-950">
