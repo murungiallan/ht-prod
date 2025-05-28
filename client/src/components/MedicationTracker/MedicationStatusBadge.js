@@ -1,11 +1,9 @@
-// src/components/MedicationTracker/MedicationStatusBadge.js
 import React from "react";
 import { BsCheck2Circle, BsXCircle, BsClock } from "react-icons/bs";
 import { CiWarning } from "react-icons/ci";
 import styled from "styled-components";
 import { theme } from "./styles";
 import moment from "moment";
-import PropTypes from "prop-types";
 
 const StatusBadge = styled.span`
   display: inline-flex;
@@ -42,21 +40,21 @@ const StatusBadge = styled.span`
 `;
 
 const MedicationStatusBadge = React.memo(({ med, getDoseStatus }) => {
+  // Confirming getDoseStatus is available
   if (!getDoseStatus) {
     console.error("getDoseStatus function is required in MedicationStatusBadge");
-    return (
-      <StatusBadge className="pending">
-        <CiWarning />
-      </StatusBadge>
-    );
+    return null;
   }
 
+  console.log(getDoseStatus);
+
+  // Fetching the dose status using the provided getDoseStatus function
   const { isTaken, isMissed, isTimeToTake, isWithinWindow } = getDoseStatus(med, med.doseIndex);
 
   if (isTaken) {
     return (
       <StatusBadge className="taken">
-        <BsCheck2Circle />
+        <BsCheck2Circle/>
       </StatusBadge>
     );
   }
@@ -64,31 +62,27 @@ const MedicationStatusBadge = React.memo(({ med, getDoseStatus }) => {
   if (isMissed) {
     return (
       <StatusBadge className="missed">
-        <BsXCircle />
+        <BsXCircle/>
       </StatusBadge>
     );
   }
 
+  // Check if the dose is overdue (time has passed but within the 1-hour window)
   const isOverdue = isWithinWindow && !isTaken;
 
   return (
     <StatusBadge className={isOverdue ? "overdue" : "pending"}>
       {isOverdue ? (
         <>
-          <BsClock />
+          <BsClock/>
         </>
       ) : (
         <>
-          <CiWarning />
+          <CiWarning/>
         </>
       )}
     </StatusBadge>
   );
 });
-
-MedicationStatusBadge.propTypes = {
-  med: PropTypes.object.isRequired,
-  getDoseStatus: PropTypes.func.isRequired,
-};
 
 export default MedicationStatusBadge;
