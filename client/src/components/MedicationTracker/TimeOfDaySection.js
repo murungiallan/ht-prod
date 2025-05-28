@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { IoMdNotifications } from "react-icons/io";
 import Tippy from "@tippyjs/react";
 import "tippy.js/dist/tippy.css";
-import MedicationStatusBadge from "./MedicationStatusBadge";
+// import MedicationStatusBadge from "./MedicationStatusBadge";
 import moment from "moment";
 import styled from "styled-components";
 import { WiDaySunnyOvercast, WiDaySunny, WiDayWindy } from "react-icons/wi";
@@ -203,7 +203,7 @@ const TimeOfDaySection = React.memo(
                           <span className="text-sm text-gray-600 mb-1">
                             {moment(med.doseTime, "HH:mm:ss").format("h:mm A")}
                           </span>
-                          <MedicationStatusBadge status={doseStatus.status} />
+                          {/* <MedicationStatusBadge status={doseStatus.status} /> */}
                         </div>
                       </div>
                     </div>
