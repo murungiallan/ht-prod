@@ -173,6 +173,26 @@ export const useMedicationManager = () => {
     }
   }, [handleSessionExpired]);
 
+  // Update medication history - MOVED UP to be defined before updateDoseStatus
+  const updateMedicationHistory = useCallback(() => {
+    const history = [];
+    state.medications.forEach((med) => {
+      Object.entries(med.doses || {}).forEach(([date, doses]) => {
+        doses.forEach((dose) => {
+          history.push({
+            medication_name: med.medication_name,
+            dosage: med.dosage,
+            date,
+            time: dose.time,
+            doseIndex: dose.doseIndex,
+            status: dose.taken ? 'Taken' : dose.missed ? 'Missed' : 'Pending',
+          });
+        });
+      });
+    });
+    dispatch({ type: 'SET_MEDICATION_HISTORY', payload: history });
+  }, [state.medications]);
+
   // Fetch medications
   const fetchMedications = useCallback(async () => {
     if (!user) return;
@@ -347,26 +367,6 @@ export const useMedicationManager = () => {
       handleError(error, 'mark doses as missed');
     }
   }, [user, getUserToken, handleError, state.medications]);
-
-  // Update medication history
-  const updateMedicationHistory = useCallback(() => {
-    const history = [];
-    state.medications.forEach((med) => {
-      Object.entries(med.doses || {}).forEach(([date, doses]) => {
-        doses.forEach((dose) => {
-          history.push({
-            medication_name: med.medication_name,
-            dosage: med.dosage,
-            date,
-            time: dose.time,
-            doseIndex: dose.doseIndex,
-            status: dose.taken ? 'Taken' : dose.missed ? 'Missed' : 'Pending',
-          });
-        });
-      });
-    });
-    dispatch({ type: 'SET_MEDICATION_HISTORY', payload: history });
-  }, [state.medications]);
 
   return {
     ...state,
