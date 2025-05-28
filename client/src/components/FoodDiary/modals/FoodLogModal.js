@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { createFoodLog, searchFoods } from '../../../services/api';
+import moment from 'moment-timezone';
+import { auth } from '../../../firebase/config';
 
 const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessionExpired }) => {
   const [foodInput, setFoodInput] = useState({
@@ -11,7 +13,7 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
     protein: '',
     fats: '',
     mealType: 'morning',
-    dateLogged: new Date(),
+    dateLogged: moment().tz("Asia/Shanghai").toDate(),
   });
   const [image, setImage] = useState(null);
   const [foodSuggestions, setFoodSuggestions] = useState([]);
@@ -29,7 +31,7 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
       protein: '',
       fats: '',
       mealType: 'morning',
-      dateLogged: new Date(),
+      dateLogged: moment().tz("Asia/Shanghai").toDate(),
     });
     setImage(null);
     setFoodSuggestions([]);
@@ -46,19 +48,17 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
       }
       try {
         setSearchLoading(true);
-        const token = await getUserToken();
         const results = await searchFoods(query);
         setFoodSuggestions(results || []);
         setLastQuery(query);
       } catch (err) {
         console.error('Error fetching food suggestions:', err);
         toast.error('Failed to fetch food suggestions');
-        if (err.code === 'auth/id-token-expired') handleSessionExpired();
       } finally {
         setSearchLoading(false);
       }
     },
-    [getUserToken, handleSessionExpired]
+    []
   );
 
   const handleSelectFood = (food) => {
@@ -86,22 +86,20 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
     const file = e.target.files[0];
     if (!file) return;
 
-    // Validate file type
     const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
     if (!validTypes.includes(file.type)) {
       toast.error('Please upload a valid image (JPEG, PNG, GIF).');
       return;
     }
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
       toast.error('Image size must be less than 5MB.');
       return;
     }
 
     setImage(file);
-    setUploadProgress(0); // Reset progress when a new image is selected
+    setUploadProgress(0);
   };
 
   const handleSubmit = async (e) => {
@@ -114,6 +112,11 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
     try {
       setLoading(true);
       const token = await getUserToken();
+      const tokenResult = await auth.currentUser.getIdTokenResult();
+      const expirationTime = new Date(tokenResult.expirationTime).getTime();
+      const currentTime = Date.now();
+      console.log(`Token expires at ${new Date(expirationTime).toISOString()}, current time: ${new Date(currentTime).toISOString()}`);
+
       const formData = new FormData();
       formData.append('food_name', foodInput.name.trim());
       formData.append('calories', parseFloat(foodInput.calories) || 0);
@@ -121,11 +124,11 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
       formData.append('protein', parseFloat(foodInput.protein) || 0);
       formData.append('fats', parseFloat(foodInput.fats) || 0);
       formData.append('meal_type', foodInput.mealType);
-      formData.append('date_logged', foodInput.dateLogged.toISOString());
+      formData.append('date_logged', moment(foodInput.dateLogged).tz("Asia/Shanghai").toISOString());
       if (image) formData.append('image', image);
 
       const newLog = await createFoodLog(formData, token, (progress) => {
-        setUploadProgress(progress); // Update progress during upload
+        setUploadProgress(progress);
       });
 
       if (!newLog || !newLog.id) {
@@ -138,14 +141,21 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
       onClose();
     } catch (err) {
       console.error('Error creating food log:', err.message, err.stack);
-      let errorMessage = err.message || 'Unknown error';
-      if (err.message.includes('Unauthorized')) {
-        errorMessage = 'Authentication failed. Please log in again.';
+      let errorMessage = 'Failed to add food log';
+      if (err.code === 'auth/id-token-expired') {
+        console.log('Token expired during request at 07:59 PM +08 on May 28, 2025');
+        handleSessionExpired();
+        return;
       } else if (err.message.includes('Failed to upload image')) {
         errorMessage = 'Failed to upload image. Please try again.';
+      } else if (err.message.includes('Network error')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (err.message.includes('Too Many Requests')) {
+        errorMessage = 'Too many requests. Please try again later.';
+      } else if (err.message.includes('Invalid response')) {
+        errorMessage = 'Server returned an invalid response. Please try again.';
       }
-      toast.error(`Failed to add food log: ${errorMessage}`);
-      if (err.code === 'auth/id-token-expired') handleSessionExpired();
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -239,8 +249,8 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
               <label className="block text-sm font-medium text-gray-600">Date</label>
               <input
                 type="date"
-                value={foodInput.dateLogged.toISOString().split('T')[0]}
-                onChange={(e) => setFoodInput(prev => ({ ...prev, dateLogged: new Date(e.target.value) }))}
+                value={moment(foodInput.dateLogged).tz("Asia/Shanghai").format('YYYY-MM-DD')}
+                onChange={(e) => setFoodInput(prev => ({ ...prev, dateLogged: moment(e.target.value).tz("Asia/Shanghai").toDate() }))}
                 className="w-full p-3 border rounded-lg border-gray-200 focus:ring-2 focus:ring-blue-500 transition"
                 disabled={loading}
               />

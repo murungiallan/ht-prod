@@ -181,7 +181,7 @@ const FoodDiary = () => {
       navigate("/login", { replace: true });
       return;
     }
-
+  
     const unsubscribe = auth.onIdTokenChanged(async (currentUser) => {
       if (!isMounted.current) return;
       if (!currentUser) {
@@ -193,23 +193,24 @@ const FoodDiary = () => {
         const expirationTime = new Date(tokenResult.expirationTime).getTime();
         const currentTime = Date.now();
         const timeUntilExpiration = expirationTime - currentTime;
-
+  
         if (timeUntilExpiration <= 0) {
           handleSessionExpired();
           return;
         }
-        if (timeUntilExpiration < 10 * 60 * 1000) { // Refresh if less than 10 minutes remaining
+  
+        if (timeUntilExpiration < 5 * 60 * 1000) { // Refresh if less than 5 minutes remaining
           await currentUser.getIdToken(true);
-          console.log("Token refreshed proactively at 07:37 PM +08 on May 28, 2025");
+          console.log(`Token refreshed proactively at ${currentTime}`);
         }
       } catch (error) {
         console.error("Error checking token expiration:", error);
         handleSessionExpired();
       }
     });
-
+  
     fetchData();
-
+  
     return () => {
       isMounted.current = false;
       unsubscribe && unsubscribe();
