@@ -42,7 +42,7 @@ const Settings = () => {
     }
     try {
       setIsLoading(true);
-      const response = await fetch("http://127.0.0.1:5000/api/users/reset-password", {
+      const response = await fetch("https://healthtrack-app23-8fb2f2d8c68d.herokuapp.com//api/users/reset-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -71,8 +71,8 @@ const Settings = () => {
       await new Promise(resolve => setTimeout(resolve, 1000));
       // toast.success('Logged out from all other devices');
     } catch (err) {
-      console.error('Error logging out from other devices:', err);
-      toast.error('Failed to log out from other devices. Please try again.');
+      console.error('Error logging out:', err);
+      toast.error('Failed to log out. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -140,7 +140,7 @@ const Settings = () => {
             className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-200"
             disabled={isLoading}
           >
-            {isLoading ? 'Logging out...' : 'Log Out from All Devices'}
+            {isLoading ? 'Logging out...' : 'Log Out'}
           </button>
         </div>
       </div>
