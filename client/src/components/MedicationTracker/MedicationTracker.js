@@ -326,7 +326,6 @@ const MedicationTracker = () => {
       if (!doses.length) return;
 
       doses.forEach((dose) => {
-        // Validate doseIndex before proceeding
         if (!Number.isInteger(dose.doseIndex) || dose.doseIndex < 0) {
           console.warn(`Invalid doseIndex (${dose.doseIndex}) for medication ${med.id}, skipping dose prompt.`);
           return;
@@ -344,24 +343,12 @@ const MedicationTracker = () => {
         const isWithinWindow = now.isBetween(windowStart, windowEnd, undefined, '[]');
         const doseKey = `${med.id}-${dateKey}-${dose.doseIndex}`;
 
-        if (now.isAfter(windowEnd) && !dose.taken && !dose.missed) {
-          try {
-            if (markDosesAsMissed) {
-              markDosesAsMissed();
-            }
-          } catch (error) {
-            console.error('Error marking dose as missed:', error);
-          }
-          return;
-        }
-
         if (isWithinWindow && !dose.taken && !dose.missed && !promptedDoses.has(doseKey)) {
           openModal('showTakePrompt', {
             medicationId: med.id,
             doseIndex: dose.doseIndex,
             doseTime: dose.time,
           });
-          // Update promptedDoses
           setPromptedDoses((prev) => {
             const newSet = new Set(prev);
             newSet.add(doseKey);
@@ -370,30 +357,41 @@ const MedicationTracker = () => {
         }
       });
     });
-  }, [medications, openModal, markDosesAsMissed]);
+  }, [medications, openModal]);
 
+  useEffect(() => {
+    if (markDosesAsMissed) {
+      markDosesAsMissed();
+    }
+  }, []);
+
+  // Interval for markDosesAsMissed (runs every 5 minutes)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (markDosesAsMissed) {
+        markDosesAsMissed();
+      }
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Check doses and reminders interval
   useEffect(() => {
     const interval = setInterval(() => {
       checkDosesForPrompt();
       if (checkReminders) {
         checkReminders();
       }
-      if (markDosesAsMissed) {
-        markDosesAsMissed();
-      }
     }, 60 * 1000);
 
-    // Initial run
     checkDosesForPrompt();
     if (checkReminders) {
       checkReminders();
     }
-    if (markDosesAsMissed) {
-      markDosesAsMissed();
-    }
 
     return () => clearInterval(interval);
-  }, [checkDosesForPrompt]);
+  }, [checkDosesForPrompt, checkReminders]);
 
   // Reset prompted doses daily
   useEffect(() => {
