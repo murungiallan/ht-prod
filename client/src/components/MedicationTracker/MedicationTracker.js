@@ -183,6 +183,40 @@ const MedicationTracker = () => {
   const navigate = useNavigate();
   const { socket } = useSocket();
 
+  // Local component state
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [promptedDoses, setPromptedDoses] = useState(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [formData, setFormData] = useState({
+    name: '',
+    frequency: 'daily',
+    dosage: '',
+    timesPerDay: '1',
+    startDate: '',
+    endDate: '',
+    notes: '',
+    reminderTime: '',
+    isRecurringReminder: false,
+  });
+  const [searchState, setSearchState] = useState({
+    searchQuery: '',
+    filteredDrugs: [],
+    showDropdown: false,
+  });
+  const [drugInfo, setDrugInfo] = useState({
+    interactions: [],
+    dosages: [],
+    usage: '',
+    description: '',
+  });
+  const [drugInfoLoading, setDrugInfoLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState({
+    medications: 1,
+    reminders: 1,
+    history: 1,
+    allReminders: 1,
+  });
+
   // Custom hooks for state management
   const {
     medications,
@@ -217,40 +251,6 @@ const MedicationTracker = () => {
     setPromptedDoses,
   });
   const { getDoseStatus, getMedicationsByTimeOfDay, isPastDate, isFutureDate } = useDoseCalculations(medications, selectedDate);
-
-  // Local component state
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [promptedDoses, setPromptedDoses] = useState(new Set());
-  const [searchQuery, setSearchQuery] = useState('');
-  const [formData, setFormData] = useState({
-    name: '',
-    frequency: 'daily',
-    dosage: '',
-    timesPerDay: '1',
-    startDate: '',
-    endDate: '',
-    notes: '',
-    reminderTime: '',
-    isRecurringReminder: false,
-  });
-  const [searchState, setSearchState] = useState({
-    searchQuery: '',
-    filteredDrugs: [],
-    showDropdown: false,
-  });
-  const [drugInfo, setDrugInfo] = useState({
-    interactions: [],
-    dosages: [],
-    usage: '',
-    description: '',
-  });
-  const [drugInfoLoading, setDrugInfoLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState({
-    medications: 1,
-    reminders: 1,
-    history: 1,
-    allReminders: 1,
-  });
 
   // Sync reminders between useMedicationManager and useReminderManager
   useEffect(() => {
