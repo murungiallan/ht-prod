@@ -270,11 +270,7 @@ const MedicationTracker = () => {
 
   // Auto-mark missed doses
   useEffect(() => {
-    const interval = setInterval(() => {
-      markDosesAsMissed();
-    }, 60 * 1000);
     markDosesAsMissed();
-    return () => clearInterval(interval);
   }, [markDosesAsMissed]);
 
   // Check for dose prompts and reminders
