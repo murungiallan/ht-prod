@@ -3,12 +3,8 @@ import moment from "moment";
 
 class Medication {
   static safeParseJSON(jsonString, defaultValue = {}) {
-    if (jsonString instanceof Symbol) {
-      console.warn("Encountered Symbol in JSON input, returning default value:", jsonString);
-      return defaultValue;
-    }
     if (jsonString && typeof jsonString === "object") {
-      return jsonString === null ? defaultValue : jsonString;
+      return jsonString;
     }
     if (!jsonString || jsonString === "") {
       return defaultValue;
@@ -59,11 +55,12 @@ class Medication {
     }
 
     const initialDoses = {
-      [start_date]: times.map((time) => ({
+      [start_date]: times.map((time, index) => ({
         time,
         taken: false,
         missed: false,
         takenAt: null,
+        doseIndex: index,
       })),
     };
 
@@ -100,9 +97,9 @@ class Medication {
         WHERE user_id = ?
       `;
       const [rows] = await db.query(query, [userId]);
-  
+
       const updatedRows = [];
-  
+
       for (const row of rows) {
         let times = this.safeParseJSON(row.times, []);
         if (typeof times === "string") {
@@ -112,31 +109,31 @@ class Medication {
           console.warn(`Invalid times for medication ${row.id}, resetting to empty array`);
           times = [];
         }
-  
+
         let doses = this.safeParseJSON(row.doses, {});
         let dosesUpdated = false;
-  
+
         // Validate and fix doses
         if (!this.validateDoses(doses, row.times_per_day, times)) {
           console.warn(`Invalid doses for medication ${row.id}, attempting to repair`);
           const newDoses = {};
           for (const date in doses) {
             if (!Array.isArray(doses[date])) {
-              newDoses[date] = times.map((time, index) => ({
+              newDoses[date] = times.map((time) => ({
                 time,
                 taken: false,
                 missed: false,
                 takenAt: null,
-                doseIndex: index,
+
               }));
               dosesUpdated = true;
             } else if (doses[date].length !== row.times_per_day) {
-              newDoses[date] = times.map((time, index) => ({
+              newDoses[date] = times.map((time) => ({
                 time,
                 taken: false,
                 missed: false,
                 takenAt: null,
-                doseIndex: index,
+
               }));
               dosesUpdated = true;
             } else {
@@ -145,27 +142,27 @@ class Medication {
           }
           doses = newDoses;
         }
-  
+
         // Initialize doses for all dates between start_date and end_date
         const startDate = new Date(row.start_date);
         const endDate = new Date(row.end_date || new Date());
         const currentDate = new Date(startDate);
-  
+
         while (currentDate <= endDate) {
           const dateStr = currentDate.toISOString().split("T")[0];
           if (!doses[dateStr] && new Date(dateStr) >= startDate && new Date(dateStr) <= endDate) {
-            doses[dateStr] = times.map((time, index) => ({
+            doses[dateStr] = times.map((time) => ({
               time,
               taken: false,
               missed: false,
               takenAt: null,
-              doseIndex: index,
+
             }));
             dosesUpdated = true;
           }
           currentDate.setDate(currentDate.getDate() + 1);
         }
-  
+
         if (dosesUpdated || !Array.isArray(row.times)) {
           await db.query("UPDATE medications SET times = ?, doses = ? WHERE id = ?", [
             JSON.stringify(times),
@@ -173,23 +170,14 @@ class Medication {
             row.id,
           ]);
         }
-  
-        // Filter out any Symbol values in times and doses
-        const cleanTimes = Array.isArray(times) ? times.filter(t => typeof t !== "symbol") : times;
-        const cleanDoses = Object.fromEntries(
-          Object.entries(doses).map(([date, doseArray]) => [
-            date,
-            Array.isArray(doseArray) ? doseArray.filter(d => typeof d !== "symbol") : doseArray,
-          ])
-        );
-  
+
         updatedRows.push({
           ...row,
-          times: cleanTimes,
-          doses: cleanDoses,
+          times,
+          doses,
         });
       }
-  
+
       return updatedRows;
     } catch (error) {
       console.error("Database error in Medication.getByUser:", error.message, error.sqlMessage);
@@ -303,11 +291,12 @@ class Medication {
       const times_per_day = rows[0].times_per_day;
 
       if (!doses[date]) {
-        doses[date] = times.map((time) => ({
+        doses[date] = times.map((time, index) => ({
           time,
           taken: false,
           missed: false,
           takenAt: null,
+          doseIndex: index,
         }));
       }
       if (!doses[date] || doses[date].length !== times_per_day) {
@@ -359,11 +348,12 @@ class Medication {
       const times_per_day = rows[0].times_per_day;
 
       if (!doses[date]) {
-        doses[date] = times.map((time) => ({
+        doses[date] = times.map((time, index) => ({
           time,
           taken: false,
           missed: false,
           takenAt: null,
+          doseIndex: index,
         }));
       }
       if (!doses[date] || doses[date].length !== times_per_day) {
@@ -393,5 +383,3 @@ class Medication {
     }
   }
 }
-
-export default Medication;
