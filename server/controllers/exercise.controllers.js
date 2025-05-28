@@ -4,7 +4,7 @@ import db from "../config/db.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import moment from "moment";
+import moment from "moment-timezone";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,7 +16,7 @@ if (!fs.existsSync(logDir)) {
 }
 
 const logToFile = (message, level = "INFO") => {
-  const timestamp = moment().format("YYYY-MM-DD HH:mm:ss");
+  const timestamp = moment().tz("Asia/Singapore").format("YYYY-MM-DD HH:mm:ss");
   const logMessage = `[${timestamp}] [${level}] ${message}\n`;
   try {
     fs.appendFileSync(logFilePath, logMessage);

@@ -30,7 +30,7 @@ if (!fs.existsSync(logDir)) {
 }
 
 const logToFile = (message, level = "INFO") => {
-  const timestamp = moment().format("YYYY-MM-DD HH:mm:ss");
+  const timestamp = moment().tz("Asia/Singapore").format("YYYY-MM-DD HH:mm:ss");
   const logMessage = `[${timestamp}] [${level}] ${message}\n`;
   try {
     fs.appendFileSync(logFilePath, logMessage);

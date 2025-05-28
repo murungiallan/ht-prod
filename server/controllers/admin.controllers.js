@@ -4,7 +4,7 @@ import Reminder from "../models/reminder.models.js";
 import FoodDiary from "../models/food.models.js";
 import Exercise from "../models/exercise.models.js";
 import AdminModel from "../models/admin.model.js";
-import moment from "moment";
+import moment from "moment-timezone";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -21,7 +21,7 @@ if (!fs.existsSync(logDir)) {
 }
 
 export const logToFile = (message, level = "INFO") => {
-  const timestamp = moment().format("YYYY-MM-DD HH:mm:ss");
+  const timestamp = moment().tz("Asia/Singapore").format("YYYY-MM-DD HH:mm:ss");
   const logMessage = `[${timestamp}] [${level}] ${message}\n`;
   try {
     const stats = fs.statSync(logFilePath);

@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { spawn } from "child_process";
-import moment from "moment";
+import moment from "moment-timezone";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,7 +18,7 @@ if (!fs.existsSync(logDir)) {
 }
 
 const logToFile = (message, level = "INFO") => {
-  const timestamp = moment().format("YYYY-MM-DD HH:mm:ss");
+  const timestamp = moment().tz("Asia/Singapore").format("YYYY-MM-DD HH:mm:ss");
   const logMessage = `[${timestamp}] [${level}] ${message}\n`;
   try {
     fs.appendFileSync(logFilePath, logMessage);
@@ -82,7 +82,7 @@ class FoodDiaryController {
         protein: protein ? parseFloat(protein) : null,
         fats: fats ? parseFloat(fats) : null,
         image_url,
-        date_logged: date_logged ? new Date(date_logged) : new Date(),
+        date_logged: date_logged ? moment.tz(date_logged, "Asia/Singapore").toDate() : moment().tz("Asia/Singapore").toDate(),
         meal_type,
       };
 
@@ -98,9 +98,9 @@ class FoodDiaryController {
         protein: foodLog.protein,
         fats: foodLog.fats,
         image_data,
-        date_logged: foodLog.date_logged.toISOString(),
+        date_logged: moment.tz(foodLog.date_logged, "Asia/Singapore").toISOString(),
         meal_type,
-        createdAt: new Date().toISOString(),
+        createdAt: moment().tz("Asia/Singapore").toISOString(),
       });
       logToFile(`Firebase sync completed for food log id: ${foodLog.id}`);
 
@@ -193,7 +193,7 @@ class FoodDiaryController {
               image_data: log.image_data,
               date_logged: log.date_logged.toISOString(),
               meal_type: log.meal_type,
-              createdAt: log.createdAt ? log.createdAt.toISOString() : new Date().toISOString(),
+              createdAt: log.createdAt ? moment.tz(log.createdAt, "Asia/Singapore").toISOString() : moment().tz("Asia/Singapore").toISOString(),
             };
           });
           await firebaseDb.ref().update(updates);
@@ -266,7 +266,7 @@ class FoodDiaryController {
         protein: protein ? parseFloat(protein) : foodLog.protein,
         fats: fats ? parseFloat(fats) : foodLog.fats,
         image_url,
-        date_logged: date_logged ? new Date(date_logged) : foodLog.date_logged,
+        date_logged: date_logged ? moment.tz(date_logged, "Asia/Singapore").toDate() : moment.tz(foodLog.date_logged, "Asia/Singapore").toDate(),
         meal_type: meal_type || foodLog.meal_type,
       };
 
@@ -282,9 +282,9 @@ class FoodDiaryController {
         protein: updatedData.protein,
         fats: updatedData.fats,
         image_data,
-        date_logged: updatedData.date_logged.toISOString(),
         meal_type: updatedData.meal_type,
-        createdAt: foodLog.createdAt ? foodLog.createdAt.toISOString() : new Date().toISOString(),
+        date_logged: moment.tz(updatedData.date_logged, "Asia/Singapore").toISOString(),
+        createdAt: foodLog.createdAt ? moment.tz(foodLog.createdAt, "Asia/Singapore").toISOString() : moment().tz("Asia/Singapore").toISOString(),
       };
 
       const originalFirebaseData = (await firebaseDb.ref(`food_logs/${firebaseUid}/${id}`).once("value")).val();
@@ -422,7 +422,7 @@ class FoodDiaryController {
       const newLog = {
         ...foodLog,
         id: newId,
-        date_logged: new Date(newDate),
+        date_logged: moment.tz(newDate, "Asia/Singapore").toISOString(),
       };
 
       await firebaseDb.ref(`food_logs/${firebaseUid}/${newId}`).set({
@@ -434,9 +434,9 @@ class FoodDiaryController {
         protein: newLog.protein,
         fats: newLog.fats,
         image_data,
-        date_logged: newLog.date_logged.toISOString(),
+        date_logged: moment.tz(newLog.date_logged, "Asia/Singapore").toISOString(),
+        createdAt: moment().tz("Asia/Singapore").toISOString(),
         meal_type: newLog.meal_type,
-        createdAt: new Date().toISOString(),
       });
       logToFile(`Firebase sync completed for new food log id: ${newId}`);
 

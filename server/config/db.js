@@ -1,13 +1,13 @@
 import { createPool, createConnection } from "mysql2/promise";
 import dotenv from "dotenv";
-import moment from "moment";
+import moment from "moment-timezone";
 import url from "url";
 
 dotenv.config();
 
 // Logging helper
 const logToFile = (message, level = "INFO") => {
-  const timestamp = moment().format("YYYY-MM-DD HH:mm:ss");
+  const timestamp = moment().tz("Asia/Singapore").format("YYYY-MM-DD HH:mm:ss");
   const logMessage = `[${timestamp}] [${level}] ${message}\n`;
   console.log(logMessage); // Log to console for Heroku
 };

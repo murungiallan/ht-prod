@@ -103,7 +103,7 @@ const FoodDiary = () => {
         protein: parseFloat(log.protein) || 0,
         fats: parseFloat(log.fats) || 0,
       }));
-      setFoodLogs(validatedLogs.sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged)));
+      setFoodLogs(validatedLogs.sort((a, b) => moment.tz(b.date_logged, "Asia/Singapore").diff(moment.tz(a.date_logged, "Asia/Singapore"))));
       const validatedStats = foodStats.map((stat) => ({
         ...stat,
         totalCalories: parseFloat(stat.totalCalories) || 0,
