@@ -4,7 +4,6 @@ import { toast } from 'react-hot-toast';
 import { createFoodLog, searchFoods } from '../../../services/api';
 import moment from 'moment-timezone';
 import { auth } from '../../../firebase/config';
-import React from 'react';
 
 const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessionExpired }) => {
   const [foodInput, setFoodInput] = useState({
