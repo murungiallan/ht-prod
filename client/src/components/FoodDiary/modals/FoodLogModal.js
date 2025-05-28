@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { createFoodLog, searchFoods } from '../../../services/api';
 import moment from 'moment-timezone';
 import { auth } from '../../../firebase/config';
+import React from 'react';
 
 const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessionExpired }) => {
   const [foodInput, setFoodInput] = useState({
@@ -111,12 +112,15 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
 
     try {
       setLoading(true);
+      const getUserToken = async () => {
+        try {
+          return await auth.currentUser.getIdToken(true);
+        } catch (err) {
+          throw new Error('Failed to get user token');
+        }
+      };
+      
       const token = await getUserToken();
-      const tokenResult = await auth.currentUser.getIdTokenResult();
-      const expirationTime = new Date(tokenResult.expirationTime).getTime();
-      const currentTime = Date.now();
-      console.log(`Token expires at ${new Date(expirationTime).toISOString()}, current time: ${new Date(currentTime).toISOString()}`);
-
       const formData = new FormData();
       formData.append('food_name', foodInput.name.trim());
       formData.append('calories', parseFloat(foodInput.calories) || 0);
@@ -143,7 +147,7 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
       console.error('Error creating food log:', err.message, err.stack);
       let errorMessage = 'Failed to add food log';
       if (err.code === 'auth/id-token-expired') {
-        console.log('Token expired during request at 07:59 PM +08 on May 28, 2025');
+        console.log('Token expired during request');
         handleSessionExpired();
         return;
       } else if (err.message.includes('Failed to upload image')) {
