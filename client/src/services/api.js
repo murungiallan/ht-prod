@@ -39,42 +39,54 @@ const retryWithBackoff = async (operation, maxAttempts = 3, baseDelay = 1000) =>
 
 // Helper function to make authenticated requests
 const authFetch = async (endpoint, options = {}, token) => {
-  const headers = {
-    ...options.headers,
-    Authorization: `Bearer ${token}`,
-  };
-
-  // Avoid setting Content-Type for FormData to let the browser handle it
-  if (!(options.body instanceof FormData)) {
-    headers["Content-Type"] = "application/json";
+  if (!token) {
+    throw new Error("No authentication token provided");
   }
 
-  try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
+  const url = `${API_BASE_URL}${endpoint}`;
+  
+  const defaultHeaders = {
+    'Authorization': `Bearer ${token}`,
+  };
 
+  // Don't set Content-Type for FormData - let the browser set it with boundary
+  if (!(options.body instanceof FormData)) {
+    defaultHeaders['Content-Type'] = 'application/json';
+  }
+
+  const config = {
+    ...options,
+    headers: {
+      ...defaultHeaders,
+      ...options.headers,
+    },
+  };
+
+  try {
+    const response = await fetch(url, config);
+    
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({
-        error: "An unknown error occurred",
-      }));
-      if (response.status === 401) {
-        if (errorData.code === "auth/id-token-expired") {
-          const error = new Error("Unauthorized - ID token expired");
-          error.code = "auth/id-token-expired";
-          throw error;
-        }
-        throw new Error("Unauthorized - Invalid or expired token");
-      } else if (response.status === 429) {
-        throw new Error("Too Many Requests - Please try again later");
-      } else {
-        throw new Error(errorData.error || `Request failed with status ${response.status}`);
+      const errorData = await response.text();
+      let errorMessage;
+      
+      try {
+        const parsedError = JSON.parse(errorData);
+        errorMessage = parsedError.error || parsedError.message || `HTTP ${response.status}`;
+      } catch {
+        errorMessage = errorData || `HTTP ${response.status}`;
       }
+      
+      throw new Error(errorMessage);
     }
 
-    return response.json();
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return await response.json();
+    }
+    
+    return await response.text();
   } catch (error) {
+    console.error(`API request failed for ${endpoint}:`, error);
     throw error;
   }
 };
@@ -1084,26 +1096,39 @@ export const getExerciseStats = async (token) => {
 };
 
 // Food Diary API
+// Debounce utility
+const debounce = (func, wait) => {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
+
+// Food Diary API Functions
 export const createFoodLog = async (foodData, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
+  
+  if (!token) {
+    throw new Error("Authentication token is required");
+  }
 
-  const formData = new FormData();
-  formData.append('food_name', foodData.get('food_name'));
-  formData.append('calories', parseFloat(foodData.get('calories')) || 0);
-  formData.append('carbs', parseFloat(foodData.get('carbs')) || 0);
-  formData.append('protein', parseFloat(foodData.get('protein')) || 0);
-  formData.append('fats', parseFloat(foodData.get('fats')) || 0);
-  formData.append('date_logged', foodData.get('date_logged'));
-  formData.append('meal_type', foodData.get('meal_type'));
-  if (foodData.get('image')) {
-    formData.append('image', foodData.get('image'));
+  console.log('Creating food log with token:', token ? 'Token provided' : 'No token');
+
+  // Validate FormData
+  if (!(foodData instanceof FormData)) {
+    throw new Error("Invalid food data format");
   }
 
   try {
     const response = await authFetch("/food-logs/add", {
       method: "POST",
-      body: formData,
+      body: foodData,
     }, token);
 
     const foodId = response.id.toString();
@@ -1129,10 +1154,13 @@ export const createFoodLog = async (foodData, token) => {
   }
 };
 
-
 export const getUserFoodLogs = async (token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
+  
+  if (!token) {
+    throw new Error("Authentication token is required");
+  }
 
   const response = await authFetch("/food-logs/get-food-logs", {}, token);
   const foodLogsFromMySQL = response;
@@ -1148,13 +1176,13 @@ export const getUserFoodLogs = async (token) => {
       carbs: foodLog.carbs,
       protein: foodLog.protein,
       fats: foodLog.fats,
-      image_data: foodLog.image_data || null, // Use image_data from server, default to null
+      image_data: foodLog.image_data || null,
       date_logged: foodLog.date_logged,
       meal_type: foodLog.meal_type,
     };
   });
+  
   await retryWithBackoff(() => update(ref(database), updates));
-
   return foodLogsFromMySQL;
 };
 
@@ -1169,7 +1197,7 @@ const updateFoodLogDebounced = debounce((userId, id, foodData) => {
       carbs: foodData.carbs,
       protein: foodData.protein,
       fats: foodData.fats,
-      image_url: foodData.image_url,
+      image_data: foodData.image_data,
       date_logged: foodData.date_logged,
       meal_type: foodData.meal_type,
     },
@@ -1179,6 +1207,10 @@ const updateFoodLogDebounced = debounce((userId, id, foodData) => {
 export const updateFoodLog = async (id, foodData, imageFile, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
+  
+  if (!token) {
+    throw new Error("Authentication token is required");
+  }
 
   const formData = new FormData();
   formData.append('food_name', foodData.food_name);
@@ -1209,7 +1241,7 @@ export const updateFoodLog = async (id, foodData, imageFile, token) => {
         carbs: response.carbs,
         protein: response.protein,
         fats: response.fats,
-        image_data: response.image_data || null, // Use image_data from server
+        image_data: response.image_data || null,
         date_logged: response.date_logged,
         meal_type: response.meal_type,
       });
@@ -1231,6 +1263,10 @@ export const updateFoodLog = async (id, foodData, imageFile, token) => {
 export const deleteFoodLog = async (id, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
+  
+  if (!token) {
+    throw new Error("Authentication token is required");
+  }
 
   const response = await authFetch(`/food-logs/delete/${id}`, { method: "DELETE" }, token);
 
@@ -1243,6 +1279,10 @@ export const deleteFoodLog = async (id, token) => {
 export const getFoodStats = async (token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
+  
+  if (!token) {
+    throw new Error("Authentication token is required");
+  }
 
   const response = await authFetch("/food-logs/food-stats", {}, token);
   const stats = response;
@@ -1256,11 +1296,18 @@ export const getFoodStats = async (token) => {
 export const copyFoodLog = async (id, newDate, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
+  
+  if (!token) {
+    throw new Error("Authentication token is required");
+  }
 
   const response = await authFetch(
     "/food-logs/copy",
     {
       method: "POST",
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({ id, newDate }),
     },
     token
@@ -1269,7 +1316,7 @@ export const copyFoodLog = async (id, newDate, token) => {
   const foodPath = `food_logs/${user.uid}/${response.id}`;
   await retryWithBackoff(() => update(ref(database), { [foodPath]: {
     ...response,
-    image_data: response.image_data || null, // Use image_data from server
+    image_data: response.image_data || null,
   }}));
 
   return response;
