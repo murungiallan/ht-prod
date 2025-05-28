@@ -97,7 +97,6 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
     }
 
     setImage(file);
-    setUploadProgress(0);
   };
 
   const handleSubmit = async (e) => {
