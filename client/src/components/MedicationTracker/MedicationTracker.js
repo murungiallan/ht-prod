@@ -538,10 +538,10 @@ const MedicationTracker = () => {
       const now = moment().local();
       const hoursDiff = Math.abs(doseDateTime.diff(now, "hours", true));
 
-      if (taken && hoursDiff > 2) {
-        toast.error("Can only mark medication as taken within 2 hours of the scheduled time");
-        return;
-      }
+      // if (taken && hoursDiff > 2) {
+      //   toast.error("Can only mark medication as taken within 2 hours of the scheduled time");
+      //   return;
+      // }
 
       const response = await updateMedicationTakenStatus(medicationId, doseIndex, taken, token, dateKey);
 
