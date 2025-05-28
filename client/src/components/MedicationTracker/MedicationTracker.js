@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useContext } from 'react';
 import { AuthContext } from '../../contexts/AuthContext';
 import { useSocket } from '../../contexts/SocketContext';
+import { messaging, getToken, onMessage, auth } from '../../firebase/config';
 import { toast } from 'react-hot-toast';
 import moment from 'moment';
 import { WiDaySunnyOvercast } from 'react-icons/wi';
@@ -42,6 +43,7 @@ import { CloseButton } from './styles';
 import {
   searchDrugsByName,
   getDrugDetails,
+  saveFcmToken,
 } from '../../services/api';
 
 Modal.setAppElement('#root');
@@ -262,6 +264,42 @@ const MedicationTracker = () => {
     isFutureDate 
   } = doseCalculations || {};
 
+  // Initialize FCM Token and Notifications
+  useEffect(() => {
+    const setupNotifications = async () => {
+      try {
+        // Request permission for notifications
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          console.log('Notification permission granted.');
+          const token = await auth.currentUser.getIdToken(true);
+          const fcmToken = await getToken(messaging, {
+            vapidKey: 'BKw9yzIU2m8qKZTF4pj1dR37XLpvkn95Sv2UC-ySWFIosmiLHTBX-RkyRv2wi5-C83SRsJv_ewuDnBvqpbvkJC0'
+          });
+          if (token) {
+            await saveFcmToken(token,fcmToken);
+          } else {
+            console.log('No registration token available.');
+          }
+        } else {
+          console.log('Notification permission denied.');
+        }
+      } catch (error) {
+        console.error('Error setting up notifications:', error);
+      }
+    };
+
+    setupNotifications();
+
+    // Handle foreground messages
+    const unsubscribe = onMessage(messaging, (payload) => {
+      console.log('Foreground message received:', payload);
+      toast(`${payload.notification.title}: ${payload.notification.body}`);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // Sync reminders between useMedicationManager and useReminderManager
   useEffect(() => {
     fetchReminders();
@@ -278,29 +316,22 @@ const MedicationTracker = () => {
     updateMedicationHistory();
   }, [user, navigate, fetchMedications, updateMedicationHistory]);
 
-  // Auto-mark missed doses
-  useEffect(() => {
-    if (markDosesAsMissed) {
-      markDosesAsMissed();
-    }
-  }, [markDosesAsMissed]);
-
   // Check for dose prompts and reminders - define the callback first
   const checkDosesForPrompt = useCallback(() => {
     const now = moment().local();
     const dateKey = now.format('YYYY-MM-DD');
-  
+
     medications.forEach((med) => {
       const doses = med.doses?.[dateKey] || [];
       if (!doses.length) return;
-  
+
       doses.forEach((dose) => {
         // Validate doseIndex before proceeding
         if (!Number.isInteger(dose.doseIndex) || dose.doseIndex < 0) {
           console.warn(`Invalid doseIndex (${dose.doseIndex}) for medication ${med.id}, skipping dose prompt.`);
           return;
         }
-  
+
         const [hours, minutes] = dose.time.split(':').map(Number);
         const doseDateTime = moment(dateKey, 'YYYY-MM-DD').set({
           hour: hours,
@@ -312,7 +343,7 @@ const MedicationTracker = () => {
         const windowEnd = moment(doseDateTime).add(2, 'hours');
         const isWithinWindow = now.isBetween(windowStart, windowEnd, undefined, '[]');
         const doseKey = `${med.id}-${dateKey}-${dose.doseIndex}`;
-  
+
         if (now.isAfter(windowEnd) && !dose.taken && !dose.missed) {
           try {
             if (markDosesAsMissed) {
@@ -323,35 +354,46 @@ const MedicationTracker = () => {
           }
           return;
         }
-  
+
         if (isWithinWindow && !dose.taken && !dose.missed && !promptedDoses.has(doseKey)) {
           openModal('showTakePrompt', {
             medicationId: med.id,
             doseIndex: dose.doseIndex,
             doseTime: dose.time,
           });
-          setPromptedDoses((prev) => new Set(prev).add(doseKey));
+          // Update promptedDoses
+          setPromptedDoses((prev) => {
+            const newSet = new Set(prev);
+            newSet.add(doseKey);
+            return newSet;
+          });
         }
       });
     });
-  }, [medications, promptedDoses, openModal, setPromptedDoses, markDosesAsMissed]);
+  }, [medications, openModal, markDosesAsMissed]);
 
-  // Use the callback in useEffect
   useEffect(() => {
     const interval = setInterval(() => {
       checkDosesForPrompt();
       if (checkReminders) {
         checkReminders();
       }
+      if (markDosesAsMissed) {
+        markDosesAsMissed();
+      }
     }, 60 * 1000);
-    
+
+    // Initial run
     checkDosesForPrompt();
     if (checkReminders) {
       checkReminders();
     }
-    
+    if (markDosesAsMissed) {
+      markDosesAsMissed();
+    }
+
     return () => clearInterval(interval);
-  }, [checkDosesForPrompt, checkReminders]);
+  }, [checkDosesForPrompt, checkReminders, markDosesAsMissed]);
 
   // Reset prompted doses daily
   useEffect(() => {
@@ -379,6 +421,15 @@ const MedicationTracker = () => {
 
     const handleReminderSent = (reminder) => {
       toast(`Reminder: ${reminder.message}`);
+      // Send FCM Notification for reminder
+      if (Notification.permission === 'granted') {
+        const notificationTitle = 'Medication Reminder';
+        const notificationOptions = {
+          body: reminder.message,
+          icon: '/favicon.ico',
+        };
+        new Notification(notificationTitle, notificationOptions);
+      }
     };
 
     socket.on('medicationUpdated', handleMedicationUpdated);
