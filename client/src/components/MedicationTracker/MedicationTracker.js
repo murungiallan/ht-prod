@@ -197,19 +197,25 @@ const MedicationTracker = () => {
     updateDoseStatus,
     deleteMedication,
     markDosesAsMissed,
+    dispatch,
     updateMedicationHistory,
     setSelectedMedication,
   } = useMedicationManager();
 
   const { modals, openModal, closeModal, closeAllModals } = useModalState();
   const {
-    // reminders: reminderData,
     loading: reminderLoading,
     fetchReminders: fetchRemindersFromManager,
     createNewReminder,
-    deleteReminder: removeReminder,
+    deleteReminder,
+    handleMarkReminderAsSent,
     checkReminders,
-  } = useReminderManager();
+  } = useReminderManager({
+    medications,
+    promptedDoses,
+    openModal,
+    setPromptedDoses,
+  });
   const { getDoseStatus, getMedicationsByTimeOfDay, isPastDate, isFutureDate } = useDoseCalculations(medications, selectedDate);
 
   // Local component state
@@ -317,7 +323,7 @@ const MedicationTracker = () => {
       socket.off('medicationUpdated', handleMedicationUpdated);
       socket.off('reminderSent', handleReminderSent);
     };
-  }, [socket]);
+  }, [socket, dispatch]);
 
   // Handle drug search
   const handleDrugSearch = async (query) => {
@@ -555,8 +561,8 @@ const MedicationTracker = () => {
             currentPage={currentPage}
             setCurrentPage={setCurrentPage}
             itemsPerPage={ITEMS_PER_PAGE}
-            handleMarkReminderAsSent={(reminderId) => reminderManager.handleMarkReminderAsSent(reminderId)}
-            handleDeleteReminder={removeReminder}
+            handleMarkReminderAsSent={handleMarkReminderAsSent}
+            handleDeleteReminder={deleteReminder}
             setEditReminderModal={(data) => openModal('editReminderModal', data)}
             setReminderTime={(value) => setFormData((prev) => ({ ...prev, reminderTime: value }))}
             actionLoading={actionLoading}
@@ -795,8 +801,8 @@ const MedicationTracker = () => {
               currentPage={currentPage}
               setCurrentPage={setCurrentPage}
               itemsPerPage={ITEMS_PER_PAGE}
-              handleMarkReminderAsSent={(reminderId) => reminderManager.handleMarkReminderAsSent(reminderId)}
-              handleDeleteReminder={removeReminder}
+              handleMarkReminderAsSent={handleMarkReminderAsSent}
+              handleDeleteReminder={deleteReminder}
               setEditReminderModal={(data) => openModal('editReminderModal', data)}
               setReminderTime={(value) => setFormData((prev) => ({ ...prev, reminderTime: value }))}
               selectedDate={selectedDate}

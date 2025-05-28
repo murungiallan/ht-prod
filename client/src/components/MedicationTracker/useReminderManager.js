@@ -10,7 +10,7 @@ import {
   deleteReminder as apiDeleteReminder,
 } from '../../services/api';
 
-export const useReminderManager = () => {
+export const useReminderManager = ({ medications, promptedDoses, openModal, setPromptedDoses }) => {
   const { user } = useContext(AuthContext);
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -55,7 +55,7 @@ export const useReminderManager = () => {
     }
   }, [getUserToken, fetchReminders]);
 
-  const removeReminder = useCallback(async (reminderId) => {
+  const deleteReminder = useCallback(async (reminderId) => {
     setLoading(true);
     try {
       const token = await getUserToken();
@@ -139,14 +139,14 @@ export const useReminderManager = () => {
         }
       }
     });
-  }, [reminders, medications, promptedDoses, openModal, handleMarkReminderAsSent]);
+  }, [reminders, medications, promptedDoses, openModal, setPromptedDoses, handleMarkReminderAsSent]);
 
   return {
     reminders,
     loading,
     fetchReminders,
     createNewReminder,
-    deleteReminder: removeReminder,
+    deleteReminder,
     handleMarkReminderAsSent,
     checkReminders,
   };

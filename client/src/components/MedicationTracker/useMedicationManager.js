@@ -126,7 +126,7 @@ export const useMedicationManager = () => {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const { socket } = useSocket();
-
+  
   const initialState = {
     medications: [],
     reminders: [],
@@ -136,7 +136,7 @@ export const useMedicationManager = () => {
     actionLoading: false,
     error: null,
   };
-
+  
   const [state, dispatch] = useReducer(medicationReducer, initialState);
 
   // Session management
@@ -351,6 +351,7 @@ export const useMedicationManager = () => {
 
   return {
     ...state,
+    dispatch,
     fetchMedications,
     fetchReminders,
     addMedication,
