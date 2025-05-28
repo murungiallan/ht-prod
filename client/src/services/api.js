@@ -37,6 +37,48 @@ const retryWithBackoff = async (operation, maxAttempts = 3, baseDelay = 1000) =>
   }
 };
 
+// Helper function to make authenticated requests
+const authFetch = async (endpoint, options = {}, token) => {
+  const headers = {
+    ...options.headers,
+    Authorization: `Bearer ${token}`,
+  };
+
+  // Avoid setting Content-Type for FormData to let the browser handle it
+  if (!(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({
+        error: "An unknown error occurred",
+      }));
+      if (response.status === 401) {
+        if (errorData.code === "auth/id-token-expired") {
+          const error = new Error("Unauthorized - ID token expired");
+          error.code = "auth/id-token-expired";
+          throw error;
+        }
+        throw new Error("Unauthorized - Invalid or expired token");
+      } else if (response.status === 429) {
+        throw new Error("Too Many Requests - Please try again later");
+      } else {
+        throw new Error(errorData.error || `Request failed with status ${response.status}`);
+      }
+    }
+
+    return response.json();
+  } catch (error) {
+    throw error;
+  }
+};
+
 // Helper functions for API operations
 const apiPost = async (endpoint, data, token, config = {}) => {
   try {
@@ -1058,38 +1100,42 @@ export const createFoodLog = async (foodData, token, onProgress = () => {}) => {
     formData.append('image', foodData.get('image'));
   }
 
-  const response = await apiPost("/food-logs/add", formData, token, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-    onUploadProgress: (progressEvent) => {
-      const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-      onProgress(percentCompleted);
-    },
-  });
+  try {
+    const response = await authFetch("/food-logs/add", {
+      method: "POST",
+      body: formData,
+    }, token);
 
-  const foodId = response.id.toString();
-  const foodPath = `food_logs/${user.uid}/${foodId}`;
-  const firebaseEntry = {
-    userId: user.uid,
-    food_name: response.food_name,
-    calories: response.calories,
-    carbs: response.carbs,
-    protein: response.protein,
-    fats: response.fats,
-    image_data: response.image_data || null,
-    date_logged: response.date_logged,
-    meal_type: response.meal_type,
-    id: foodId,
-  };
+    const foodId = response.id.toString();
+    const foodPath = `food_logs/${user.uid}/${foodId}`;
+    const firebaseEntry = {
+      userId: user.uid,
+      food_name: response.food_name,
+      calories: response.calories,
+      carbs: response.carbs,
+      protein: response.protein,
+      fats: response.fats,
+      image_data: response.image_data || null, // Use image_data from server
+      date_logged: response.date_logged,
+      meal_type: response.meal_type,
+      id: foodId,
+    };
 
-  await retryWithBackoff(() => update(ref(database), { [foodPath]: firebaseEntry }));
-  return response;
+    await retryWithBackoff(() => update(ref(database), { [foodPath]: firebaseEntry }));
+    return response;
+  } catch (error) {
+    console.error("Error creating food log:", error);
+    throw new Error(error.message || "Failed to create food log");
+  }
 };
+
 
 export const getUserFoodLogs = async (token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  const foodLogsFromMySQL = await apiGet("/food-logs/get-food-logs", token);
+  const response = await authFetch("/food-logs/get-food-logs", {}, token);
+  const foodLogsFromMySQL = response;
 
   const updates = {};
   foodLogsFromMySQL.forEach((foodLog) => {
@@ -1102,7 +1148,7 @@ export const getUserFoodLogs = async (token) => {
       carbs: foodLog.carbs,
       protein: foodLog.protein,
       fats: foodLog.fats,
-      image_data: foodLog.image_data || null,
+      image_data: foodLog.image_data || null, // Use image_data from server, default to null
       date_logged: foodLog.date_logged,
       meal_type: foodLog.meal_type,
     };
@@ -1123,7 +1169,7 @@ const updateFoodLogDebounced = debounce((userId, id, foodData) => {
       carbs: foodData.carbs,
       protein: foodData.protein,
       fats: foodData.fats,
-      image_url: foodData.image_data || null,
+      image_url: foodData.image_url,
       date_logged: foodData.date_logged,
       meal_type: foodData.meal_type,
     },
@@ -1146,41 +1192,47 @@ export const updateFoodLog = async (id, foodData, imageFile, token) => {
     formData.append('image', imageFile);
   }
 
-  const response = await apiPut(`/food-logs/update/${id}`, formData, token, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  try {
+    const response = await authFetch(`/food-logs/update/${id}`, {
+      method: "PUT",
+      body: formData,
+    }, token);
 
-  const foodPath = `food_logs/${user.uid}/${id}`;
-  const snapshot = await get(ref(database, foodPath));
-  if (snapshot.exists()) {
-    const existingData = snapshot.val();
-    const hasChanges = JSON.stringify(existingData) !== JSON.stringify({
-      ...existingData,
-      food_name: response.food_name,
-      calories: response.calories,
-      carbs: response.carbs,
-      protein: response.protein,
-      fats: response.fats,
-      image_data: response.image_data || null,
-      date_logged: response.date_logged,
-      meal_type: response.meal_type,
-    });
-    if (hasChanges) {
-      updateFoodLogDebounced(user.uid, id, {
-        ...response,
-        image_data: response.image_data || null,
+    const foodPath = `food_logs/${user.uid}/${id}`;
+    const snapshot = await get(ref(database, foodPath));
+    if (snapshot.exists()) {
+      const existingData = snapshot.val();
+      const hasChanges = JSON.stringify(existingData) !== JSON.stringify({
+        ...existingData,
+        food_name: response.food_name,
+        calories: response.calories,
+        carbs: response.carbs,
+        protein: response.protein,
+        fats: response.fats,
+        image_data: response.image_data || null, // Use image_data from server
+        date_logged: response.date_logged,
+        meal_type: response.meal_type,
       });
+      if (hasChanges) {
+        updateFoodLogDebounced(user.uid, id, {
+          ...response,
+          image_data: response.image_data || null,
+        });
+      }
     }
-  }
 
-  return response;
+    return response;
+  } catch (error) {
+    console.error("Error updating food log:", error);
+    throw error;
+  }
 };
 
 export const deleteFoodLog = async (id, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  const response = await apiDelete(`/food-logs/delete/${id}`, token);
+  const response = await authFetch(`/food-logs/delete/${id}`, { method: "DELETE" }, token);
 
   const foodPath = `food_logs/${user.uid}/${id}`;
   await retryWithBackoff(() => update(ref(database), { [foodPath]: null }));
@@ -1192,7 +1244,8 @@ export const getFoodStats = async (token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  const stats = await apiGet("/food-logs/food-stats", token);
+  const response = await authFetch("/food-logs/food-stats", {}, token);
+  const stats = response;
 
   const statsPath = `food_stats/${user.uid}`;
   await retryWithBackoff(() => update(ref(database), { [statsPath]: stats }));
@@ -1204,12 +1257,20 @@ export const copyFoodLog = async (id, newDate, token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  const response = await apiPost("/food-logs/copy", { id, newDate }, token);
+  const response = await authFetch(
+    "/food-logs/copy",
+    {
+      method: "POST",
+      body: JSON.stringify({ id, newDate }),
+    },
+    token
+  );
 
   const foodPath = `food_logs/${user.uid}/${response.id}`;
-  await retryWithBackoff(() => update(ref(database), {
-    [foodPath]: { ...response, image_data: response.image_data || null },
-  }));
+  await retryWithBackoff(() => update(ref(database), { [foodPath]: {
+    ...response,
+    image_data: response.image_data || null, // Use image_data from server
+  }}));
 
   return response;
 };
@@ -1294,14 +1355,16 @@ export const clusterEatingPatterns = async (token) => {
     };
   }).filter(data => data !== null);
 
-  const k = 3;
+  const k = 3; // Number of clusters
   const centroids = [];
   const featureVectors = userData.map(d => d.features);
 
+  // Initialize centroids randomly
   for (let i = 0; i < k; i++) {
     centroids.push(featureVectors[Math.floor(Math.random() * featureVectors.length)]);
   }
 
+  // K-Means clustering
   let clusters = new Array(featureVectors.length).fill(0);
   let changed = true;
   const maxIterations = 100;
@@ -1311,6 +1374,7 @@ export const clusterEatingPatterns = async (token) => {
     changed = false;
     const newClusters = [];
 
+    // Assign points to nearest centroid
     for (let i = 0; i < featureVectors.length; i++) {
       let minDist = Infinity;
       let cluster = 0;
@@ -1333,6 +1397,7 @@ export const clusterEatingPatterns = async (token) => {
 
     clusters = newClusters;
 
+    // Update centroids
     for (let j = 0; j < k; j++) {
       const clusterPoints = featureVectors.filter((_, idx) => clusters[idx] === j);
       if (clusterPoints.length > 0) {
@@ -1366,12 +1431,18 @@ export const predictCaloricIntake = async (token) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  const predictions = await apiGet("/food-logs/predict-calories", token);
+  try {
+    const response = await authFetch("/food-logs/predict-calories", {}, token);
+    const predictions = response;
 
-  const predictionsPath = `calorie_predictions/${user.uid}`;
-  await retryWithBackoff(() => update(ref(database), { [predictionsPath]: predictions }));
+    const predictionsPath = `calorie_predictions/${user.uid}`;
+    await retryWithBackoff(() => update(ref(database), { [predictionsPath]: predictions }));
 
-  return predictions;
+    return predictions;
+  } catch (error) {
+    console.error("Error predicting caloric intake:", error);
+    throw new Error(error.message || "Failed to predict caloric intake");
+  }
 };
 
 // Helper to validate and normalize response
