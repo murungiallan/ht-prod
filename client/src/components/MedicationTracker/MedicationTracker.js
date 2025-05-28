@@ -314,7 +314,7 @@ const MedicationTracker = () => {
     }
     fetchMedications();
     updateMedicationHistory();
-  }, [user, navigate, fetchMedications, updateMedicationHistory]);
+  }, [user, navigate]);
 
   // Check for dose prompts and reminders - define the callback first
   const checkDosesForPrompt = useCallback(() => {
@@ -393,7 +393,7 @@ const MedicationTracker = () => {
     }
 
     return () => clearInterval(interval);
-  }, [checkDosesForPrompt, checkReminders, markDosesAsMissed]);
+  }, [checkDosesForPrompt]);
 
   // Reset prompted doses daily
   useEffect(() => {
