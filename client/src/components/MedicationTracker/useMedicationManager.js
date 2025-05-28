@@ -250,7 +250,7 @@ export const useMedicationManager = () => {
       if (!med) throw new Error('Medication not found');
       const dose = med.doses?.[dateKey]?.find(d => d.doseIndex === doseIndex);
       if (!dose) throw new Error('Dose not found');
-
+  
       if (taken) {
         const doseDateTime = moment(`${dateKey} ${dose.time}`, 'YYYY-MM-DD HH:mm:ss');
         const now = moment().local();
@@ -259,10 +259,10 @@ export const useMedicationManager = () => {
           throw new Error('Can only mark medication as taken within 2 hours of the scheduled time');
         }
       }
-
+  
       const response = await updateMedicationTakenStatus(medicationId, doseIndex, taken, token, dateKey);
       if (!response) throw new Error('Failed to update medication status');
-
+  
       dispatch({
         type: 'UPDATE_DOSE_STATUS',
         medicationId,
@@ -271,11 +271,11 @@ export const useMedicationManager = () => {
         dateKey,
         takenAt: taken ? new Date().toISOString() : null,
       });
-
+  
       if (socket) {
         socket.emit('medicationUpdated', response);
       }
-
+  
       toast.success(taken ? 'Dose marked as taken' : 'Dose status undone');
       updateMedicationHistory();
       return response;
