@@ -1,7 +1,7 @@
 import Medication from "../models/medication.models.js";
 import { db as firebaseDb } from "../server.js";
 import db from "../config/db.js";
-import moment from "moment";
+import moment from "moment-timezone";
 
 // Helper functions
 const safeParseJSON = (input, defaultValue = {}) => {
@@ -230,7 +230,7 @@ class MedicationController {
       if (taken && times[doseIndex]) {
         const doseTime = times[doseIndex];
         const doseDateTime = moment(`${date} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
-        const now = moment().local();
+        const now = moment().tz("Asia/Singapore");
         const hoursDiff = Math.abs(doseDateTime.diff(now, "hours", true));
         if (hoursDiff > 2) {
           logToFile(`Taken status outside 2-hour window: ${hoursDiff} hours`, "ERROR");

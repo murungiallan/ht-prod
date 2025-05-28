@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import Modal from "react-modal";
 import { ModalContentWrapper, CloseButton, Button, ModalOverlay, ModalContent } from "../styles";
-import { moment, formatTimeForDisplay } from "../utils/utils";
+import { formatTimeForDisplay } from "../utils/utils";
 import { toast } from 'react-hot-toast';
+import moment from "moment-timezone";
 
 const DailyChecklistModal = ({
   isOpen,
@@ -21,7 +22,7 @@ const DailyChecklistModal = ({
   useEffect(() => {
     const interval = setInterval(() => {
       try {
-        const now = moment().local();
+        const now = moment().tz("Asia/Singapore");
         setCurrentTime(now.format("h:mm:ss A"));
       } catch (err) {
         console.error("Error updating current time:", err);

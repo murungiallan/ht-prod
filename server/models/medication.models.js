@@ -1,5 +1,5 @@
 import db from "../config/db.js";
-import moment from "moment";
+import moment from "moment-timezone";
 
 class Medication {
   static safeParseJSON(jsonString, defaultValue = {}) {
@@ -309,7 +309,7 @@ class Medication {
       if (taken) {
         const doseTime = doses[date][doseIndex].time;
         const doseDateTime = moment(`${date} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
-        const now = moment().local();
+        const now = moment().tz("Asia/Singapore");
         console.log(`Time now according to updateTakenStatus in medication model: ${now}`);
         const hoursDiff = Math.abs(doseDateTime.diff(now, "hours", true));
         if (hoursDiff > 2) {

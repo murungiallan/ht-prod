@@ -2,7 +2,7 @@ import Reminder from "../models/reminder.models.js";
 import Medication from "../models/medication.models.js";
 import { db as firebaseDb } from "../server.js"; // Firebase Realtime Database
 import db from "../config/db.js"; // MySQL connection pool
-import moment from "moment";
+import moment from "moment-timezone";
 import admin from "firebase-admin";
 import cron from "node-cron";
 import nodemailer from "nodemailer";
@@ -84,7 +84,7 @@ class ReminderController {
       const doseTime = doses[doseIndex].time;
       const doseDateTime = moment(`${date} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
       const reminderDateTime = moment(`${date} ${reminderTime}`, "YYYY-MM-DD HH:mm:ss");
-      const now = moment().local();
+      const now = moment().tz("Asia/Singapore");
       const today = now.format("YYYY-MM-DD");
 
       // Check for past time
@@ -249,7 +249,7 @@ class ReminderController {
       const doseTime = doses[reminder.dose_index].time;
       const doseDateTime = moment(`${finalDate} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
       const reminderDateTime = moment(`${finalDate} ${finalReminderTime}`, "YYYY-MM-DD HH:mm:ss");
-      const now = moment().local();
+      const now = moment().tz("Asia/Singapore");
       const today = now.format("YYYY-MM-DD");
 
       // Check for past time
@@ -834,7 +834,7 @@ class ReminderController {
     cron.schedule("* * * * *", async () => {
       try {
         logToFile("Running reminder check at: " + moment().format("YYYY-MM-DD HH:mm:ss"));
-        const now = moment().local();
+        const now = moment().tz("Asia/Singapore");
         const currentDateKey = now.format("YYYY-MM-DD");
         
         const [allReminders] = await db.query(`
