@@ -48,7 +48,7 @@ const FoodDiary = () => {
   const [error, setError] = useState(null);
   const [lastFailedAction, setLastFailedAction] = useState(null);
   const [foodLogs, setFoodLogs] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(moment().tz("Asia/Singapore").startOf("day").toDate());
+  const [selectedDate, setSelectedDate] = useState(moment().tz("Asia/Singapore").toDate());
   const [filterPeriod, setFilterPeriod] = useState("today");
   const [stats, setStats] = useState([]);
   const [caloriePredictions, setCaloriePredictions] = useState([]);

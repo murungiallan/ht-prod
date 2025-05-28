@@ -9,7 +9,7 @@ const CalendarCard = ({ selectedDate, setSelectedDate, foodLogs }) => {
     // Convert date to local timezone (+08) and format as YYYY-MM-DD
     const formattedDate = moment(date).tz("Asia/Singapore").format("YYYY-MM-DD");
     const logsForDate = foodLogs.filter((log) =>
-      moment(log.date_logged).tz("Asia/Shanghai").format("YYYY-MM-DD") === formattedDate
+      moment(log.date_logged).tz("Asia/Singapore").format("YYYY-MM-DD") === formattedDate
     );
     const totalCalories = logsForDate.reduce((sum, log) => sum + (parseFloat(log.calories) || 0), 0);
     return { totalCalories, hasLogs: logsForDate.length > 0 };
@@ -46,7 +46,7 @@ const CalendarCard = ({ selectedDate, setSelectedDate, foodLogs }) => {
       className="bg-white p-4 rounded-xl shadow-md"
     >
       <Calendar
-        onChange={(date) => setSelectedDate(moment(date).tz("Asia/Shanghai").startOf("day").toDate())}
+        onChange={(date) => setSelectedDate(moment(date).tz("Asia/Singapore").toDate())}
         value={selectedDate}
         tileContent={tileContent}
         className="border-none w-full font-sans"

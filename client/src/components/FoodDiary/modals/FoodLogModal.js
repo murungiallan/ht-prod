@@ -13,7 +13,7 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
     protein: '',
     fats: '',
     mealType: 'morning',
-    dateLogged: moment().tz("Asia/Shanghai").toDate(),
+    dateLogged: moment().tz("Asia/Singapore").toDate(),
   });
   const [image, setImage] = useState(null);
   const [foodSuggestions, setFoodSuggestions] = useState([]);
@@ -31,7 +31,7 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
       protein: '',
       fats: '',
       mealType: 'morning',
-      dateLogged: moment().tz("Asia/Shanghai").toDate(),
+      dateLogged: moment().tz("Asia/Singapore").toDate(),
     });
     setImage(null);
     setFoodSuggestions([]);
@@ -124,7 +124,7 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
       formData.append('protein', parseFloat(foodInput.protein) || 0);
       formData.append('fats', parseFloat(foodInput.fats) || 0);
       formData.append('meal_type', foodInput.mealType);
-      formData.append('date_logged', moment(foodInput.dateLogged).tz("Asia/Shanghai").toISOString());
+      formData.append('date_logged', moment(foodInput.dateLogged).tz("Asia/Singapore").toISOString());
       if (image) formData.append('image', image);
 
       const newLog = await createFoodLog(formData, token, (progress) => {
@@ -249,8 +249,8 @@ const FoodLogModal = ({ isOpen, onClose, getUserToken, setFoodLogs, handleSessio
               <label className="block text-sm font-medium text-gray-600">Date</label>
               <input
                 type="date"
-                value={moment(foodInput.dateLogged).tz("Asia/Shanghai").format('YYYY-MM-DD')}
-                onChange={(e) => setFoodInput(prev => ({ ...prev, dateLogged: moment(e.target.value).tz("Asia/Shanghai").toDate() }))}
+                value={moment(foodInput.dateLogged).tz("Asia/Singapore").format('YYYY-MM-DD')}
+                onChange={(e) => setFoodInput(prev => ({ ...prev, dateLogged: moment(e.target.value).tz("Asia/Singapore").toDate() }))}
                 className="w-full p-3 border rounded-lg border-gray-200 focus:ring-2 focus:ring-blue-500 transition"
                 disabled={loading}
               />
