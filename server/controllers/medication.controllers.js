@@ -166,12 +166,12 @@ class MedicationController {
       const { date, doseIndex, taken } = req.body;
       const firebaseUid = req.user.uid;
       logToFile(`Received data: ${JSON.stringify({ id, date, doseIndex, taken })}`);
-
+  
       if (!id || date === undefined || doseIndex === undefined || taken === undefined) {
         logToFile("Missing required parameters", "ERROR");
         return res.status(400).json({ error: "Missing required parameters" });
       }
-
+  
       const [userMedRows] = await db.query(
         "SELECT m.*, u.uid as firebase_uid FROM medications m JOIN users u ON m.user_id = u.id WHERE m.id = ? AND u.uid = ?",
         [id, firebaseUid]
@@ -182,7 +182,7 @@ class MedicationController {
         foundRows: userMedRows ? userMedRows.length : 0,
         firstRow: userMedRows && userMedRows[0] ? { id: userMedRows[0].id, user_id: userMedRows[0].user_id, firebase_uid: userMedRows[0].firebase_uid } : null,
       });
-
+  
       if (!userMedRows || userMedRows.length === 0) {
         const [medRows] = await db.query("SELECT * FROM medications WHERE id = ?", [id]);
         if (medRows && medRows.length > 0) {
@@ -198,12 +198,12 @@ class MedicationController {
           details: { medicationId: id, firebaseUid },
         });
       }
-
+  
       const medication = userMedRows[0];
       let doses = safeParseJSON(medication.doses);
       const times = safeParseJSON(medication.times, []);
       const times_per_day = medication.times_per_day;
-
+  
       if (!doses[date]) {
         doses[date] = Array.from({ length: times_per_day }, (_, index) => ({
           time: times[index] || "",
@@ -212,12 +212,12 @@ class MedicationController {
           takenAt: null,
         }));
       }
-
+  
       if (doseIndex >= times_per_day || doseIndex < 0) {
         logToFile(`Invalid doseIndex: ${doseIndex}`, "ERROR");
         return res.status(400).json({ error: `Invalid doseIndex: ${doseIndex}. Must be between 0 and ${times_per_day - 1}` });
       }
-
+  
       if (!doses[date][doseIndex]) {
         doses[date][doseIndex] = {
           time: times[doseIndex] || "",
@@ -226,10 +226,19 @@ class MedicationController {
           takenAt: null,
         };
       }
-
+  
       if (taken && times[doseIndex]) {
         const doseTime = times[doseIndex];
-        const doseDateTime = moment(`${date} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
+        const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/;
+        if (!timeRegex.test(doseTime)) {
+          logToFile(`Invalid doseTime format: ${doseTime}`, "ERROR");
+          return res.status(400).json({ error: `Invalid doseTime format: ${doseTime}. Expected HH:mm:ss (e.g., 08:00:00)` });
+        }
+        const doseDateTime = moment.tz(`${date} ${doseTime}`, "YYYY-MM-DD HH:mm:ss", "Asia/Singapore");
+        if (!doseDateTime.isValid()) {
+          logToFile(`Failed to parse doseDateTime: ${date} ${doseTime}`, "ERROR");
+          return res.status(400).json({ error: `Failed to parse doseDateTime: ${date} ${doseTime}` });
+        }
         const now = moment().tz("Asia/Singapore");
         const hoursDiff = Math.abs(doseDateTime.diff(now, "hours", true));
         if (hoursDiff > 2) {
@@ -237,29 +246,29 @@ class MedicationController {
           return res.status(400).json({ error: "Can only mark medication as taken within 2 hours of the scheduled time" });
         }
       }
-
+  
       doses[date][doseIndex] = {
         ...doses[date][doseIndex],
         taken,
         missed: taken ? false : doses[date][doseIndex].missed,
         takenAt: taken ? new Date().toISOString() : null,
       };
-
+  
       await db.query("UPDATE medications SET doses = ? WHERE id = ?", [JSON.stringify(doses), id]);
       logToFile(`Updated doses for medication id: ${id}`);
-
+  
       const updatedMedication = {
         ...medication,
         doses,
         times,
       };
-
+  
       await firebaseDb.ref(`medications/${firebaseUid}/${id}`).update({
         doses,
         times,
       });
       logToFile(`Firebase sync completed for medication id: ${id}`);
-
+  
       return res.status(200).json(updatedMedication);
     } catch (error) {
       logToFile(`Error updating taken status: ${error.message}\n${error.stack}`, "ERROR");

@@ -289,7 +289,7 @@ class Medication {
       let doses = this.safeParseJSON(rows[0].doses, {});
       const times = this.safeParseJSON(rows[0].times, []);
       const times_per_day = rows[0].times_per_day;
-
+  
       if (!doses[date]) {
         doses[date] = times.map((time, index) => ({
           time,
@@ -305,25 +305,31 @@ class Medication {
       if (doseIndex >= times_per_day || doseIndex < 0) {
         throw new Error(`Invalid doseIndex: ${doseIndex}. Must be between 0 and ${times_per_day - 1}`);
       }
-
-      if (taken) {
-        const doseTime = doses[date][doseIndex].time;
-        const doseDateTime = moment(`${date} ${doseTime}`, "YYYY-MM-DD HH:mm:ss");
+  
+      if (taken && times[doseIndex]) {
+        const doseTime = times[doseIndex];
+        const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/;
+        if (!timeRegex.test(doseTime)) {
+          throw new Error(`Invalid doseTime format: ${doseTime}. Expected HH:mm:ss (e.g., 08:00:00)`);
+        }
+        const doseDateTime = moment.tz(`${date} ${doseTime}`, "YYYY-MM-DD HH:mm:ss", "Asia/Singapore");
+        if (!doseDateTime.isValid()) {
+          throw new Error(`Failed to parse doseDateTime: ${date} ${doseTime}`);
+        }
         const now = moment().tz("Asia/Singapore");
-        console.log(`Time now according to updateTakenStatus in medication model: ${now}`);
         const hoursDiff = Math.abs(doseDateTime.diff(now, "hours", true));
         if (hoursDiff > 2) {
           throw new Error("Can only mark medication as taken within 2 hours of the scheduled time");
         }
       }
-
+  
       doses[date][doseIndex] = {
         ...doses[date][doseIndex],
         taken,
         missed: taken ? false : doses[date][doseIndex].missed,
         takenAt: taken ? new Date().toISOString() : null,
       };
-
+  
       const query = `
         UPDATE medications
         SET doses = ?
