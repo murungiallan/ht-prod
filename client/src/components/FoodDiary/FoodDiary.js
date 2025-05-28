@@ -56,39 +56,22 @@ const FoodDiary = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [selectedFoodLog, setSelectedFoodLog] = useState(null);
-  const isMounted = useRef(true);
   const recentActionRef = useRef(null);
 
   const handleSessionExpired = useCallback(() => {
-    if (!isMounted.current) return;
-    toast.error("Session expired. Please log in again.");
+    toast.error("Your session has expired. Please log in again.");
     logout();
-    navigate("/login", { replace: true });
+    navigate("/login");
   }, [logout, navigate]);
 
-  const getUserToken = useCallback(async () => {
-    try {
-      if (!auth.currentUser) throw new Error("User not authenticated");
-      const token = await auth.currentUser.getIdToken(true); // Force refresh
-      const tokenResult = await auth.currentUser.getIdTokenResult();
-      const expirationTime = new Date(tokenResult.expirationTime).getTime();
-      const currentTime = Date.now();
-      if (expirationTime <= currentTime) {
-        throw new Error("Token has expired");
-      }
-      return token;
-    } catch (err) {
-      console.error("Token refresh failed:", err);
-      throw new Error("Failed to get user token: " + err.message);
-    }
-  }, []);
+  const getUserToken = async () => {
+    return await auth.currentUser.getIdToken(true);
+  };
 
   const fetchData = useCallback(async () => {
-    if (!user || !isMounted.current) return;
+    if (!user) return;
     try {
       setLoading(true);
-      setError(null);
-
       const token = await getUserToken();
       const [logs, foodStats, predictions] = await Promise.all([
         getUserFoodLogs(token),
@@ -176,18 +159,17 @@ const FoodDiary = () => {
   };
 
   useEffect(() => {
-    isMounted.current = true;
     if (!user) {
-      navigate("/login", { replace: true });
+      navigate("/login");
       return;
     }
   
     const unsubscribe = auth.onIdTokenChanged(async (currentUser) => {
-      if (!isMounted.current) return;
       if (!currentUser) {
         handleSessionExpired();
         return;
       }
+  
       try {
         const tokenResult = await currentUser.getIdTokenResult();
         const expirationTime = new Date(tokenResult.expirationTime).getTime();
@@ -199,9 +181,8 @@ const FoodDiary = () => {
           return;
         }
   
-        if (timeUntilExpiration < 5 * 60 * 1000) { // Refresh if less than 5 minutes remaining
+        if (timeUntilExpiration < 5 * 60 * 1000) {
           await currentUser.getIdToken(true);
-          console.log(`Token refreshed proactively at ${currentTime}`);
         }
       } catch (error) {
         console.error("Error checking token expiration:", error);
@@ -212,8 +193,7 @@ const FoodDiary = () => {
     fetchData();
   
     return () => {
-      isMounted.current = false;
-      unsubscribe && unsubscribe();
+      unsubscribe();
     };
   }, [user, navigate, fetchData, handleSessionExpired]);
 
@@ -231,7 +211,6 @@ const FoodDiary = () => {
 
     const handlers = {
       foodLogAdded: (log) => {
-        if (!isMounted.current) return;
         try {
           const validatedLog = {
             ...log,
@@ -255,7 +234,6 @@ const FoodDiary = () => {
         }
       },
       foodLogUpdated: (log) => {
-        if (!isMounted.current) return;
         try {
           const validatedLog = {
             ...log,
@@ -283,7 +261,6 @@ const FoodDiary = () => {
         }
       },
       foodLogDeleted: (id) => {
-        if (!isMounted.current) return;
         try {
           if (recentActionRef.current === `delete-${id}`) {
             recentActionRef.current = null;
